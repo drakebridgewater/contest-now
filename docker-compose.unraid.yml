@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: pdxmas-contest-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - /mnt/user/appdata/contest-app/data:/app/data
+      - /mnt/user/appdata/contest-app/uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped
+    networks:
+      - contest-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  frontend:
+    build: ./frontend
+    container_name: pdxmas-contest-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - contest-network
+    environment:
+      - REACT_APP_API_URL=http://YOUR-UNRAID-IP:3001/api
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+networks:
+  contest-network:
+    driver: bridge
+    name: pdxmas-contest-network
