@@ -4,6 +4,20 @@ import { Star, Upload, ImageIcon } from 'lucide-react';
 // API Configuration - Use environment variable or fallback to localhost
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+// Common allergens list
+const ALLERGENS = [
+  { id: 'sesame', label: 'Sesame', emoji: '🌰' },
+  { id: 'cashew', label: 'Cashews', emoji: '🥜' },
+  { id: 'peanuts', label: 'Peanuts', emoji: '🥜' },
+  { id: 'dairy', label: 'Dairy', emoji: '🥛' },
+  { id: 'eggs', label: 'Eggs', emoji: '🥚' },
+  { id: 'gluten', label: 'Gluten/Wheat', emoji: '🌾' },
+  { id: 'soy', label: 'Soy', emoji: '🌱' },
+  { id: 'shellfish', label: 'Shellfish', emoji: '🦐' },
+  { id: 'fish', label: 'Fish', emoji: '🐟' },
+  { id: 'cranberry', label: 'Cranberry', emoji: '🔴' },
+];
+
 export default function ContestApp() {
   const [currentPage, setCurrentPage] = useState('submit');
   const [entries, setEntries] = useState([]);
@@ -18,6 +32,7 @@ export default function ContestApp() {
   const [resultsData, setResultsData] = useState([]);
   const [votersData, setVotersData] = useState([]);
   const [activeTab, setActiveTab] = useState('appetizer');
+  const [allergenPopup, setAllergenPopup] = useState(null);
 
   // Auto-logout state
   const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(false);
@@ -30,6 +45,7 @@ export default function ContestApp() {
   const [contestType, setContestType] = useState('dessert');
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [selectedAllergens, setSelectedAllergens] = useState([]);
 
   // Load entries from API
   const loadEntries = async () => {
@@ -85,6 +101,14 @@ export default function ContestApp() {
     }
   };
 
+  const handleAllergenChange = (allergenId) => {
+    setSelectedAllergens(prev =>
+      prev.includes(allergenId)
+        ? prev.filter(id => id !== allergenId)
+        : [...prev, allergenId]
+    );
+  };
+
   const handleSubmitEntry = async (e) => {
     e.preventDefault();
 
@@ -108,7 +132,8 @@ export default function ContestApp() {
           entry_name: entryName,
           contestant_name: contestantName,
           contest_type: contestType,
-          photo: photo
+          photo: photo,
+          allergens: selectedAllergens
         }),
         signal: controller.signal
       });
@@ -126,6 +151,7 @@ export default function ContestApp() {
       setContestType('dessert');
       setPhoto(null);
       setPhotoPreview(null);
+      setSelectedAllergens([]);
 
       // Reload entries
       await loadEntries();
@@ -399,7 +425,7 @@ export default function ContestApp() {
         throw new Error('Failed to delete entry');
       }
 
-      const result = await response.json();
+      await response.json();
       alert('Entry deleted successfully!');
 
       // Reload results to update the display
@@ -426,7 +452,7 @@ export default function ContestApp() {
         throw new Error('Failed to delete voter');
       }
 
-      const result = await response.json();
+      await response.json();
       alert(`Voter "${voterName}" and all their votes deleted successfully!`);
 
       // Reload both voters and results to update the display
@@ -476,7 +502,7 @@ export default function ContestApp() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
             <span className="text-4xl">🎄</span>
-            PDXmas Contest Platform
+            PDXmas 2025
             <span className="text-4xl">❄️</span>
           </h1>
           <div className="flex gap-4">
@@ -595,6 +621,36 @@ export default function ContestApp() {
                     </label>
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Allergen Information (Optional)
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Select any allergens present in your entry to help other contestants with dietary restrictions
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {ALLERGENS.map((allergen) => (
+                    <label key={allergen.id} className="flex items-center space-x-2 p-2 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={selectedAllergens.includes(allergen.id)}
+                        onChange={() => handleAllergenChange(allergen.id)}
+                        className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500"
+                      />
+                      <span className="text-lg">{allergen.emoji}</span>
+                      <span className="text-sm font-medium text-gray-700">{allergen.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedAllergens.length > 0 && (
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800 font-medium">
+                      ⚠️ Selected allergens: {selectedAllergens.map(id => ALLERGENS.find(a => a.id === id)?.label).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -778,11 +834,27 @@ export default function ContestApp() {
 
                             return (
                               <div key={entry.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
-                                <img
-                                  src={entry.photo}
-                                  alt={entry.entry_name}
-                                  className="w-full h-48 object-cover"
-                                />
+                                <div className="relative">
+                                  <img
+                                    src={entry.photo}
+                                    alt={entry.entry_name}
+                                    className="w-fill h-90 object-cover"
+                                  />
+                                  {entry.allergens && entry.allergens.length > 0 && (
+                                    <div className="absolute top-2 right-2">
+                                      <button
+                                        onClick={() => setAllergenPopup({
+                                          entryName: entry.entry_name,
+                                          allergens: entry.allergens
+                                        })}
+                                        className="bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-colors"
+                                        title="Contains allergens - Click for details"
+                                      >
+                                        ⚠️
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="p-6">
                                   <h3 className="text-xl font-bold text-gray-800 mb-1">
                                     {entry.entry_name}
@@ -1128,6 +1200,51 @@ export default function ContestApp() {
           </div>
         )}
       </div>
+
+      {/* Allergen Popup Modal */}
+      {allergenPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 m-4 max-w-md w-full shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">⚠️ Allergen Warning</h3>
+              <button
+                onClick={() => setAllergenPopup(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mb-4">
+              <p className="text-gray-700 mb-3">
+                <strong>{allergenPopup.entryName}</strong> contains the following allergens:
+              </p>
+              <div className="space-y-2">
+                {allergenPopup.allergens.map(allergenId => {
+                  const allergen = ALLERGENS.find(a => a.id === allergenId);
+                  return allergen ? (
+                    <div key={allergenId} className="flex items-center space-x-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                      <span className="text-xl">{allergen.emoji}</span>
+                      <span className="font-medium text-red-800">{allergen.label}</span>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-800">
+                <strong>Please note:</strong> This information is provided by the contestant.
+                If you have severe allergies, please verify ingredients before tasting.
+              </p>
+            </div>
+            <button
+              onClick={() => setAllergenPopup(null)}
+              className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold"
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -43,7 +43,7 @@ let db;
 let dbReady = false;
 
 try {
-  db = new sqlite3.Database('./..data/contest.db', (err) => {
+  db = new sqlite3.Database('./../data/contest.db', (err) => {
     if (err) {
       console.error('Error opening database:', err);
       dbReady = false;
@@ -67,6 +67,7 @@ function initializeDatabase() {
       contestant_name TEXT NOT NULL,
       contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer')),
       photo_path TEXT NOT NULL,
+      allergens TEXT DEFAULT '[]',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `, (err) => {
@@ -90,6 +91,35 @@ function initializeDatabase() {
   `, (err) => {
     if (err) console.error('Error creating votes table:', err);
   });
+
+  // Migration: Add allergens column if it doesn't exist
+  db.run(`
+    PRAGMA table_info(entries)
+  `, (err, rows) => {
+    if (err) {
+      console.error('Error checking table schema:', err);
+      return;
+    }
+
+    // Check if allergens column exists, if not add it
+    db.all(`PRAGMA table_info(entries)`, (err, columns) => {
+      if (err) {
+        console.error('Error getting column info:', err);
+        return;
+      }
+
+      const hasAllergensColumn = columns.some(col => col.name === 'allergens');
+      if (!hasAllergensColumn) {
+        db.run(`ALTER TABLE entries ADD COLUMN allergens TEXT DEFAULT '[]'`, (err) => {
+          if (err) {
+            console.error('Error adding allergens column:', err);
+          } else {
+            console.log('Added allergens column to entries table');
+          }
+        });
+      }
+    });
+  });
 }
 
 // API Routes
@@ -112,10 +142,11 @@ app.get('/api/entries', (req, res) => {
       return;
     }
 
-    // Add full URL to photo paths
+    // Add full URL to photo paths and parse allergens
     const entries = rows.map(row => ({
       ...row,
-      photo: `http://localhost:${PORT}/uploads/${path.basename(row.photo_path)}`
+      photo: `http://localhost:${PORT}/uploads/${path.basename(row.photo_path)}`,
+      allergens: row.allergens ? JSON.parse(row.allergens) : []
     }));
 
     res.json(entries);
@@ -124,7 +155,7 @@ app.get('/api/entries', (req, res) => {
 
 // Submit new entry (with base64 image)
 app.post('/api/entries', (req, res) => {
-  const { entry_name, contestant_name, contest_type, photo } = req.body;
+  const { entry_name, contestant_name, contest_type, photo, allergens } = req.body;
 
   if (!entry_name || !contestant_name || !contest_type || !photo) {
     res.status(400).json({ error: 'Missing required fields (entry_name, contestant_name, contest_type, photo)' });
@@ -137,7 +168,7 @@ app.post('/api/entries', (req, res) => {
   }
 
   // Extract base64 data and save as file
-  const matches = photo.match(/^data:image\/([a-zA-Z]*);base64,([^\"]*)/);
+  const matches = photo.match(/^data:image\/([a-zA-Z]*);base64,([^"]*)/);
   if (!matches) {
     res.status(400).json({ error: 'Invalid image format' });
     return;
@@ -155,10 +186,13 @@ app.post('/api/entries', (req, res) => {
       return;
     }
 
+    // Process allergens - ensure it's a JSON string
+    const allergensJson = allergens ? JSON.stringify(allergens) : '[]';
+
     // Save to database
     db.run(
-      'INSERT INTO entries (entry_name, contestant_name, contest_type, photo_path) VALUES (?, ?, ?, ?)',
-      [entry_name, contestant_name, contest_type, filename],
+      'INSERT INTO entries (entry_name, contestant_name, contest_type, photo_path, allergens) VALUES (?, ?, ?, ?, ?)',
+      [entry_name, contestant_name, contest_type, filename, allergensJson],
       function(err) {
         if (err) {
           res.status(500).json({ error: err.message });
@@ -171,6 +205,7 @@ app.post('/api/entries', (req, res) => {
           contestant_name,
           contest_type,
           photo: `http://localhost:${PORT}/uploads/${filename}`,
+          allergens: allergens || [],
           created_at: new Date().toISOString()
         });
       }
@@ -193,12 +228,12 @@ app.get('/api/votes/:voterName', (req, res) => {
 
       // Format as object with entry_id as key
       const votes = {};
-      rows.forEach(row => {
-        votes[row.entry_id] = {
-          appearance_rating: row.appearance_rating || row.rating || 0,
-          texture_rating: row.texture_rating || row.rating || 0,
-          flavor_rating: row.flavor_rating || row.rating || 0,
-          comment: row.comment || ''
+      rows.forEach(({ appearance_rating, comment, entry_id, flavor_rating, rating, texture_rating }) => {
+        votes[entry_id] = {
+          appearance_rating: appearance_rating || rating || 0,
+          texture_rating: texture_rating || rating || 0,
+          flavor_rating: flavor_rating || rating || 0,
+          comment: comment || ''
         };
       });
 

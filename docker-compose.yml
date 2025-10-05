@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     build: ./backend
-    container_name: contest-backend
+    container_name: pdxmas-contest-backend
     ports:
       - "3001:3001"
     volumes:
