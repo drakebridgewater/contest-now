@@ -24,7 +24,6 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
 
-      # Backend build and test
       - name: Install backend dependencies
         run: |
           cd backend
@@ -203,6 +202,7 @@ jobs:
             ./deploy-scripts/deploy.sh ${{ github.sha }}
           
             echo "✅ Deployment script completed"
+          ENDSSH
 
       - name: Health Check
         run: |
@@ -253,6 +253,20 @@ jobs:
               echo "Attempt $i failed, retrying in 5 seconds..."
               sleep 5
             done
+
+            # Check database file exists and is accessible
+            echo "Checking database file..."
+            if [ -f "/mnt/user/appdata/contest-app/data/contest.db" ]; then
+              echo "✅ Database file exists"
+              # Test database is readable
+              if sqlite3 /mnt/user/appdata/contest-app/data/contest.db ".tables" > /dev/null 2>&1; then
+                echo "✅ Database is accessible"
+              else
+                echo "⚠️  Database exists but may not be accessible"
+              fi
+            else
+              echo "⚠️  Database file not found at /mnt/user/appdata/contest-app/data/contest.db"
+            fi
 
             echo "✅ Deployment successful and all services are healthy!"
           ENDSSH
