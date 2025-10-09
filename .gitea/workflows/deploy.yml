@@ -28,7 +28,19 @@ jobs:
       - name: Install backend dependencies
         run: |
           cd backend
-          npm ci
+          # Try npm ci with retries for network issues
+          for i in {1..3}; do
+            if npm ci --timeout=300000 --registry https://registry.npmjs.org/; then
+              echo "✅ Backend dependencies installed successfully"
+              break
+            elif [ $i -eq 3 ]; then
+              echo "❌ Failed to install backend dependencies after 3 attempts"
+              exit 1
+            else
+              echo "⚠️  Attempt $i failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
 
       - name: Build backend
         run: |
@@ -49,7 +61,19 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd frontend
-          npm ci
+          # Try npm ci with retries for network issues
+          for i in {1..3}; do
+            if npm ci --legacy-peer-deps --timeout=300000 --registry https://registry.npmjs.org/; then
+              echo "✅ Frontend dependencies installed successfully"
+              break
+            elif [ $i -eq 3 ]; then
+              echo "❌ Failed to install frontend dependencies after 3 attempts"
+              exit 1
+            else
+              echo "⚠️  Attempt $i failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
 
       - name: Build frontend
         run: |
