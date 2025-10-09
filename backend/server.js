@@ -4,6 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+import { config } from '@/config';
 
 const app = express();
 const PORT = 3001;
@@ -43,7 +44,7 @@ let db;
 let dbReady = false;
 
 try {
-  db = new sqlite3.Database('./../data/contest.db', (err) => {
+  db = new sqlite3.Database(config.database.path, (err) => {
     if (err) {
       console.error('Error opening database:', err);
       dbReady = false;
