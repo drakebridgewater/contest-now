@@ -97,8 +97,8 @@ UNRAID_IP=$(hostname -I | awk '{print $1}')
 log "📍 Unraid IP Address: $UNRAID_IP"
 
 # Test if ports are available
-if ss -tuln | grep -q ":3000 "; then
-    log "⚠️  Port 3000 is already in use! Make sure to stop any conflicting services."
+if ss -tuln | grep -q ":3099 "; then
+    log "⚠️  Port 3099 is already in use! Make sure to stop any conflicting services."
 fi
 
 if ss -tuln | grep -q ":3001 "; then
@@ -130,9 +130,9 @@ Server IP: $UNRAID_IP
 Setup Date: $(date)
 
 Application URLs:
-- Frontend: http://$UNRAID_IP:3000
+- Frontend: http://$UNRAID_IP:3099
 - Backend API: http://$UNRAID_IP:3001/api/health
-- Admin Panel: http://$UNRAID_IP:3000 (Results tab)
+- Admin Panel: http://$UNRAID_IP:3099 (Results tab)
 
 Admin Password: pdxmas2025
 

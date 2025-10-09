@@ -168,7 +168,7 @@ docker image prune -f
 
 After successful deployment:
 
-- **Frontend**: `http://YOUR_UNRAID_IP:3000`
+- **Frontend**: `http://YOUR_UNRAID_IP:3099`
 - **Backend API**: `http://YOUR_UNRAID_IP:3001/api/health`
 - **Admin Panel**: Frontend → Results tab (password: `pdxmas2025`)
 

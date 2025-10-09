@@ -242,7 +242,7 @@ jobs:
             # Test frontend
             echo "Testing frontend..."
             for i in {1..10}; do
-              if curl -f http://localhost:3000/; then
+              if curl -f http://localhost:3099/; then
                 echo "✅ Frontend is healthy"
                 break
               fi

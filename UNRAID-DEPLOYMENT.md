@@ -64,7 +64,7 @@ docker-compose ps
 
 ### Step 4: Access Your Application
 
-- **Frontend**: `http://YOUR-UNRAID-IP:3000`
+- **Frontend**: `http://YOUR-UNRAID-IP:3099`
 - **Backend API**: `http://YOUR-UNRAID-IP:3001/api/health`
 
 Replace `YOUR-UNRAID-IP` with your Unraid server's IP address (e.g., `192.168.1.100`)
@@ -111,7 +111,7 @@ If you prefer using Unraid's Docker interface:
 - **Network Type**: `bridge`
 
 **Port Mappings:**
-- **Host Port**: `3000`
+- **Host Port**: `3099`
 - **Container Port**: `80`
 
 **Environment Variables:**
@@ -163,7 +163,7 @@ For cleaner URLs and HTTPS, set up a reverse proxy:
 2. **Add Proxy Host**:
    - **Domain Name**: `contest.your-domain.com`
    - **Forward Hostname/IP**: `YOUR-UNRAID-IP`
-   - **Forward Port**: `3000`
+   - **Forward Port**: `3099`
 3. **Enable SSL** with Let's Encrypt
 
 ### Using Swag/Letsencrypt
@@ -184,7 +184,7 @@ server {
     # SSL configuration here
 
     location / {
-        proxy_pass http://YOUR-UNRAID-IP:3000;
+        proxy_pass http://YOUR-UNRAID-IP:3099;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -262,7 +262,7 @@ docker-compose up -d
 1. **Check Unraid firewall** settings
 2. **Verify port mappings** in Docker containers
 3. **Ensure devices are on same network**
-4. **Test direct IP access**: `http://UNRAID-IP:3000`
+4. **Test direct IP access**: `http://UNRAID-IP:3099`
 
 ### Database Issues
 
@@ -334,7 +334,7 @@ find /mnt/user/Backups/contest-backup-* -mtime +30 -delete  # Keep 30 days
 Your PDXmas Contest App is now running on Unraid!
 
 **Access URLs:**
-- **Contest App**: `http://YOUR-UNRAID-IP:3000`
+- **Contest App**: `http://YOUR-UNRAID-IP:3099`
 - **API Health**: `http://YOUR-UNRAID-IP:3001/api/health`
 
 **Admin Access:**

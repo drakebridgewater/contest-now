@@ -34,7 +34,7 @@ services:
     image: contest-frontend:latest
     container_name: pdxmas-contest-frontend
     ports:
-      - "3000:80"
+      - "3099:80"
     depends_on:
       backend:
         condition: service_healthy

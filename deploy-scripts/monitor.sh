@@ -56,7 +56,7 @@ check_containers() {
 # Function to check API health
 check_api_health() {
     local backend_health=$(curl -f -s -m 10 http://localhost:3001/api/health 2>/dev/null || echo "failed")
-    local frontend_health=$(curl -f -s -m 10 http://localhost:3000/ 2>/dev/null || echo "failed")
+    local frontend_health=$(curl -f -s -m 10 http://localhost:3099/ 2>/dev/null || echo "failed")
 
     if [ "$backend_health" = "failed" ]; then
         notify "Backend API health check failed" "ERROR"
@@ -211,7 +211,7 @@ main() {
             echo
 
             echo "🌐 Endpoints:"
-            echo "   Frontend: http://$(hostname -I | awk '{print $1}'):3000"
+            echo "   Frontend: http://$(hostname -I | awk '{print $1}'):3099"
             echo "   Backend API: http://$(hostname -I | awk '{print $1}'):3001/api/health"
             echo
 

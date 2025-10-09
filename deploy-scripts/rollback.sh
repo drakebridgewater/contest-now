@@ -85,7 +85,7 @@ done
 
 # Test frontend
 log "🧪 Testing frontend..."
-if curl -f -s http://localhost:3000/ >/dev/null 2>&1; then
+if curl -f -s http://localhost:3099/ >/dev/null 2>&1; then
     log "✅ Frontend is responding"
 else
     log "❌ Frontend health check failed"
@@ -101,7 +101,7 @@ log "📊 Application Status:"
 docker-compose ps
 
 log "🌐 Application URLs:"
-log "   Frontend: http://$(hostname -I | awk '{print $1}'):3000"
+log "   Frontend: http://$(hostname -I | awk '{print $1}'):3099"
 log "   Backend API: http://$(hostname -I | awk '{print $1}'):3001/api/health"
 
 echo
