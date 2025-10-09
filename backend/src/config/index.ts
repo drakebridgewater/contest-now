@@ -33,13 +33,17 @@ export const config: AppConfig = {
     host: getEnv('HOST', '0.0.0.0'),
     nodeEnv: getEnv('NODE_ENV', 'development'),
     corsOrigin: getEnv('CORS_ORIGIN', '*'),
-    uploadsDir: path.join(__dirname, '../../uploads'),
+    uploadsDir: process.env.NODE_ENV === 'production'
+      ? '/app/uploads'
+      : path.join(__dirname, '../../uploads'),
     maxFileSize: getEnvNumber('MAX_FILE_SIZE', 10 * 1024 * 1024), // 10MB
     rateLimitWindowMs: getEnvNumber('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000), // 15 minutes
     rateLimitMax: getEnvNumber('RATE_LIMIT_MAX', 100), // limit each IP to 100 requests per windowMs
   },
   database: {
-    path: getEnv('DATABASE_PATH', path.join(__dirname, '../../data/contest.db')),
+    path: getEnv('DATABASE_PATH', process.env.NODE_ENV === 'production'
+      ? '/app/data/contest.db'
+      : path.join(__dirname, '../../data/contest.db')),
   },
 };
 
