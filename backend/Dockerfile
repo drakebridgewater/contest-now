@@ -39,6 +39,9 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
+# Copy tsconfig-paths bootstrap for path mapping
+COPY tsconfig-paths-bootstrap.js ./
+
 # Create necessary directories
 RUN mkdir -p uploads data logs
 RUN chown -R backend:nodejs /app
@@ -54,4 +57,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # Start the server
-CMD ["node", "dist/server.js"]
+CMD ["npm", "start"]
