@@ -23,15 +23,39 @@ export class Database {
 
   private async init(): Promise<void> {
     try {
+      // Debug logging
+      logger.info(`Database path: ${config.database.path}`);
+      logger.info(`Current working directory: ${process.cwd()}`);
+      logger.info(`__dirname: ${__dirname}`);
+
       // Ensure data directory exists
       const dataDir = path.dirname(config.database.path);
+      logger.info(`Data directory: ${dataDir}`);
+
       if (!fs.existsSync(dataDir)) {
+        logger.info(`Creating data directory: ${dataDir}`);
         fs.mkdirSync(dataDir, { recursive: true });
+      }
+
+      // Check directory permissions
+      try {
+        const stats = fs.statSync(dataDir);
+        logger.info(`Data directory permissions: ${stats.mode.toString(8)}`);
+        logger.info(`Data directory owner: uid=${stats.uid}, gid=${stats.gid}`);
+
+        // Test write permissions
+        const testFile = path.join(dataDir, 'test-write.tmp');
+        fs.writeFileSync(testFile, 'test');
+        fs.unlinkSync(testFile);
+        logger.info('Write test successful');
+      } catch (permError) {
+        logger.error('Permission check failed:', permError);
       }
 
       this.db = new sqlite3.Database(config.database.path, (err) => {
         if (err) {
           logger.error('Error opening database:', err);
+          logger.error('Database path attempted:', config.database.path);
           this.isReady = false;
         } else {
           logger.info('Connected to SQLite database');

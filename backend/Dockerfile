@@ -20,6 +20,9 @@ RUN npm run build
 # Production stage
 FROM node:18-alpine AS production
 
+# Install SQLite, python, make and g++ for native modules
+RUN apk add --no-cache sqlite python3 make g++
+
 # Set working directory
 WORKDIR /app
 
@@ -48,7 +51,7 @@ EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+  CMD node -e "require('http').get('http://localhost:3001/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # Start the server
 CMD ["node", "dist/server.js"]

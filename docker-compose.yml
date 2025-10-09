@@ -12,6 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - DATABASE_PATH=/app/data/contest.db
     restart: unless-stopped
     networks:
       - contest-network
