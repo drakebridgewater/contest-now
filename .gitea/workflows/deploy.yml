@@ -121,7 +121,9 @@ jobs:
 
       - name: Debug SSH connection
         run: |
-          ping ${{ secrets.UNRAID_HOST }} -c 3
+          # Test network connectivity
+          echo "Testing network connectivity to ${{ secrets.UNRAID_HOST }}..."
+          nc -zv ${{ secrets.UNRAID_HOST }} 22 || echo "Port 22 not reachable"
           # Setup SSH key first
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
