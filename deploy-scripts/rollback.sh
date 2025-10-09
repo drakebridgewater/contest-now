@@ -6,7 +6,7 @@
 set -e  # Exit on any error
 
 APP_DIR="/mnt/user/appdata/contest-app"
-BACKUP_DIR="/mnt/user/backups/contest-app"
+BACKUP_DIR="/mnt/user/Backups/contest-app"
 
 echo "🔄 Starting rollback of PDXmas Contest App"
 

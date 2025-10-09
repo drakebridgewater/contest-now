@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {Entry, PageType, VotesByVoter} from '@/types';
 import {Button} from '@/components/common';
 import {ResultsPage, SubmitPage, VotePage} from '@/pages';
@@ -13,6 +13,17 @@ const App: React.FC = () => {
   const [isVoterNameSubmitted, setIsVoterNameSubmitted] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const loadVotes = useCallback(async (voter: string): Promise<void> => {
+    if (!voter) return;
+
+    try {
+      const data = await voteService.getByVoter(voter);
+      setVotes(prev => ({...prev, [voter]: data}));
+    } catch (error) {
+      console.error('Error loading votes:', error);
+    }
+  }, [setVotes]);
+
   // Load entries on mount
   useEffect(() => {
     loadEntries();
@@ -24,7 +35,7 @@ const App: React.FC = () => {
       setIsVoterNameSubmitted(true);
       loadVotes(voterName);
     }
-  }, [voterName]);
+  }, [voterName, loadVotes]);
 
   const loadEntries = async (): Promise<void> => {
     try {
@@ -36,17 +47,6 @@ const App: React.FC = () => {
       alert('Failed to load entries. Make sure the server is running.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadVotes = async (voter: string): Promise<void> => {
-    if (!voter) return;
-
-    try {
-      const data = await voteService.getByVoter(voter);
-      setVotes(prev => ({...prev, [voter]: data}));
-    } catch (error) {
-      console.error('Error loading votes:', error);
     }
   };
 

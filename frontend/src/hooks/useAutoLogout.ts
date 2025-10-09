@@ -67,7 +67,7 @@ export function useAutoLogout({ isEnabled, isActive, onLogout }: UseAutoLogoutPr
         clearInterval(timerId.interval);
       }
     };
-  }, [isActive, isEnabled, startTimer]);
+  }, [isActive, isEnabled, startTimer, timerId]);
 
   // Add event listeners for user interaction to reset timer
   useEffect(() => {

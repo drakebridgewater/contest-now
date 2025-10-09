@@ -7,7 +7,7 @@
 set -e
 
 APP_DIR="/mnt/user/appdata/contest-app"
-BACKUP_DIR="/mnt/user/backups/contest-app"
+BACKUP_DIR="/mnt/user/Backups/contest-app"
 SSH_DIR="/root/.ssh"
 
 echo "🚀 Setting up Unraid server for PDXmas Contest App deployments"

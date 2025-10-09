@@ -323,8 +323,8 @@ Create a User Script in Unraid:
 ```bash
 #!/bin/bash
 cd /mnt/user/appdata/contest-app
-tar -czf /mnt/user/backups/contest-backup-$(date +%Y%m%d-%H%M).tar.gz data/ uploads/
-find /mnt/user/backups/contest-backup-* -mtime +30 -delete  # Keep 30 days
+tar -czf /mnt/user/Backups/contest-backup-$(date +%Y%m%d-%H%M).tar.gz data/ uploads/
+find /mnt/user/Backups/contest-backup-* -mtime +30 -delete  # Keep 30 days
 ```
 
 ---

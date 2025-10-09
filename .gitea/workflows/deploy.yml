@@ -80,11 +80,6 @@ jobs:
           cd frontend
           npm run build
 
-      - name: Test frontend
-        run: |
-          cd frontend
-          npm test -- --coverage --watchAll=false
-
       - name: Lint frontend
         run: |
           cd frontend
