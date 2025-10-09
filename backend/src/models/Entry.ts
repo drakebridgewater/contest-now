@@ -1,8 +1,39 @@
 import { database } from './database';
-import { Entry, EntryWithPhoto, CreateEntryRequest, EntryResult } from '@/types';
+import { Entry, EntryWithPhoto, CreateEntryRequest, EntryResult, ContestType } from '@/types';
 import { NotFoundError, InternalServerError } from '@/utils/errors';
 import logger from '@/utils/logger';
 import { config } from '@/config';
+
+interface EntryResultRow {
+  id: number;
+  entry_name: string;
+  contestant_name: string;
+  contest_type: ContestType;
+  photo_path: string;
+  allergens: string;
+  created_at: string;
+  vote_count: number;
+  avg_appearance: number;
+  avg_texture: number;
+  avg_flavor: number;
+  average_rating: number;
+  comments_concat: string | null;
+  appearance_1_count: number;
+  appearance_2_count: number;
+  appearance_3_count: number;
+  appearance_4_count: number;
+  appearance_5_count: number;
+  texture_1_count: number;
+  texture_2_count: number;
+  texture_3_count: number;
+  texture_4_count: number;
+  texture_5_count: number;
+  flavor_1_count: number;
+  flavor_2_count: number;
+  flavor_3_count: number;
+  flavor_4_count: number;
+  flavor_5_count: number;
+}
 
 export class EntryModel {
   public async findAll(): Promise<EntryWithPhoto[]> {
@@ -126,9 +157,9 @@ export class EntryModel {
         ORDER BY e.contest_type, average_rating DESC, vote_count DESC
       `;
 
-      const results = await database.all(query);
+      const results = await database.all<EntryResultRow>(query);
 
-      return results.map((row: any) => {
+      return results.map((row: EntryResultRow) => {
         // Parse comments
         const comments: Array<{ voter_name: string; comment: string }> = [];
         if (row.comments_concat) {
