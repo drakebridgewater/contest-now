@@ -92,6 +92,28 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Debug SSH connection
+        run: |
+          # Test network connectivity and secrets
+          echo "Testing secrets and connectivity..."
+          echo "UNRAID_HOST: ${{ secrets.UNRAID_HOST }}"
+          echo "UNRAID_USERNAME: ${{ secrets.UNRAID_USERNAME }}"
+          echo "SSH key MD5: $(echo '${{ secrets.UNRAID_SSH_KEY }}' | md5sum | cut -d' ' -f1)"
+
+          # Test connectivity with curl (more reliable than nc)
+          curl -m 5 --connect-timeout 5 telnet://${{ secrets.UNRAID_HOST }}:22 || echo "SSH port not reachable"
+          # Setup SSH key first
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.UNRAID_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          echo "Testing SSH connection with verbose output..."
+          ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+              ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }} \
+              'echo "SSH connection successful"' || echo "SSH failed with exit code $?"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Build Docker images
@@ -118,22 +140,6 @@ jobs:
           docker save contest-backend:latest | gzip > contest-backend.tar.gz
           docker save contest-frontend:latest | gzip > contest-frontend.tar.gz
           echo "✅ Docker images saved successfully"
-
-      - name: Debug SSH connection
-        run: |
-          # Test network connectivity
-          echo "Testing network connectivity to ${{ secrets.UNRAID_HOST }}..."
-          nc -zv ${{ secrets.UNRAID_HOST }} 22 || echo "Port 22 not reachable"
-          # Setup SSH key first
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.UNRAID_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-          echo "Testing SSH connection with verbose output..."
-          ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-              ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }} \
-              'echo "SSH connection successful"' || echo "SSH failed with exit code $?"
 
       - name: Copy files to Unraid
         run: |
