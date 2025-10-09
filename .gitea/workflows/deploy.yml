@@ -119,6 +119,20 @@ jobs:
           docker save contest-frontend:latest | gzip > contest-frontend.tar.gz
           echo "✅ Docker images saved successfully"
 
+      - name: Debug SSH connection
+        run: |
+          ping ${{ secrets.UNRAID_HOST }} -c 3
+          # Setup SSH key first
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.UNRAID_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          echo "Testing SSH connection with verbose output..."
+          ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+              ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }} \
+              'echo "SSH connection successful"' || echo "SSH failed with exit code $?"
+
       - name: Copy files to Unraid
         run: |
           set -e
