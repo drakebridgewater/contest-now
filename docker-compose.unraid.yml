@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build: ./backend
+    image: contest-backend:latest
     container_name: pdxmas-contest-backend
     ports:
       - "3001:3001"
@@ -20,6 +20,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -30,7 +31,7 @@ services:
           memory: 128M
 
   frontend:
-    build: ./frontend
+    image: contest-frontend:latest
     container_name: pdxmas-contest-frontend
     ports:
       - "3000:80"

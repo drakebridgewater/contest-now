@@ -1,7 +1,13 @@
 node_modules
 npm-debug.log
+.env
+.env.local
+.env.example
+dist
+tests
 .git
 .gitignore
-README.md
-.env
-.DS_Store
+.dockerignore
+logs
+uploads
+data

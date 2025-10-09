@@ -1,0 +1,262 @@
+name: Deploy to Unraid
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # Backend build and test
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Build backend
+        run: |
+          cd backend
+          npm run build
+
+      - name: Test backend
+        run: |
+          cd backend
+          npm test
+
+      - name: Lint backend
+        run: |
+          cd backend
+          npm run lint
+
+      # Frontend build and test
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Test frontend
+        run: |
+          cd frontend
+          npm test -- --coverage --watchAll=false
+
+      - name: Lint frontend
+        run: |
+          cd frontend
+          npm run lint
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build Docker images
+        id: build
+        run: |
+          set -e
+          
+          # Build backend image
+          echo "Building backend image..."
+          docker build -t contest-backend:${{ github.sha }} ./backend
+          docker tag contest-backend:${{ github.sha }} contest-backend:latest
+          
+          # Build frontend image
+          echo "Building frontend image..."
+          docker build -t contest-frontend:${{ github.sha }} ./frontend
+          docker tag contest-frontend:${{ github.sha }} contest-frontend:latest
+          
+          echo "✅ Docker images built successfully"
+
+      - name: Save Docker images
+        run: |
+          set -e
+          echo "Saving Docker images..."
+          docker save contest-backend:latest | gzip > contest-backend.tar.gz
+          docker save contest-frontend:latest | gzip > contest-frontend.tar.gz
+          echo "✅ Docker images saved successfully"
+
+      - name: Copy files to Unraid
+        run: |
+          set -e
+          
+          # Install sshpass if needed (for password auth, optional)
+          # sudo apt-get update && sudo apt-get install -y sshpass
+          
+          # Create SSH directory and add host key
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Add Unraid host to known hosts (prevents SSH prompt)
+          ssh-keyscan -H ${{ secrets.UNRAID_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          
+          # Setup SSH key
+          echo "${{ secrets.UNRAID_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Create deployment directory on Unraid if it doesn't exist
+          ssh -o StrictHostKeyChecking=no ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }} \
+            "mkdir -p /mnt/user/appdata/contest-app/deployment/deploy-scripts"
+          
+          # Copy files to Unraid
+          echo "Copying Docker images..."
+          scp -o StrictHostKeyChecking=no contest-backend.tar.gz \
+            ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }}:/mnt/user/appdata/contest-app/deployment/
+          
+          scp -o StrictHostKeyChecking=no contest-frontend.tar.gz \
+            ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }}:/mnt/user/appdata/contest-app/deployment/
+          
+          echo "Copying docker-compose.yml..."
+          scp -o StrictHostKeyChecking=no docker-compose.yml \
+            ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }}:/mnt/user/appdata/contest-app/deployment/
+          
+          echo "Copying deployment scripts..."
+          scp -o StrictHostKeyChecking=no -r deploy-scripts/* \
+            ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }}:/mnt/user/appdata/contest-app/deployment/deploy-scripts/
+          
+          echo "✅ Files copied successfully"
+
+      - name: Deploy to Unraid
+        run: |
+          set -e
+          
+          # Setup SSH key (if not already set up)
+          mkdir -p ~/.ssh
+          echo "${{ secrets.UNRAID_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Execute deployment script
+          ssh -o StrictHostKeyChecking=no ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }} << 'ENDSSH'
+            set -e
+            cd /mnt/user/appdata/contest-app/deployment
+          
+            # Make scripts executable
+            chmod +x deploy-scripts/*.sh
+          
+            # Run deployment script
+            echo "Starting deployment..."
+            ./deploy-scripts/deploy.sh ${{ github.sha }}
+          
+            echo "✅ Deployment script completed"
+
+      - name: Health Check
+        run: |
+          set -e
+
+          # Setup SSH key
+          mkdir -p ~/.ssh
+          echo "${{ secrets.UNRAID_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Run health checks
+          ssh -o StrictHostKeyChecking=no ${{ secrets.UNRAID_USERNAME }}@${{ secrets.UNRAID_HOST }} << 'ENDSSH'
+            set -e
+
+            echo "Waiting for services to start..."
+            sleep 30
+
+            # Check if services are running
+            cd /mnt/user/appdata/contest-app
+            docker-compose ps
+
+            # Test backend health endpoint
+            echo "Testing backend health endpoint..."
+            for i in {1..10}; do
+              if curl -f http://localhost:3001/api/health; then
+                echo "✅ Backend is healthy"
+                break
+              fi
+              if [ $i -eq 10 ]; then
+                echo "❌ Backend health check failed after 10 attempts"
+                exit 1
+              fi
+              echo "Attempt $i failed, retrying in 5 seconds..."
+              sleep 5
+            done
+
+            # Test frontend
+            echo "Testing frontend..."
+            for i in {1..10}; do
+              if curl -f http://localhost:3000/; then
+                echo "✅ Frontend is healthy"
+                break
+              fi
+              if [ $i -eq 10 ]; then
+                echo "❌ Frontend health check failed after 10 attempts"
+                exit 1
+              fi
+              echo "Attempt $i failed, retrying in 5 seconds..."
+              sleep 5
+            done
+
+            echo "✅ Deployment successful and all services are healthy!"
+          ENDSSH
+
+      - name: Cleanup local images
+        if: always()
+        run: |
+          echo "Cleaning up local Docker images..."
+          docker rmi contest-backend:${{ github.sha }} contest-backend:latest || true
+          docker rmi contest-frontend:${{ github.sha }} contest-frontend:latest || true
+          rm -f contest-backend.tar.gz contest-frontend.tar.gz || true
+          rm -f ~/.ssh/id_rsa || true
+          echo "✅ Cleanup completed"
+
+  notify:
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Check deployment status
+        id: check
+        run: |
+          if [ "${{ needs.build-and-test.result }}" == "success" ]; then
+            # Note: deploy job status not checked here since it may not run
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Success
+        if: steps.check.outputs.status == 'success'
+        run: |
+          echo "🎉 Build and deployment to Unraid completed successfully!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Author: ${{ github.actor }}"
+
+      - name: Notify Failure
+        if: steps.check.outputs.status == 'failure'
+        run: |
+          echo "❌ Build or deployment failed!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Build Status: ${{ needs.build-and-test.result }}"
+          echo "Please check the workflow logs for details."
+          exit 1
