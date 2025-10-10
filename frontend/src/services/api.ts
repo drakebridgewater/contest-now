@@ -12,6 +12,7 @@ import {
 
 // API Configuration - Use environment variable or fallback to localhost
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+console.log('API_URL configured as:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -37,11 +38,23 @@ export const entryService = {
   },
 
   async create(entryData: CreateEntryRequest): Promise<Entry> {
-    const response = await api.post<ApiResponse<Entry>>('/entries', entryData);
-    if (!response.data.data) {
-      throw new Error(response.data.error || 'Failed to create entry');
+    const response = await api.post('/entries', entryData);
+    console.log('Entry creation response:', response.data);
+
+    // Handle both wrapped and unwrapped responses
+    if (response.data.data) {
+      // Wrapped response format
+      return response.data.data;
+    } else if (response.data.id) {
+      // Direct entry format (current backend response)
+      return response.data as Entry;
+    } else {
+      // Error case
+      const error = response.data.error || 'Failed to create entry';
+      console.error('Entry creation failed:', error);
+      console.error('Full response:', response.data);
+      throw new Error(error);
     }
-    return response.data.data;
   },
 
   async delete(id: number): Promise<void> {

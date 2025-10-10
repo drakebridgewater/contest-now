@@ -111,14 +111,14 @@ log "🔧 Creating initial configuration files..."
 cat > "$APP_DIR/.env.production" << EOF
 # PDXmas Contest App - Production Environment
 NODE_ENV=production
-PORT=3099
+PORT=3001
 HOST=0.0.0.0
 CORS_ORIGIN=*
 DATABASE_PATH=./data/contest.db
 MAX_FILE_SIZE=10485760
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX=100
-REACT_APP_API_URL=http://$UNRAID_IP:3099/api
+REACT_APP_API_URL=http://$UNRAID_IP:3001/api
 EOF
 
 # Create deployment info file

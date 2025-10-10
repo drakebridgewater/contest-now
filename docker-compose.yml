@@ -1,6 +1,6 @@
 services:
   backend:
-    image: contest-backend:latest
+    build: ./backend
     container_name: pdxmas-contest-backend
     ports:
       - "3001:3001"
@@ -21,7 +21,7 @@ services:
       retries: 3
 
   frontend:
-    image: contest-frontend:latest
+    build: ./frontend
     container_name: contest-frontend
     ports:
       - "3099:80"

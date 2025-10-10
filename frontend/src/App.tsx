@@ -35,7 +35,7 @@ const App: React.FC = () => {
       setIsVoterNameSubmitted(true);
       loadVotes(voterName);
     }
-  }, [voterName, loadVotes]);
+  }, [voterName]); // Removed loadVotes from dependencies to prevent infinite loop
 
   const loadEntries = async (): Promise<void> => {
     try {
