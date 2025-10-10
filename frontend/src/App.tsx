@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const loadVotes = useCallback(async (voter: string): Promise<void> => {
     if (!voter) return;
 
+    console.log('loadVotes called for voter:', voter);
     try {
       const data = await voteService.getByVoter(voter);
       setVotes(prev => ({...prev, [voter]: data}));
@@ -33,11 +34,14 @@ const App: React.FC = () => {
   useEffect(() => {
     if (voterName && voterName.trim().length >= 2) {
       setIsVoterNameSubmitted(true);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       loadVotes(voterName);
     }
-  }, [voterName]); // Removed loadVotes from dependencies to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voterName]); // loadVotes intentionally omitted to prevent infinite loop
 
   const loadEntries = async (): Promise<void> => {
+    console.log('loadEntries called');
     try {
       setLoading(true);
       const data = await entryService.getAll();
