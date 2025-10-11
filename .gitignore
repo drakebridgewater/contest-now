@@ -220,3 +220,7 @@ GitHub.sublime-settings
 
 
 .qodo
+**/dist/
+**/node_modules/
+**/build/
+**/uploads/
