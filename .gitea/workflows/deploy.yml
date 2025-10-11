@@ -1,11 +1,13 @@
 name: Deploy to Unraid
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-    types: [ opened, synchronize, reopened ]
+  workflow_dispatch:
+    inputs:
+      deploy_to_unraid:
+        description: 'Deploy to Unraid server'
+        type: boolean
+        default: true
+        required: false
 
 jobs:
   build-and-test:
@@ -87,7 +89,7 @@ jobs:
   deploy:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: inputs.deploy_to_unraid == true
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -284,7 +286,7 @@ jobs:
   notify:
     needs: [build-and-test]
     runs-on: ubuntu-latest
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: always() && inputs.deploy_to_unraid == true
 
     steps:
       - name: Check deployment status
