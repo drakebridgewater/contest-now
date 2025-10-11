@@ -1,7 +1,7 @@
 services:
   backend:
-    image: contest-backend:latest
-    container_name: pdxmas-contest-backend
+    image: pdxmas-backend:latest
+    container_name: pdxmas-backend
     ports:
       - "3001:3001"
     volumes:
@@ -12,13 +12,7 @@ services:
       - PORT=3001
     restart: unless-stopped
     networks:
-      - contest-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - pdxmas-network
     deploy:
       resources:
         limits:
@@ -29,8 +23,8 @@ services:
           memory: 128M
 
   frontend:
-    image: contest-frontend:latest
-    container_name: pdxmas-contest-frontend
+    image: pdxmas-frontend:latest
+    container_name: pdxmas-frontend
     ports:
       - "3099:80"
     depends_on:
@@ -38,7 +32,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - contest-network
+      - pdxmas-network
     environment:
       - REACT_APP_API_URL=http://YOUR-UNRAID-IP:3001/api
     deploy:
@@ -51,6 +45,6 @@ services:
           memory: 64M
 
 networks:
-  contest-network:
+  pdxmas-network:
     driver: bridge
-    name: pdxmas-contest-network
+    name: pdxmas-network
