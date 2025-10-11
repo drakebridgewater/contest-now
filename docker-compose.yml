@@ -20,9 +20,9 @@ services:
     container_name: pdxmas-frontend
     ports:
       - "3099:80"
-    depends_on:
-      backend:
-        condition: service_healthy
+#    depends_on:
+#      backend:
+#        condition: service_healthy
     restart: unless-stopped
     networks:
       - pdxmas-network
