@@ -39,6 +39,7 @@ export const config: AppConfig = {
     maxFileSize: getEnvNumber('MAX_FILE_SIZE', 10 * 1024 * 1024), // 10MB
     rateLimitWindowMs: getEnvNumber('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000), // 15 minutes
     rateLimitMax: getEnvNumber('RATE_LIMIT_MAX', 100), // limit each IP to 100 requests per windowMs
+    baseUrl: getEnv('BASE_URL', `http://localhost:${getEnvNumber('PORT', 3001)}`),
   },
   database: {
     path: getEnv('DATABASE_PATH', process.env.NODE_ENV === 'production'

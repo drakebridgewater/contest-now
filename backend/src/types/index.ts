@@ -103,6 +103,7 @@ export interface ServerConfig {
   maxFileSize: number;
   rateLimitWindowMs: number;
   rateLimitMax: number;
+  baseUrl: string;
 }
 
 export interface AppConfig {

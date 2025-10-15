@@ -42,7 +42,7 @@ export class EntryModel {
 
       return entries.map(entry => ({
         ...entry,
-        photo: `http://localhost:${config.server.port}/uploads/${entry.photo_path}`,
+        photo: `${config.server.baseUrl}/uploads/${entry.photo_path}`,
         allergens: entry.allergens ? JSON.parse(entry.allergens) : [],
       }));
     } catch (error) {
@@ -81,7 +81,7 @@ export class EntryModel {
         contestant_name: entryData.contestant_name,
         contest_type: entryData.contest_type,
         photo_path: photoFileName,
-        photo: `http://localhost:${config.server.port}/uploads/${photoFileName}`,
+        photo: `${config.server.baseUrl}/uploads/${photoFileName}`,
         allergens: entryData.allergens || [],
         created_at: new Date().toISOString(),
       };
@@ -180,7 +180,7 @@ export class EntryModel {
           contestant_name: row.contestant_name,
           contest_type: row.contest_type,
           photo_path: row.photo_path,
-          photo: `http://localhost:${config.server.port}/uploads/${row.photo_path}`,
+          photo: `${config.server.baseUrl}/uploads/${row.photo_path}`,
           allergens: row.allergens ? JSON.parse(row.allergens) : [],
           created_at: row.created_at,
           vote_count: row.vote_count || 0,
