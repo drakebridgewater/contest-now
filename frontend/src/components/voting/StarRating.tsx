@@ -36,10 +36,16 @@ const StarRating: React.FC<StarRatingProps> = ({
     }
   };
 
+  const isRated = value > 0;
+  const titleColorClass = isRated ? 'text-green-700' : 'text-red-600';
+  const requiredIndicator = !isRated ? ' (Required)' : '';
+
   return (
     <div className="mb-4">
       <div className="mb-2">
-        <h4 className="text-sm font-medium text-gray-700">{title}</h4>
+        <h4 className={`text-sm font-medium ${titleColorClass}`}>
+          {title}{requiredIndicator}
+        </h4>
         <p className="text-xs text-gray-500">{description}</p>
       </div>
       <div className="flex gap-1" onMouseLeave={handleMouseLeave}>
@@ -55,15 +61,17 @@ const StarRating: React.FC<StarRatingProps> = ({
               } ${
                 isActive
                   ? 'fill-yellow-400 text-yellow-400'
-                  : 'text-gray-300'
+                  : 'text-gray-300 hover:text-yellow-200'
               }`}
               onMouseEnter={() => handleStarHover(star)}
               onClick={() => handleStarClick(star)}
             />
           );
         })}
-        <span className="ml-2 text-sm text-gray-600">
-          {value > 0 ? value : 'Not rated'}
+        <span className={`ml-2 text-sm font-medium ${
+          value > 0 ? 'text-green-600' : 'text-red-500'
+        }`}>
+          {value > 0 ? `★ ${value}` : '⚠ Required'}
         </span>
       </div>
     </div>

@@ -20,32 +20,43 @@ const ResultCard: React.FC<ResultCardProps> = ({
     average: number;
     distribution: { [key: number]: number };
     color: string;
-  }> = ({ title, average, distribution, color }) => (
-    <div className="bg-gray-50 p-3 rounded-lg">
-      <h4 className="text-sm font-medium text-gray-700 mb-2">{title}</h4>
-      <div className={`text-lg font-bold ${color} mb-2`}>
-        {average.toFixed(1)}
-      </div>
-      <div className="space-y-1">
-        {[5, 4, 3, 2, 1].map(star => {
-          const count = distribution[star] || 0;
-          const percentage = entry.vote_count > 0 ? (count / entry.vote_count) * 100 : 0;
-          return (
-            <div key={star} className="flex items-center gap-2 text-xs">
-              <span className="w-6">{star}★</span>
-              <div className="flex-1 bg-gray-200 rounded-full h-1">
-                <div
-                  className={`${color.replace('text-', 'bg-').replace('-600', '-400')} h-1 rounded-full`}
-                  style={{ width: `${percentage}%` }}
-                />
+  }> = ({ title, average, distribution, color }) => {
+    const getBarColor = (color: string) => {
+      switch (color) {
+        case 'text-blue-600': return 'bg-blue-400';
+        case 'text-green-600': return 'bg-green-400';
+        case 'text-orange-600': return 'bg-orange-400';
+        default: return 'bg-gray-400';
+      }
+    };
+
+    return (
+      <div className="bg-gray-50 p-3 rounded-lg">
+        <h4 className="text-sm font-medium text-gray-700 mb-2">{title}</h4>
+        <div className={`text-lg font-bold ${color} mb-2`}>
+          {average.toFixed(1)}
+        </div>
+        <div className="space-y-1">
+          {[5, 4, 3, 2, 1].map(star => {
+            const count = distribution[star] || 0;
+            const percentage = entry.vote_count > 0 ? (count / entry.vote_count) * 100 : 0;
+            return (
+              <div key={star} className="flex items-center gap-2 text-xs">
+                <span className="w-6">{star}★</span>
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`${getBarColor(color)} h-2 rounded-full transition-all duration-300`}
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+                <span className="w-6 text-right">{count}</span>
               </div>
-              <span className="w-6 text-right">{count}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -116,11 +127,16 @@ const ResultCard: React.FC<ResultCardProps> = ({
 
           {entry.comments && entry.comments.length > 0 && (
             <div>
-              <h4 className="font-medium text-gray-700 mb-2">Comments:</h4>
-              <div className="max-h-32 overflow-y-auto space-y-2">
+              <h4 className="font-semibold text-gray-800 mb-3 text-lg">💬 Comments:</h4>
+              <div className="max-h-48 overflow-y-auto space-y-3 pr-2">
                 {entry.comments.map((comment, idx) => (
-                  <div key={idx} className="text-sm bg-gray-50 p-2 rounded">
-                    <span className="font-medium">{comment.voter_name}:</span> {comment.comment}
+                  <div key={idx} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                    <div className="font-semibold text-indigo-700 mb-1 text-base">
+                      {comment.voter_name}
+                    </div>
+                    <div className="text-gray-800 text-base leading-relaxed">
+                      {comment.comment}
+                    </div>
                   </div>
                 ))}
               </div>

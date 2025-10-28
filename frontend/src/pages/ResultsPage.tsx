@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { EntryResult, VoterInfo, ContestType } from '@/types';
 import { PasswordForm, ResultCard, VoterManagement } from '@/components/results';
-import { Button } from '@/components/common';
+import { Button, MenuBar, ConfirmDialog, AlertDialog, LoadingSpinner } from '@/components/common';
 import { RESULTS_PASSWORD, CONTEST_TYPES } from '@/utils/constants';
 import { entryService, voterService } from '@/services/api';
 
@@ -12,12 +12,38 @@ const ResultsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ContestType | 'voters'>('appetizer');
   const [loading, setLoading] = useState(false);
 
+  // Dialog states
+  const [alert, setAlert] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant?: 'info' | 'success' | 'warning' | 'error';
+  }>({ isOpen: false, title: '', message: '' });
+
+  const [confirmation, setConfirmation] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   const handlePasswordSubmit = (password: string) => {
+    // Clear any existing alerts first
+    setAlert({ isOpen: false, title: '', message: '' });
+
     if (password === RESULTS_PASSWORD) {
       setIsAuthorized(true);
       loadData();
     } else {
-      alert('Incorrect password');
+      // Small delay to ensure the clear happens first
+      setTimeout(() => {
+        setAlert({
+          isOpen: true,
+          title: 'Invalid Password',
+          message: 'Incorrect password. Please try again.',
+          variant: 'error'
+        });
+      }, 50);
     }
   };
 
@@ -32,53 +58,71 @@ const ResultsPage: React.FC = () => {
       setVotersData(voters);
     } catch (error) {
       console.error('Error loading data:', error);
-      alert('Failed to load data. Make sure the server is running.');
+      setAlert({
+        isOpen: true,
+        title: 'Loading Error',
+        message: 'Failed to load data. Make sure the server is running.',
+        variant: 'error'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteEntry = async (entryId: number, entryName: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${entryName}"?\n\n` +
-      `This will permanently delete:\n` +
-      `- The entry\n` +
-      `- All votes for this entry\n` +
-      `- The uploaded photo\n\n` +
-      `This action cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await entryService.delete(entryId);
-      alert('Entry deleted successfully!');
-      await loadData(); // Reload data
-    } catch (error) {
-      console.error('Error deleting entry:', error);
-      alert('Failed to delete entry. Please try again.');
-    }
+  const handleDeleteEntry = (entryId: number, entryName: string) => {
+    setConfirmation({
+      isOpen: true,
+      title: 'Delete Entry',
+      message: `Are you sure you want to delete "${entryName}"?\n\nThis will permanently delete:\n- The entry\n- All votes for this entry\n- The uploaded photo\n\nThis action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await entryService.delete(entryId);
+          setAlert({
+            isOpen: true,
+            title: 'Success',
+            message: 'Entry deleted successfully!',
+            variant: 'success'
+          });
+          await loadData();
+        } catch (error) {
+          console.error('Error deleting entry:', error);
+          setAlert({
+            isOpen: true,
+            title: 'Delete Error',
+            message: 'Failed to delete entry. Please try again.',
+            variant: 'error'
+          });
+        }
+      }
+    });
   };
 
-  const handleDeleteVoter = async (voterName: string, voteCount: number) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete voter "${voterName}"?\n\n` +
-      `This will permanently delete:\n` +
-      `- The voter\n` +
-      `- All ${voteCount} votes by this voter\n\n` +
-      `This action cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await voterService.delete(voterName);
-      alert(`Voter "${voterName}" and all their votes deleted successfully!`);
-      await loadData(); // Reload data
-    } catch (error) {
-      console.error('Error deleting voter:', error);
-      alert('Failed to delete voter. Please try again.');
-    }
+  const handleDeleteVoter = (voterName: string, voteCount: number) => {
+    setConfirmation({
+      isOpen: true,
+      title: 'Delete Voter',
+      message: `Are you sure you want to delete voter "${voterName}"?\n\nThis will permanently delete:\n- The voter\n- All ${voteCount} votes by this voter\n\nThis action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await voterService.delete(voterName);
+          setAlert({
+            isOpen: true,
+            title: 'Success',
+            message: `Voter "${voterName}" and all their votes deleted successfully!`,
+            variant: 'success'
+          });
+          await loadData();
+        } catch (error) {
+          console.error('Error deleting voter:', error);
+          setAlert({
+            isOpen: true,
+            title: 'Delete Error',
+            message: 'Failed to delete voter. Please try again.',
+            variant: 'error'
+          });
+        }
+      }
+    });
   };
 
   const handleLock = () => {
@@ -100,30 +144,22 @@ const ResultsPage: React.FC = () => {
 
   return (
     <div>
-      {/* Admin Header */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800">
-            🎄 PDXmas Contest Results
-          </h2>
-          <div className="flex gap-3">
-            <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
-              🛡️ Admin Mode
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLock}
-              className="text-sm underline"
-            >
-              🔒 Lock Results
-            </Button>
-          </div>
-        </div>
-        <p className="text-sm text-gray-600 mt-2">
-          Admin controls are enabled. You can delete entries permanently.
-        </p>
-      </div>
+      <MenuBar
+        title="🎄 PDXmas Contest Results"
+        subtitle="Admin controls are enabled. You can delete entries permanently."
+        status={{
+          text: "🛡️ Admin Mode",
+          variant: "error"
+        }}
+        actions={[
+          {
+            label: "Lock Results",
+            onClick: handleLock,
+            variant: "ghost",
+            icon: "🔒"
+          }
+        ]}
+      />
 
       {/* Tab Navigation */}
       <div className="bg-white rounded-lg shadow-md mb-6">
@@ -148,9 +184,10 @@ const ResultsPage: React.FC = () => {
 
       {/* Tab Content */}
       {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin h-8 w-8 mx-auto mb-4 text-indigo-600">⭐</div>
-          <p>Loading results...</p>
+        <div className="text-center py-12 bg-white rounded-xl shadow-lg">
+          <LoadingSpinner size="lg" className="mx-auto mb-4 text-indigo-600" />
+          <p className="text-lg text-gray-700">Loading results...</p>
+          <p className="text-sm text-gray-500 mt-2">🏆 Calculating scores and rankings</p>
         </div>
       ) : activeTab === 'voters' ? (
         <VoterManagement
@@ -189,6 +226,25 @@ const ResultsPage: React.FC = () => {
           })()}
         </div>
       )}
+
+      {/* Dialogs */}
+      <AlertDialog
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ ...alert, isOpen: false })}
+        title={alert.title}
+        message={alert.message}
+        variant={alert.variant}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmation.isOpen}
+        onClose={() => setConfirmation({ ...confirmation, isOpen: false })}
+        onConfirm={confirmation.onConfirm}
+        title={confirmation.title}
+        message={confirmation.message}
+        confirmText="Delete"
+        variant="danger"
+      />
     </div>
   );
 };

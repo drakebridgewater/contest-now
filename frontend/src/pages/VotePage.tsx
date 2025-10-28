@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ImageIcon } from 'lucide-react';
 import { Entry, VotesByVoter, AllergenPopupData, ContestType } from '@/types';
 import { VoterNameForm, VoteCard, AllergenModal } from '@/components/voting';
-import { Button } from '@/components/common';
+import { Button, MenuBar, AlertDialog } from '@/components/common';
 import { CONTEST_TYPES } from '@/utils/constants';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { voteService } from '@/services/api';
@@ -31,6 +31,12 @@ const VotePage: React.FC<VotePageProps> = ({
 }) => {
   const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(false);
   const [allergenPopup, setAllergenPopup] = useState<AllergenPopupData | null>(null);
+  const [alert, setAlert] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant?: 'info' | 'success' | 'warning' | 'error';
+  }>({ isOpen: false, title: '', message: '' });
 
   const { timeRemaining } = useAutoLogout({
     isEnabled: autoLogoutEnabled,
@@ -40,7 +46,12 @@ const VotePage: React.FC<VotePageProps> = ({
 
   const handleRatingChange = async (entryId: number, ratingType: string, rating: number) => {
     if (!voterName) {
-      alert('Please enter your name first');
+      setAlert({
+        isOpen: true,
+        title: 'Authentication Required',
+        message: 'Please enter your name first',
+        variant: 'warning'
+      });
       return;
     }
 
@@ -66,7 +77,12 @@ const VotePage: React.FC<VotePageProps> = ({
         });
       } catch (error) {
         console.error('Error submitting rating:', error);
-        alert('Failed to submit rating. Please try again.');
+        setAlert({
+          isOpen: true,
+          title: 'Submission Error',
+          message: 'Failed to submit rating. Please try again.',
+          variant: 'error'
+        });
         return;
       }
     }
@@ -76,7 +92,12 @@ const VotePage: React.FC<VotePageProps> = ({
 
   const handleCommentChange = async (entryId: number, comment: string) => {
     if (!voterName) {
-      alert('Please enter your name first');
+      setAlert({
+        isOpen: true,
+        title: 'Authentication Required',
+        message: 'Please enter your name first',
+        variant: 'warning'
+      });
       return;
     }
 
@@ -113,6 +134,24 @@ const VotePage: React.FC<VotePageProps> = ({
     setAllergenPopup({ entryName, allergens });
   };
 
+  // Calculate voting progress
+  const votingProgress = useMemo(() => {
+    if (!voterName || entries.length === 0) {
+      return { completed: 0, total: 0, percentage: 0 };
+    }
+
+    const userVotes = votes[voterName] || {};
+    const completedVotes = entries.filter(entry =>
+      userVotes[entry.id] && isVoteComplete(userVotes[entry.id])
+    ).length;
+
+    return {
+      completed: completedVotes,
+      total: entries.length,
+      percentage: Math.round((completedVotes / entries.length) * 100)
+    };
+  }, [voterName, votes, entries]);
+
   if (!isVoterNameSubmitted) {
     return (
       <VoterNameForm
@@ -125,31 +164,25 @@ const VotePage: React.FC<VotePageProps> = ({
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex justify-between items-center">
-          <p className="text-lg">
-            Voting as: <span className="font-bold text-indigo-600">{voterName}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onVoterLogout}
-              className="ml-4 text-sm underline"
-            >
-              Change voter
-            </Button>
-          </p>
-          {autoLogoutEnabled && timeRemaining > 0 && (
-            <div className="text-sm text-orange-600 font-medium">
-              🔄 Auto-logout in {timeRemaining}s
-            </div>
-          )}
-        </div>
-        {autoLogoutEnabled && (
-          <p className="text-xs text-gray-500 mt-2">
-            Auto-logout enabled - touch anywhere to reset timer
-          </p>
-        )}
-      </div>
+      <MenuBar
+        title={`Voting as: ${voterName}`}
+        subtitle={autoLogoutEnabled ? 'Auto-logout enabled - touch anywhere to reset timer' : undefined}
+        actions={[
+          {
+            label: 'Change voter',
+            onClick: onVoterLogout,
+            variant: 'ghost',
+            icon: '👤'
+          }
+        ]}
+        status={autoLogoutEnabled && timeRemaining > 0 ? {
+          text: `🔄 Auto-logout in ${timeRemaining}s`,
+          variant: 'warning'
+        } : votingProgress.total > 0 ? {
+          text: `🗳️ Voted: ${votingProgress.completed}/${votingProgress.total} (${votingProgress.percentage}%)`,
+          variant: votingProgress.percentage === 100 ? 'success' : 'info'
+        } : undefined}
+      />
 
       {entries.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl shadow-lg">
@@ -192,6 +225,14 @@ const VotePage: React.FC<VotePageProps> = ({
         isOpen={!!allergenPopup}
         onClose={() => setAllergenPopup(null)}
         data={allergenPopup}
+      />
+
+      <AlertDialog
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ ...alert, isOpen: false })}
+        title={alert.title}
+        message={alert.message}
+        variant={alert.variant}
       />
     </>
   );

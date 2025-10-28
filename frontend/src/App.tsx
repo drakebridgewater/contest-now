@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {Entry, PageType, VotesByVoter} from '@/types';
-import {Button} from '@/components/common';
+import {Button, AlertDialog, LoadingSpinner} from '@/components/common';
 import {ResultsPage, SubmitPage, VotePage} from '@/pages';
 import {entryService, voteService} from '@/services/api';
 import {useLocalStorage} from '@/hooks/useLocalStorage';
@@ -12,6 +12,12 @@ const App: React.FC = () => {
   const [voterName, setVoterName] = useLocalStorage<string>('contest-voter-name', '');
   const [isVoterNameSubmitted, setIsVoterNameSubmitted] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [alert, setAlert] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant?: 'info' | 'success' | 'warning' | 'error';
+  }>({ isOpen: false, title: '', message: '' });
 
   const loadVotes = useCallback(async (voter: string): Promise<void> => {
     if (!voter) return;
@@ -48,7 +54,12 @@ const App: React.FC = () => {
       setEntries(data);
     } catch (error) {
       console.error('Error loading entries:', error);
-      alert('Failed to load entries. Make sure the server is running.');
+      setAlert({
+        isOpen: true,
+        title: 'Loading Error',
+        message: 'Failed to load entries. Make sure the server is running.',
+        variant: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -122,8 +133,9 @@ const App: React.FC = () => {
       <div
         className="min-h-screen bg-gradient-to-br from-red-50 via-green-50 to-red-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">🎄</div>
-          <p className="text-gray-600">Loading PDXmas Contest...</p>
+          <LoadingSpinner size="lg" className="mx-auto mb-4 text-green-600" />
+          <p className="text-gray-600 text-lg">Loading PDXmas Contest...</p>
+          <p className="text-gray-500 text-sm mt-2">🎄 Getting ready for the holidays! ❄️</p>
         </div>
       </div>
     );
@@ -196,6 +208,14 @@ const App: React.FC = () => {
 
         {currentPage === 'results' && <ResultsPage />}
       </div>
+
+      <AlertDialog
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ ...alert, isOpen: false })}
+        title={alert.title}
+        message={alert.message}
+        variant={alert.variant}
+      />
     </div>
   );
 };

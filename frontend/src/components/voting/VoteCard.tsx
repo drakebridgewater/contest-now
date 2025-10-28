@@ -31,8 +31,19 @@ const VoteCard: React.FC<VoteCardProps> = ({
     userVote.texture_rating > 0 &&
     userVote.flavor_rating > 0;
 
+  const hasPartialRatings =
+    (userVote.appearance_rating > 0 ? 1 : 0) +
+    (userVote.texture_rating > 0 ? 1 : 0) +
+    (userVote.flavor_rating > 0 ? 1 : 0) > 0;
+
+  const cardBorderClass = isVoteComplete
+    ? "border-2 border-green-400 bg-green-50"
+    : hasPartialRatings
+    ? "border-2 border-red-400 bg-red-50"
+    : "border border-gray-200 bg-white";
+
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className={`rounded-xl shadow-lg overflow-hidden transition-all duration-300 ${cardBorderClass}`}>
       <div className="relative">
         <img
           src={entry.photo}
@@ -52,6 +63,22 @@ const VoteCard: React.FC<VoteCardProps> = ({
             </Button>
           </div>
         )}
+        {/* Vote status indicator */}
+        <div className="absolute top-2 left-2">
+          {isVoteComplete ? (
+            <div className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+              ✓ Complete
+            </div>
+          ) : hasPartialRatings ? (
+            <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+              ⚠ Incomplete
+            </div>
+          ) : (
+            <div className="bg-gray-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+              ○ Not Started
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="p-6">

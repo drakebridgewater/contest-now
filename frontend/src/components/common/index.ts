@@ -3,3 +3,8 @@ export { default as Input } from './Input';
 export { default as Textarea } from './Textarea';
 export { default as Modal } from './Modal';
 export { default as LoadingSpinner } from './LoadingSpinner';
+export { default as ConfirmDialog } from './ConfirmDialog';
+export { default as AlertDialog } from './AlertDialog';
+export { default as MenuBar } from './MenuBar';
+export { default as ProgressIndicator } from './ProgressIndicator';
+export { default as InstructionCard } from './InstructionCard';
