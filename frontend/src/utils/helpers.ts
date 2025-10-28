@@ -1,7 +1,23 @@
-import { ALLERGENS } from './constants';
+import { ALLERGENS, DIETARY_RESTRICTIONS } from './constants';
 
 export const getAllergenById = (id: string) => {
-  return ALLERGENS.find(allergen => allergen.id === id);
+  // First check top-level allergens
+  const topLevel = ALLERGENS.find(allergen => allergen.id === id);
+  if (topLevel) return topLevel;
+
+  // Then check children
+  for (const allergen of ALLERGENS) {
+    if (allergen.children) {
+      const child = allergen.children.find(child => child.id === id);
+      if (child) return child;
+    }
+  }
+
+  // Check dietary restrictions
+  const dietary = DIETARY_RESTRICTIONS.find(restriction => restriction.id === id);
+  if (dietary) return dietary;
+
+  return null;
 };
 
 export const formatDate = (dateString: string): string => {

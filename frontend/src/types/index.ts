@@ -91,6 +91,14 @@ export interface Allergen {
   id: string;
   label: string;
   emoji: string;
+  children?: Allergen[];
+}
+
+export interface DietaryRestriction {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
 }
 
 export interface AllergenPopupData {

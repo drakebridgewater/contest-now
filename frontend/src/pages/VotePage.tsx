@@ -31,6 +31,7 @@ const VotePage: React.FC<VotePageProps> = ({
 }) => {
   const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(false);
   const [allergenPopup, setAllergenPopup] = useState<AllergenPopupData | null>(null);
+  const [hideCompletedVotes, setHideCompletedVotes] = useState(false);
   const [alert, setAlert] = useState<{
     isOpen: boolean;
     title: string;
@@ -169,6 +170,12 @@ const VotePage: React.FC<VotePageProps> = ({
         subtitle={autoLogoutEnabled ? 'Auto-logout enabled - touch anywhere to reset timer' : undefined}
         actions={[
           {
+            label: hideCompletedVotes ? 'Show All Entries' : 'Hide Voted Entries',
+            onClick: () => setHideCompletedVotes(!hideCompletedVotes),
+            variant: hideCompletedVotes ? 'secondary' : 'ghost',
+            icon: hideCompletedVotes ? '👁️' : '🫥'
+          },
+          {
             label: 'Change voter',
             onClick: onVoterLogout,
             variant: 'ghost',
@@ -192,32 +199,79 @@ const VotePage: React.FC<VotePageProps> = ({
         </div>
       ) : (
         <div className="space-y-8">
-          {Object.entries(CONTEST_TYPES).map(([contestType, { name, emoji }]) => {
-            const contestEntries = entries.filter(entry => entry.contest_type === contestType as ContestType);
-            if (contestEntries.length === 0) return null;
+          {(() => {
+            // Check if any entries will be shown after filtering
+            const userVotes = votes[voterName] || {};
+            const hasVisibleEntries = Object.entries(CONTEST_TYPES).some(([contestType]) => {
+              const contestEntries = entries.filter(entry => entry.contest_type === contestType as ContestType);
+              if (contestEntries.length === 0) return false;
 
-            return (
-              <div key={contestType}>
-                <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                  <span className="text-3xl">{emoji}</span>
-                  {name}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {contestEntries.map((entry) => (
-                    <VoteCard
-                      key={entry.id}
-                      entry={entry}
-                      userVote={votes[voterName]?.[entry.id]}
-                      onRatingChange={handleRatingChange}
-                      onCommentChange={handleCommentChange}
-                      onAllergenClick={handleAllergenClick}
-                      disabled={!voterName}
-                    />
-                  ))}
+              const filteredEntries = hideCompletedVotes
+                ? contestEntries.filter(entry =>
+                    !userVotes[entry.id] || !isVoteComplete(userVotes[entry.id])
+                  )
+                : contestEntries;
+
+              return filteredEntries.length > 0;
+            });
+
+            // Show message if all entries are filtered out
+            if (hideCompletedVotes && !hasVisibleEntries) {
+              return (
+                <div className="text-center py-12 bg-white rounded-xl shadow-lg">
+                  <div className="text-4xl mb-4">🎉</div>
+                  <p className="text-gray-700 text-xl font-semibold mb-2">
+                    All done! You've voted on all entries.
+                  </p>
+                  <p className="text-gray-500 mb-4">
+                    Click "Show All Entries" to review your votes.
+                  </p>
                 </div>
-              </div>
-            );
-          })}
+              );
+            }
+
+            return Object.entries(CONTEST_TYPES).map(([contestType, { name, emoji }]) => {
+              const contestEntries = entries.filter(entry => entry.contest_type === contestType as ContestType);
+              if (contestEntries.length === 0) return null;
+
+              // Filter out completed votes if hide toggle is enabled
+              const filteredEntries = hideCompletedVotes
+                ? contestEntries.filter(entry =>
+                    !userVotes[entry.id] || !isVoteComplete(userVotes[entry.id])
+                  )
+                : contestEntries;
+
+              // Don't render section if all entries are filtered out
+              if (filteredEntries.length === 0) return null;
+
+              return (
+                <div key={contestType}>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span className="text-3xl">{emoji}</span>
+                    {name}
+                    {hideCompletedVotes && (
+                      <span className="text-sm font-normal text-gray-600">
+                        ({filteredEntries.length} of {contestEntries.length} shown)
+                      </span>
+                    )}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredEntries.map((entry) => (
+                      <VoteCard
+                        key={entry.id}
+                        entry={entry}
+                        userVote={votes[voterName]?.[entry.id]}
+                        onRatingChange={handleRatingChange}
+                        onCommentChange={handleCommentChange}
+                        onAllergenClick={handleAllergenClick}
+                        disabled={!voterName}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 

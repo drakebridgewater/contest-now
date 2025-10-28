@@ -91,13 +91,57 @@ const VoterNameForm: React.FC<VoterNameFormProps> = ({
             title="How to Vote"
             icon="⭐"
             variant="info"
-            instructions={[
-              "Rate each entry on appearance (1-5 stars)",
-              "Rate texture/consistency (1-5 stars)",
-              "Rate flavor and taste (1-5 stars)",
-              "All three ratings are required to submit",
-              "Add optional comments to share feedback",
-              "You can update your votes anytime"
+            sections={[
+              {
+                title: "Quick Start",
+                icon: "🚀",
+                defaultExpanded: true,
+                instructions: [
+                  "Rate each entry on appearance, texture, and flavor (1-5 stars)",
+                  "All three ratings are required to submit your vote",
+                  "Add optional comments to share feedback",
+                  "You can update your votes anytime"
+                ]
+              },
+              {
+                title: "Appearance Rating Guide",
+                icon: "👁️",
+                collapsible: true,
+                defaultExpanded: false,
+                instructions: [
+                  "⭐⭐⭐⭐⭐ Visually stunning, professional presentation",
+                  "⭐⭐⭐⭐ Attractive and well-presented, minor imperfections",
+                  "⭐⭐⭐ Average presentation, some noticeable flaws",
+                  "⭐⭐ Unattractive appearance, several visual issues",
+                  "⭐ Messy or poorly presented"
+                ]
+              },
+              {
+                title: "Texture Rating Guide",
+                icon: "✋",
+                collapsible: true,
+                defaultExpanded: false,
+                instructions: [
+                  "⭐⭐⭐⭐⭐ Perfect texture (moist cake, crisp cookie, smooth drink)",
+                  "⭐⭐⭐⭐ Very good texture, slight deviation from ideal",
+                  "⭐⭐⭐ Average texture, not unpleasant but not outstanding",
+                  "⭐⭐ Somewhat undesirable (dry, tough, gummy, grainy)",
+                  "⭐ Very unpleasant or unexpected texture"
+                ]
+              },
+              {
+                title: "Flavor Rating Guide",
+                icon: "👅",
+                collapsible: true,
+                defaultExpanded: false,
+                instructions: [
+                  "⭐⭐⭐⭐⭐ Outstanding flavor, well-balanced, delicious",
+                  "⭐⭐⭐⭐ Very good flavor, enjoyable and tasty",
+                  "⭐⭐⭐ Average flavor, not bad but not memorable",
+                  "⭐⭐ Somewhat undesirable or off-putting taste",
+                  "⭐ Unpleasant or inedible flavor"
+                ]
+              }
             ]}
           />
         </div>
