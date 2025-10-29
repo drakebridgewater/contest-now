@@ -1,24 +1,27 @@
 import {Allergen, ContestType, DietaryRestriction} from '@/types';
 
 export const ALLERGENS: Allergen[] = [
+  {id: 'alcohol', label: 'Alcohol', emoji: '🍷'},
+  {id: 'chocolate', label: 'Chocolate', emoji: '🍫'},
   {
     id: 'nuts-seeds',
     label: 'Nuts & Seeds',
     emoji: '🥜',
     children: [
-      {id: 'peanuts', label: 'Peanuts', emoji: '🥜'},
-      {id: 'almonds', label: 'Almonds', emoji: '🌰'},
-      {id: 'cashews', label: 'Cashews', emoji: '🥜'},
-      {id: 'walnuts', label: 'Walnuts', emoji: '🌰'},
-      {id: 'pecans', label: 'Pecans', emoji: '🌰'},
-      {id: 'pistachios', label: 'Pistachios', emoji: '🥜'},
-      {id: 'hazelnuts', label: 'Hazelnuts', emoji: '🌰'},
-      {id: 'brazil-nuts', label: 'Brazil Nuts', emoji: '🌰'},
-      {id: 'sesame', label: 'Sesame Seeds', emoji: '🌰'},
       {id: 'sunflower-seeds', label: 'Sunflower Seeds', emoji: '🌻'},
       {id: 'pumpkin-seeds', label: 'Pumpkin Seeds', emoji: '🎃'},
+      // {id: 'almonds', label: 'Almonds', emoji: '🌰'},
+      {id: 'cashews', label: 'Cashews', emoji: '🥜'},
+      // {id: 'walnuts', label: 'Walnuts', emoji: '🌰'},
+      // {id: 'pecans', label: 'Pecans', emoji: '🌰'},
+      {id: 'pistachios', label: 'Pistachios', emoji: '🥜'},
+      // {id: 'hazelnuts', label: 'Hazelnuts', emoji: '🌰'},
+      // {id: 'brazil-nuts', label: 'Brazil Nuts', emoji: '🌰'},
+      // {id: 'sesame', label: 'Sesame Seeds', emoji: '🌰'},
+      {id: 'peanuts', label: 'Peanuts', emoji: '🥜'},
     ],
   },
+  {id: 'chamomile', label: 'Chamomile', emoji: '🌼'},
   {
     id: 'fruits',
     label: 'Fruits',
@@ -32,15 +35,11 @@ export const ALLERGENS: Allergen[] = [
       // {id: 'pineapple', label: 'Pineapple', emoji: '🍍'},
       {id: 'grapefruit', label: 'Grapefruit', emoji: '🍊'},
       // { id: 'grapes', label: 'Grapes', emoji: '🍇' },
-      {id: 'berries', label: 'Other Berries', emoji: '🫐'},
+      // {id: 'berries', label: 'Other Berries', emoji: '🫐'},
       {id: 'coconut', label: 'Coconut', emoji: '🥥'},
       {id: 'avocado', label: 'Avocado', emoji: '🥑'},
     ],
   },
-  {id: 'dairy', label: 'Dairy', emoji: '🥛'},
-  {id: 'eggs', label: 'Eggs', emoji: '🥚'},
-  {id: 'gluten', label: 'Gluten/Wheat', emoji: '🌾'},
-  {id: 'soy', label: 'Soy', emoji: '🌱'},
   {
     id: 'seafood',
     label: 'Seafood',
@@ -51,8 +50,10 @@ export const ALLERGENS: Allergen[] = [
       {id: 'mollusks', label: 'Mollusks (Oysters, Clams, Mussels)', emoji: '🦪'},
     ],
   },
-  {id: 'alcohol', label: 'Alcohol', emoji: '🍷'},
-  {id: 'mustard', label: 'Mustard', emoji: '🌭'},
+  {id: 'dairy', label: 'Dairy', emoji: '🥛'},
+  {id: 'eggs', label: 'Eggs', emoji: '🥚'},
+  {id: 'gluten', label: 'Gluten/Wheat', emoji: '🌾'},
+  {id: 'soy', label: 'Soy', emoji: '🌱'},
 ];
 
 export const DIETARY_RESTRICTIONS: DietaryRestriction[] = [
@@ -67,12 +68,6 @@ export const DIETARY_RESTRICTIONS: DietaryRestriction[] = [
     label: 'Vegetarian',
     emoji: '🥬',
     description: 'No meat or fish, but may contain dairy and eggs',
-  },
-  {
-    id: 'pescatarian',
-    label: 'Pescatarian',
-    emoji: '🐟',
-    description: 'No meat, but fish and seafood are okay',
   },
   {
     id: 'gluten-free',
@@ -97,18 +92,6 @@ export const DIETARY_RESTRICTIONS: DietaryRestriction[] = [
     label: 'Paleo',
     emoji: '🦕',
     description: 'No processed foods, grains, legumes, or refined sugar',
-  },
-  {
-    id: 'sugar-free',
-    label: 'Sugar-Free',
-    emoji: '🚫🍯',
-    description: 'No added sugars or sweeteners',
-  },
-  {
-    id: 'low-sodium',
-    label: 'Low Sodium',
-    emoji: '🧂',
-    description: 'Reduced salt content',
   },
 ];
 

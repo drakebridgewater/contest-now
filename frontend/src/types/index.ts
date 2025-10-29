@@ -106,4 +106,4 @@ export interface AllergenPopupData {
   allergens: string[];
 }
 
-export type PageType = 'submit' | 'vote' | 'results';
+export type PageType = 'submit' | 'vote' | 'results' | 'test';

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,8 +24,8 @@ const Modal: React.FC<ModalProps> = ({
     lg: 'max-w-2xl',
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+  const modalContent = (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
       {/* Backdrop - click to close */}
       <div
         className="absolute inset-0"
@@ -35,6 +36,7 @@ const Modal: React.FC<ModalProps> = ({
       <div
         className={`relative bg-white rounded-lg p-6 ${sizeClasses[size]} w-full shadow-xl transform transition-all`}
         onClick={(e) => e.stopPropagation()}
+        style={{ zIndex: 10000 }}
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-800">{title}</h3>
@@ -50,6 +52,8 @@ const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default Modal;

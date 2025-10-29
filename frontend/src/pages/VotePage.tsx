@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ImageIcon } from 'lucide-react';
 import { Entry, VotesByVoter, AllergenPopupData, ContestType } from '@/types';
 import { VoterNameForm, VoteCard, AllergenModal } from '@/components/voting';
-import { Button, MenuBar, AlertDialog } from '@/components/common';
+import { MenuBar, AlertDialog } from '@/components/common';
 import { CONTEST_TYPES } from '@/utils/constants';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { voteService } from '@/services/api';

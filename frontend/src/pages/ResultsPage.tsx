@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { EntryResult, VoterInfo, ContestType } from '@/types';
 import { PasswordForm, ResultCard, VoterManagement } from '@/components/results';
-import { Button, MenuBar, ConfirmDialog, AlertDialog, LoadingSpinner } from '@/components/common';
+import { MenuBar, ConfirmDialog, AlertDialog, LoadingSpinner } from '@/components/common';
 import { RESULTS_PASSWORD, CONTEST_TYPES } from '@/utils/constants';
 import { entryService, voterService } from '@/services/api';
 

@@ -100,23 +100,23 @@ const EntryForm: React.FC<EntryFormProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
-          label="Entry Name"
-          value={formData.entry_name}
-          onChange={(e) => handleInputChange('entry_name', e.target.value)}
-          placeholder="e.g., Sunset Paradise"
-          required
-          disabled={loading}
-          error={errors.entry_name}
-        />
-
-        <Input
-          label="Contestant Name"
+          label="Your Name"
           value={formData.contestant_name}
           onChange={(e) => handleInputChange('contestant_name', e.target.value)}
           placeholder="Your name"
           required
           disabled={loading}
           error={errors.contestant_name}
+        />
+
+        <Input
+          label="Contest Entry Name"
+          value={formData.entry_name}
+          onChange={(e) => handleInputChange('entry_name', e.target.value)}
+          placeholder="e.g., Santa's Sunset Paradise"
+          required
+          disabled={loading}
+          error={errors.entry_name}
         />
 
         <div>
