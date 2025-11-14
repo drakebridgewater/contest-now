@@ -94,9 +94,9 @@ const EntryForm: React.FC<EntryFormProps> = ({
 
   return (
     <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        Submit PDXmas Contest Entry
-      </h2>
+      {/*<h2 className="text-2xl font-bold text-gray-800 mb-6">*/}
+      {/*  Submit PDXmas Contest Entry*/}
+      {/*</h2>*/}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
