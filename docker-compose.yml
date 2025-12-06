@@ -17,12 +17,13 @@ services:
       - pdxmas-network
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_RESULTS_PASSWORD=pdxmas2025
     container_name: pdxmas-frontend
     ports:
       - "3099:80"
-    environment:
-      - REACT_APP_RESULTS_PASSWORD=pdxmas2025
 #    depends_on:
 #      backend:
 #        condition: service_healthy
