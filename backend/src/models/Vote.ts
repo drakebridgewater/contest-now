@@ -2,6 +2,7 @@ import { database } from './database';
 import { Vote, CreateVoteRequest, VotesByVoter, VoterInfo } from '@/types';
 import { NotFoundError, InternalServerError } from '@/utils/errors';
 import logger from '@/utils/logger';
+import { normalizeVoterName } from '@/utils/validation';
 
 export class VoteModel {
   public async findByVoter(voterName: string): Promise<VotesByVoter> {
@@ -98,6 +99,48 @@ export class VoteModel {
     } catch (error) {
       logger.error('Error fetching voters:', error);
       throw new InternalServerError('Failed to fetch voters');
+    }
+  }
+
+  public async updateVoterName(oldVoterName: string, newVoterName: string): Promise<number> {
+    try {
+      const normalizedOldName = normalizeVoterName(oldVoterName);
+      const normalizedNewName = normalizeVoterName(newVoterName);
+
+      // Check if old voter exists
+      const voteCount = await database.get<{ count: number }>(
+        'SELECT COUNT(*) as count FROM votes WHERE voter_name = ?',
+        [normalizedOldName]
+      );
+
+      if (!voteCount || voteCount.count === 0) {
+        logger.error(`Voter '${normalizedOldName}' not found for update`);
+        throw new NotFoundError('Voter not found');
+      }
+
+      // Check if new voter name already exists
+      const existingCount = await database.get<{ count: number }>(
+        'SELECT COUNT(*) as count FROM votes WHERE voter_name = ?',
+        [normalizedNewName]
+      );
+
+      if (existingCount && existingCount.count > 0) {
+        throw new Error('A voter with that name already exists');
+      }
+
+      // Update all votes for this voter
+      const result = await database.run(
+        'UPDATE votes SET voter_name = ?, updated_at = CURRENT_TIMESTAMP WHERE voter_name = ?',
+        [normalizedNewName, normalizedOldName]
+      );
+
+      return result.changes || 0;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      logger.error('Error updating voter name:', error);
+      throw new InternalServerError('Failed to update voter name');
     }
   }
 

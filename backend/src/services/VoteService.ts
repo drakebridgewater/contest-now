@@ -1,9 +1,11 @@
 import { voteModel } from '@/models/Vote';
 import { CreateVoteRequest, Vote, VotesByVoter, VoterInfo } from '@/types';
+import { normalizeVoterName } from '@/utils/validation';
 
 export class VoteService {
   public async getVotesByVoter(voterName: string): Promise<VotesByVoter> {
-    return voteModel.findByVoter(voterName);
+    const normalizedVoterName = normalizeVoterName(voterName);
+    return voteModel.findByVoter(normalizedVoterName);
   }
 
   public async submitVote(voteData: CreateVoteRequest): Promise<Vote> {
@@ -18,8 +20,13 @@ export class VoteService {
     return voteModel.getVoters();
   }
 
+  public async updateVoterName(oldVoterName: string, newVoterName: string): Promise<number> {
+    return voteModel.updateVoterName(oldVoterName, newVoterName);
+  }
+
   public async deleteVoter(voterName: string): Promise<number> {
-    return voteModel.deleteVoter(voterName);
+    const normalizedVoterName = normalizeVoterName(voterName);
+    return voteModel.deleteVoter(normalizedVoterName);
   }
 }
 

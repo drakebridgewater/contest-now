@@ -1,8 +1,8 @@
 # Backend Dockerfile for TypeScript
 FROM node:18-alpine AS builder
 
-# Install build dependencies for native modules
-RUN apk add --no-cache sqlite python3 make g++
+# Update package index and install build dependencies for native modules
+RUN apk update && apk add --no-cache sqlite python3 make gcc g++ musl-dev
 
 # Set working directory
 WORKDIR /app
@@ -23,8 +23,8 @@ RUN npm run build
 # Production stage
 FROM node:18-alpine AS production
 
-# Install SQLite, python, make and g++ for native modules
-RUN apk add --no-cache sqlite python3 make g++ curl
+# Update package index and install SQLite, python, make and g++ for native modules
+RUN apk update && apk add --no-cache sqlite python3 make gcc g++ musl-dev curl
 
 # Set working directory
 WORKDIR /app
