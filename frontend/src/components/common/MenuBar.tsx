@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from './';
 
 interface MenuBarProps {
@@ -14,6 +15,8 @@ interface MenuBarProps {
     text: string;
     variant: 'info' | 'success' | 'warning' | 'error';
   };
+  currentUser?: string;
+  showNavigation?: boolean;
 }
 
 const MenuBar: React.FC<MenuBarProps> = ({
@@ -21,7 +24,10 @@ const MenuBar: React.FC<MenuBarProps> = ({
   subtitle,
   actions = [],
   status,
+  currentUser,
+  showNavigation = false,
 }) => {
+  const location = useLocation();
   const getStatusClasses = (variant: string) => {
     switch (variant) {
       case 'success': return 'bg-green-100 text-green-800';
@@ -31,8 +37,44 @@ const MenuBar: React.FC<MenuBarProps> = ({
     }
   };
 
+  const isManagePage = location.pathname === '/manage';
+  const isHomePage = location.pathname === '/';
+
   return (
     <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      {/* Global Navigation */}
+      {showNavigation && (
+        <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-3">
+          <div className="flex items-center space-x-6">
+            <Link
+              to="/"
+              className={`text-sm font-medium transition-colors ${
+                isHomePage ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              🏠 Contest Selection
+            </Link>
+            <Link
+              to="/manage"
+              className={`text-sm font-medium transition-colors ${
+                isManagePage ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              🎯 Manage
+            </Link>
+          </div>
+
+          {currentUser && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600">
+                👤 Logged in as: <span className="font-medium text-gray-800">{currentUser}</span>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">

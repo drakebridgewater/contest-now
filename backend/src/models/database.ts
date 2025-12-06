@@ -5,6 +5,7 @@ import fs from 'fs';
 import { config } from '@/config';
 import logger from '@/utils/logger';
 import { InternalServerError } from '@/utils/errors';
+import { MigrationRunner } from '@/utils/migration';
 
 export class Database {
   private db: sqlite3.Database | null = null;
@@ -60,7 +61,7 @@ export class Database {
         } else {
           logger.info('Connected to SQLite database');
           this.isReady = true;
-          this.createTables();
+          this.initializeDatabaseSchema();
         }
       });
     } catch (error) {
@@ -69,22 +70,64 @@ export class Database {
     }
   }
 
-  private async createTables(): Promise<void> {
+  private async initializeDatabaseSchema(): Promise<void> {
+    if (!this.db) return;
+
+    try {
+      // Create modern tables directly (migrations were for development only)
+      await this.createModernTables();
+
+      logger.info('Database schema initialized successfully');
+    } catch (error) {
+      logger.error('Error initializing database schema:', error);
+      throw new InternalServerError('Failed to initialize database schema');
+    }
+  }
+
+  private async createModernTables(): Promise<void> {
     if (!this.db) return;
 
     const runAsync = promisify(this.db.run.bind(this.db));
 
     try {
-      // Create entries table
+      // Create events table
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_name TEXT NOT NULL,
+          event_date TEXT NOT NULL,
+          description TEXT,
+          is_active INTEGER DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create modern contests table with UUID and expanded contest types
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS contests (
+          id TEXT PRIMARY KEY,
+          event_id INTEGER NOT NULL,
+          contest_name TEXT NOT NULL,
+          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer', 'other')),
+          description TEXT,
+          is_active INTEGER DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Create modern entries table with contest_id as UUID
       await runAsync(`
         CREATE TABLE IF NOT EXISTS entries (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           entry_name TEXT NOT NULL,
           contestant_name TEXT NOT NULL,
-          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer')),
+          contest_id TEXT NOT NULL,
+          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer', 'other')),
           photo_path TEXT NOT NULL,
           allergens TEXT DEFAULT '[]',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (contest_id) REFERENCES contests(id) ON DELETE CASCADE
         )
       `);
 
@@ -100,37 +143,84 @@ export class Database {
           comment TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (entry_id) REFERENCES entries(id),
+          FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
           UNIQUE(voter_name, entry_id)
         )
       `);
 
-      // Check if allergens column exists and add it if needed
-      await this.addAllergensColumn();
-
-      logger.info('Database tables created/verified successfully');
+      logger.info('Modern database tables created/verified successfully');
     } catch (error) {
-      logger.error('Error creating database tables:', error);
-      throw new InternalServerError('Failed to initialize database tables');
+      logger.error('Error creating modern database tables:', error);
+      throw error;
     }
   }
 
-  private async addAllergensColumn(): Promise<void> {
+  private async createLegacyTables(): Promise<void> {
     if (!this.db) return;
 
-    const allAsync = promisify(this.db.all.bind(this.db));
     const runAsync = promisify(this.db.run.bind(this.db));
 
     try {
-      const columns = await allAsync('PRAGMA table_info(entries)') as Array<{ name: string }>;
-      const hasAllergensColumn = columns.some(col => col.name === 'allergens');
+      // Create events table (unchanged)
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_name TEXT NOT NULL,
+          event_date TEXT NOT NULL,
+          description TEXT,
+          is_active INTEGER DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
 
-      if (!hasAllergensColumn) {
-        await runAsync(`ALTER TABLE entries ADD COLUMN allergens TEXT DEFAULT '[]'`);
-        logger.info('Added allergens column to entries table');
-      }
+      // Create legacy contests table (will be updated by migration)
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS contests (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id INTEGER NOT NULL,
+          contest_name TEXT NOT NULL,
+          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer')),
+          description TEXT,
+          is_active INTEGER DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Create legacy entries table (will be updated by migration)
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          entry_name TEXT NOT NULL,
+          contestant_name TEXT NOT NULL,
+          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer')),
+          photo_path TEXT NOT NULL,
+          allergens TEXT DEFAULT '[]',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create votes table (unchanged)
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS votes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          voter_name TEXT NOT NULL,
+          entry_id INTEGER NOT NULL,
+          appearance_rating INTEGER NOT NULL CHECK(appearance_rating >= 1 AND appearance_rating <= 5),
+          texture_rating INTEGER NOT NULL CHECK(texture_rating >= 1 AND texture_rating <= 5),
+          flavor_rating INTEGER NOT NULL CHECK(flavor_rating >= 1 AND flavor_rating <= 5),
+          comment TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+          UNIQUE(voter_name, entry_id)
+        )
+      `);
+
+      logger.info('Legacy database tables created/verified successfully');
     } catch (error) {
-      logger.error('Error checking/adding allergens column:', error);
+      logger.error('Error creating legacy database tables:', error);
+      throw error;
     }
   }
 

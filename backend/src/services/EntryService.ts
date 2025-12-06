@@ -7,8 +7,8 @@ import { ValidationError, InternalServerError } from '@/utils/errors';
 import logger from '@/utils/logger';
 
 export class EntryService {
-  public async getAllEntries(): Promise<EntryWithPhoto[]> {
-    return entryModel.findAll();
+  public async getAllEntries(contestId?: string): Promise<EntryWithPhoto[]> {
+    return entryModel.findAll(contestId);
   }
 
   public async createEntry(entryData: CreateEntryRequest): Promise<EntryWithPhoto> {
@@ -65,8 +65,8 @@ export class EntryService {
     }
   }
 
-  public async getResults(): Promise<EntryResult[]> {
-    return entryModel.getResults();
+  public async getResults(contestId?: string): Promise<EntryResult[]> {
+    return entryModel.getResults(contestId);
   }
 }
 

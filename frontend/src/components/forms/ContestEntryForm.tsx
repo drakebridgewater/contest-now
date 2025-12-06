@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CreateEntryRequest, ContestWithEvent } from '@/types';
 import { Button, Input } from '@/components/common';
 import ImageUpload from './ImageUpload';
 import AllergenSelector from './AllergenSelector';
-import { validateBase64Image, formatDate } from '@/utils/helpers';
-import { contestService } from '@/services/api';
+import { validateBase64Image } from '@/utils/helpers';
 
-interface EntryFormProps {
+interface ContestEntryFormProps {
+  contestId: string;
+  contest: ContestWithEvent;
   onSubmit: (entry: CreateEntryRequest) => Promise<void>;
   loading?: boolean;
 }
 
-const EntryForm: React.FC<EntryFormProps> = ({
+const ContestEntryForm: React.FC<ContestEntryFormProps> = ({
+  contestId,
+  contest,
   onSubmit,
   loading = false,
 }) => {
-  const [contests, setContests] = useState<ContestWithEvent[]>([]);
-  const [loadingContests, setLoadingContests] = useState(true);
   const [formData, setFormData] = useState({
     entry_name: '',
     contestant_name: '',
-    contest_id: '',
     photo: null as string | null,
     selectedAllergens: [] as string[],
   });
@@ -28,25 +28,7 @@ const EntryForm: React.FC<EntryFormProps> = ({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    const loadContests = async () => {
-      try {
-        const activeContests = await contestService.getActive();
-        setContests(activeContests);
-        // Auto-select first contest if available
-        if (activeContests.length > 0 && formData.contest_id === '') {
-          setFormData(prev => ({ ...prev, contest_id: activeContests[0].id }));
-        }
-      } catch (error) {
-        console.error('Error loading contests:', error);
-      } finally {
-        setLoadingContests(false);
-      }
-    };
-    loadContests();
-  }, []);
-
-  const validateForm = (): boolean  => {
+  const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.entry_name.trim()) {
@@ -75,7 +57,7 @@ const EntryForm: React.FC<EntryFormProps> = ({
     const entryData: CreateEntryRequest = {
       entry_name: formData.entry_name.trim(),
       contestant_name: formData.contestant_name.trim(),
-      contest_id: formData.contest_id,
+      contest_id: contestId,
       photo: formData.photo,
       allergens: formData.selectedAllergens.length > 0 ? formData.selectedAllergens : undefined,
     };
@@ -83,11 +65,10 @@ const EntryForm: React.FC<EntryFormProps> = ({
     try {
       await onSubmit(entryData);
 
-      // Reset form on success - reset to first contest
+      // Reset form on success
       setFormData({
         entry_name: '',
         contestant_name: '',
-        contest_id: contests.length > 0 ? contests[0].id : '',
         photo: null,
         selectedAllergens: [],
       });
@@ -103,8 +84,13 @@ const EntryForm: React.FC<EntryFormProps> = ({
       case 'dessert': return '🍰';
       case 'cocktail': return '🍹';
       case 'appetizer': return '🥗';
+      case 'other': return '🏆';
       default: return '🎯';
     }
+  };
+
+  const isConsumableContest = (contestType: string) => {
+    return ['dessert', 'cocktail', 'appetizer'].includes(contestType);
   };
 
   const handlePhotoChange = (photo: string) => {
@@ -122,30 +108,20 @@ const EntryForm: React.FC<EntryFormProps> = ({
     }
   };
 
-  if (loadingContests) {
-    return (
-      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8">
-        <div className="text-center text-gray-600">Loading contests...</div>
-      </div>
-    );
-  }
-
-  if (contests.length === 0) {
-    return (
-      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">No Active Contests</h2>
-          <p className="text-gray-600">There are no active contests at the moment. Please check back later!</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        Submit Contest Entry
-      </h2>
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
+          <span className="text-3xl">{getContestEmoji(contest.contest_type)}</span>
+          Submit to {contest.contest_name}
+        </h2>
+        <p className="text-gray-600">
+          {contest.event_name}
+        </p>
+        {contest.description && (
+          <p className="text-gray-500 text-sm mt-2">{contest.description}</p>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
@@ -162,46 +138,22 @@ const EntryForm: React.FC<EntryFormProps> = ({
           label="Contest Entry Name"
           value={formData.entry_name}
           onChange={(e) => handleInputChange('entry_name', e.target.value)}
-          placeholder="e.g., Santa's Sunset Paradise"
+          placeholder={`e.g., ${contest.contest_type === 'dessert' ? 'Santa\'s Sunset Paradise' :
+                            contest.contest_type === 'cocktail' ? 'Holiday Eggnog Martini' :
+                            contest.contest_type === 'appetizer' ? 'Festive Cheese Board' :
+                            'My Amazing Entry'}`}
           required
           disabled={loading}
           error={errors.entry_name}
         />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Select Contest *
-          </label>
-          <select
-            value={formData.contest_id}
-            onChange={(e) => handleInputChange('contest_id', e.target.value)}
+        {isConsumableContest(contest.contest_type) && (
+          <AllergenSelector
+            selectedAllergens={formData.selectedAllergens}
+            onChange={(allergens) => setFormData(prev => ({ ...prev, selectedAllergens: allergens }))}
             disabled={loading}
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-              errors.contest_id ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            <option value="">-- Select a contest --</option>
-            {contests.map((contest) => (
-              <option key={contest.id} value={contest.id}>
-                {getContestEmoji(contest.contest_type)} {contest.contest_name} - {contest.event_name} ({formatDate(contest.event_date)})
-              </option>
-            ))}
-          </select>
-          {errors.contest_id && (
-            <p className="text-sm text-red-600 mt-1">{errors.contest_id}</p>
-          )}
-          {formData.contest_id && (
-            <p className="text-sm text-gray-600 mt-2">
-              {contests.find(c => c.id === formData.contest_id)?.description}
-            </p>
-          )}
-        </div>
-
-        <AllergenSelector
-          selectedAllergens={formData.selectedAllergens}
-          onChange={(allergens) => setFormData(prev => ({ ...prev, selectedAllergens: allergens }))}
-          disabled={loading}
-        />
+          />
+        )}
 
         <ImageUpload
           onChange={handlePhotoChange}
@@ -214,15 +166,15 @@ const EntryForm: React.FC<EntryFormProps> = ({
 
         <Button
           type="submit"
-          disabled={loading || loadingContests}
+          disabled={loading}
           loading={loading}
           className="w-full py-3 shadow-lg"
         >
-          {loading ? '🎄 Submitting...' : '🎁 Submit Your Entry'}
+          {loading ? '🎄 Submitting...' : `🎁 Submit to ${contest.contest_name}`}
         </Button>
       </form>
     </div>
   );
 };
 
-export default EntryForm;
+export default ContestEntryForm;

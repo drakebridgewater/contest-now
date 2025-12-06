@@ -20,8 +20,15 @@ export const getAllergenById = (id: string) => {
   return null;
 };
 
-export const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString();
+export const formatDate = (dateString: string, options?: Intl.DateTimeFormatOptions): string => {
+  // For date-only strings (YYYY-MM-DD), parse components to avoid timezone conversion issues
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    // Create date with local timezone to avoid off-by-one errors
+    return new Date(year, month - 1, day).toLocaleDateString(undefined, options);
+  }
+  // For datetime strings, use regular parsing
+  return new Date(dateString).toLocaleDateString(undefined, options);
 };
 
 export const formatDateTime = (dateString: string): string => {

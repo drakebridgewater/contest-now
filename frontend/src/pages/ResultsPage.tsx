@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { EntryResult, VoterInfo, ContestType } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { EntryResult, VoterInfo, ContestWithEvent } from '@/types';
 import { PasswordForm, ResultCard, VoterManagement } from '@/components/results';
 import { MenuBar, ConfirmDialog, AlertDialog, LoadingSpinner } from '@/components/common';
-import { RESULTS_PASSWORD, CONTEST_TYPES } from '@/utils/constants';
-import { entryService, voterService } from '@/services/api';
+import { RESULTS_PASSWORD } from '@/utils/constants';
+import { entryService, voterService, contestService } from '@/services/api';
 
 const ResultsPage: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [resultsData, setResultsData] = useState<EntryResult[]>([]);
   const [votersData, setVotersData] = useState<VoterInfo[]>([]);
-  const [activeTab, setActiveTab] = useState<ContestType | 'voters'>('appetizer');
+  const [contests, setContests] = useState<ContestWithEvent[]>([]);
+  const [selectedContestId, setSelectedContestId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'results' | 'voters'>('results');
   const [loading, setLoading] = useState(false);
 
   // Dialog states
@@ -47,11 +49,32 @@ const ResultsPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (isAuthorized) {
+      loadContests();
+    }
+  }, [isAuthorized]);
+
+  useEffect(() => {
+    if (isAuthorized) {
+      loadData();
+    }
+  }, [selectedContestId, isAuthorized]);
+
+  const loadContests = async () => {
+    try {
+      const activeContests = await contestService.getActive();
+      setContests(activeContests);
+    } catch (error) {
+      console.error('Error loading contests:', error);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
       const [results, voters] = await Promise.all([
-        entryService.getResults(),
+        entryService.getResults(selectedContestId || undefined),
         voterService.getAll(),
       ]);
       setResultsData(results);
@@ -131,21 +154,23 @@ const ResultsPage: React.FC = () => {
     setVotersData([]);
   };
 
+  const getContestEmoji = (contestType: string) => {
+    switch (contestType) {
+      case 'dessert': return '🍰';
+      case 'cocktail': return '🍹';
+      case 'appetizer': return '🥗';
+      default: return '🎯';
+    }
+  };
+
   if (!isAuthorized) {
     return <PasswordForm onSubmit={handlePasswordSubmit} />;
   }
 
-  const contestTabs = [
-    { id: 'appetizer', name: '🥗 Appetizers', emoji: '🥗' },
-    { id: 'cocktail', name: '🍹 Cocktails', emoji: '🍹' },
-    { id: 'dessert', name: '🍰 Desserts', emoji: '🍰' },
-    { id: 'voters', name: '👥 Voters', emoji: '👥' },
-  ] as const;
-
   return (
     <div>
       <MenuBar
-        title="🎄 PDXmas Contest Results"
+        title="🎄 Contest Results"
         subtitle="Admin controls are enabled. You can delete entries permanently."
         status={{
           text: "🛡️ Admin Mode",
@@ -161,23 +186,51 @@ const ResultsPage: React.FC = () => {
         ]}
       />
 
+      {/* Contest Filter */}
+      {contests.length > 1 && (
+        <div className="mb-6 bg-white rounded-xl shadow-lg p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Filter by Contest:
+          </label>
+          <select
+            value={selectedContestId || ''}
+            onChange={(e) => setSelectedContestId(e.target.value ? e.target.value : null)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="">All Contests</option>
+            {contests.map((contest) => (
+              <option key={contest.id} value={contest.id}>
+                {getContestEmoji(contest.contest_type)} {contest.contest_name} - {contest.event_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="bg-white rounded-lg shadow-md mb-6">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
-            {contestTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as ContestType | 'voters')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-red-500 text-red-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {tab.name}
-              </button>
-            ))}
+            <button
+              onClick={() => setActiveTab('results')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'results'
+                  ? 'border-red-500 text-red-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🏆 Results
+            </button>
+            <button
+              onClick={() => setActiveTab('voters')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'voters'
+                  ? 'border-red-500 text-red-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              👥 Voters
+            </button>
           </nav>
         </div>
       </div>
@@ -197,30 +250,55 @@ const ResultsPage: React.FC = () => {
       ) : (
         <div>
           {(() => {
-            const contestResults = resultsData.filter(entry => entry.contest_type === activeTab);
-
-            if (contestResults.length === 0) {
+            if (resultsData.length === 0) {
               return (
                 <div className="text-center py-12 bg-white rounded-xl shadow-lg">
                   <p className="text-gray-600 text-lg">
-                    No {CONTEST_TYPES[activeTab as ContestType]?.name} entries yet
+                    No entries yet
                   </p>
                   <p className="text-gray-400">Entries will appear here once submitted!</p>
                 </div>
               );
             }
 
+            // Group by contest
+            const resultsByContest: { [contestId: string]: EntryResult[] } = {};
+            resultsData.forEach(entry => {
+              if (!resultsByContest[entry.contest_id]) {
+                resultsByContest[entry.contest_id] = [];
+              }
+              resultsByContest[entry.contest_id].push(entry);
+            });
+
             return (
-              <div className="space-y-6">
-                {contestResults.map((entry, index) => (
-                  <ResultCard
-                    key={entry.id}
-                    entry={entry}
-                    rank={index + 1}
-                    onDelete={handleDeleteEntry}
-                    showAdminControls={true}
-                  />
-                ))}
+              <div className="space-y-8">
+                {Object.entries(resultsByContest).map(([contestIdStr, contestResults]) => {
+                  const contest = contests.find(c => c.id === contestIdStr);
+                  const contestEmoji = getContestEmoji(contest?.contest_type || '');
+
+                  return (
+                    <div key={contestIdStr}>
+                      <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <span className="text-3xl">{contestEmoji}</span>
+                        {contest?.contest_name || 'Unknown Contest'}
+                        <span className="text-sm font-normal text-gray-600">
+                          - {contest?.event_name}
+                        </span>
+                      </h3>
+                      <div className="space-y-6">
+                        {contestResults.map((entry, index) => (
+                          <ResultCard
+                            key={entry.id}
+                            entry={entry}
+                            rank={index + 1}
+                            onDelete={handleDeleteEntry}
+                            showAdminControls={true}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}

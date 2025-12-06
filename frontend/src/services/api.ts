@@ -1,5 +1,10 @@
 import axios from 'axios';
 import {
+  Event,
+  CreateEventRequest,
+  Contest,
+  ContestWithEvent,
+  CreateContestRequest,
   Entry,
   CreateEntryRequest,
   Vote,
@@ -31,9 +36,100 @@ api.interceptors.response.use(
   }
 );
 
+export const eventService = {
+  async getAll(): Promise<Event[]> {
+    const response = await api.get<ApiResponse<Event[]>>('/events');
+    return response.data.data || [];
+  },
+
+  async getActive(): Promise<Event[]> {
+    const response = await api.get<ApiResponse<Event[]>>('/events/active');
+    return response.data.data || [];
+  },
+
+  async getById(id: number): Promise<Event> {
+    const response = await api.get<ApiResponse<Event>>(`/events/${id}`);
+    if (!response.data.data) {
+      throw new Error('Event not found');
+    }
+    return response.data.data;
+  },
+
+  async create(eventData: CreateEventRequest): Promise<Event> {
+    const response = await api.post<ApiResponse<Event>>('/events', eventData);
+    if (!response.data.data) {
+      throw new Error(response.data.error || 'Failed to create event');
+    }
+    return response.data.data;
+  },
+
+  async update(id: number, eventData: Partial<CreateEventRequest>): Promise<Event> {
+    const response = await api.put<ApiResponse<Event>>(`/events/${id}`, eventData);
+    if (!response.data.data) {
+      throw new Error(response.data.error || 'Failed to update event');
+    }
+    return response.data.data;
+  },
+
+  async delete(id: number): Promise<void> {
+    await api.delete(`/events/${id}`);
+  },
+};
+
+export const contestService = {
+  async getAll(): Promise<ContestWithEvent[]> {
+    const response = await api.get<ApiResponse<ContestWithEvent[]>>('/contests');
+    return response.data.data || [];
+  },
+
+  async getActive(): Promise<ContestWithEvent[]> {
+    const response = await api.get<ApiResponse<ContestWithEvent[]>>('/contests/active');
+    return response.data.data || [];
+  },
+
+  async getById(id: string): Promise<ContestWithEvent> {
+    const response = await api.get<ApiResponse<ContestWithEvent>>(`/contests/${id}`);
+    if (!response.data.data) {
+      throw new Error('Contest not found');
+    }
+    return response.data.data;
+  },
+
+  async getByEventId(eventId: number): Promise<ContestWithEvent[]> {
+    const response = await api.get<ApiResponse<ContestWithEvent[]>>(`/contests/event/${eventId}`);
+    return response.data.data || [];
+  },
+
+  async create(contestData: CreateContestRequest): Promise<ContestWithEvent> {
+    const response = await api.post<ApiResponse<ContestWithEvent>>('/contests', contestData);
+    if (!response.data.data) {
+      throw new Error(response.data.error || 'Failed to create contest');
+    }
+    return response.data.data;
+  },
+
+  async update(id: string, contestData: Partial<CreateContestRequest>): Promise<ContestWithEvent> {
+    const response = await api.put<ApiResponse<ContestWithEvent>>(`/contests/${id}`, contestData);
+    if (!response.data.data) {
+      throw new Error(response.data.error || 'Failed to update contest');
+    }
+    return response.data.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await api.delete(`/contests/${id}`);
+  },
+};
+
 export const entryService = {
-  async getAll(): Promise<Entry[]> {
-    const response = await api.get<ApiResponse<Entry[]>>('/entries');
+  async getAll(contestId?: string): Promise<Entry[]> {
+    const url = contestId ? `/entries?contestId=${contestId}` : '/entries';
+    const response = await api.get<ApiResponse<Entry[]>>(url);
+    return response.data.data || [];
+  },
+
+  async getByContest(contestId: string): Promise<Entry[]> {
+    const response = await api.get<ApiResponse<Entry[]>>(`/entries?contestId=${contestId}`);
     return response.data.data || [];
   },
 
@@ -61,8 +157,9 @@ export const entryService = {
     await api.delete(`/entries/${id}`);
   },
 
-  async getResults(): Promise<EntryResult[]> {
-    const response = await api.get<ApiResponse<EntryResult[]>>('/results');
+  async getResults(contestId?: string): Promise<EntryResult[]> {
+    const url = contestId ? `/results?contestId=${contestId}` : '/results';
+    const response = await api.get<ApiResponse<EntryResult[]>>(url);
     return response.data.data || [];
   },
 };

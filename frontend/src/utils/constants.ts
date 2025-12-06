@@ -94,11 +94,11 @@ export const DIETARY_RESTRICTIONS: DietaryRestriction[] = [
     description: 'No processed foods, grains, legumes, or refined sugar',
   },
 ];
-
 export const CONTEST_TYPES: Record<ContestType, {name: string; emoji: string}> = {
   dessert: {name: 'Dessert Contest', emoji: '🍰'},
   cocktail: {name: 'Cocktail Contest', emoji: '🍹'},
   appetizer: {name: 'Appetizer Contest', emoji: '🥗'},
+  other: {name: 'Other Contests', emoji: '🎯'},
 };
 
 export const RESULTS_PASSWORD = 'pdxmas2025';

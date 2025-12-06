@@ -5,8 +5,9 @@ import { ApiResponse } from '@/types';
 import { asyncHandler } from '@/middleware/errorHandler';
 
 export class EntryController {
-  public getEntries = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
-    const entries = await entryService.getAllEntries();
+  public getEntries = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const contestId = req.query.contestId as string | undefined;
+    const entries = await entryService.getAllEntries(contestId);
 
     const response: ApiResponse = {
       success: true,
@@ -41,8 +42,9 @@ export class EntryController {
     res.json(response);
   });
 
-  public getResults = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
-    const results = await entryService.getResults();
+  public getResults = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const contestId = req.query.contestId as string | undefined;
+    const results = await entryService.getResults(contestId);
 
     const response: ApiResponse = {
       success: true,

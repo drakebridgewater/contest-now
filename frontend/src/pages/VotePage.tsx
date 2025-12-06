@@ -1,11 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ImageIcon } from 'lucide-react';
-import { Entry, VotesByVoter, AllergenPopupData, ContestType } from '@/types';
+import { Entry, VotesByVoter, AllergenPopupData, ContestWithEvent } from '@/types';
 import { VoterNameForm, VoteCard, AllergenModal } from '@/components/voting';
 import { MenuBar, AlertDialog } from '@/components/common';
-import { CONTEST_TYPES } from '@/utils/constants';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
-import { voteService } from '@/services/api';
+import { voteService, contestService } from '@/services/api';
 import { isVoteComplete } from '@/utils/helpers';
 
 interface VotePageProps {
@@ -32,12 +31,26 @@ const VotePage: React.FC<VotePageProps> = ({
   const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(false);
   const [allergenPopup, setAllergenPopup] = useState<AllergenPopupData | null>(null);
   const [hideCompletedVotes, setHideCompletedVotes] = useState(false);
+  const [contests, setContests] = useState<ContestWithEvent[]>([]);
+  const [selectedContestId, setSelectedContestId] = useState<string | null>(null);
   const [alert, setAlert] = useState<{
     isOpen: boolean;
     title: string;
     message: string;
     variant?: 'info' | 'success' | 'warning' | 'error';
   }>({ isOpen: false, title: '', message: '' });
+
+  useEffect(() => {
+    const loadContests = async () => {
+      try {
+        const activeContests = await contestService.getActive();
+        setContests(activeContests);
+      } catch (error) {
+        console.error('Error loading contests:', error);
+      }
+    };
+    loadContests();
+  }, []);
 
   const { timeRemaining } = useAutoLogout({
     isEnabled: autoLogoutEnabled,
@@ -137,21 +150,25 @@ const VotePage: React.FC<VotePageProps> = ({
 
   // Calculate voting progress
   const votingProgress = useMemo(() => {
-    if (!voterName || entries.length === 0) {
+    const filteredEntries = selectedContestId
+      ? entries.filter(e => e.contest_id === selectedContestId)
+      : entries;
+
+    if (!voterName || filteredEntries.length === 0) {
       return { completed: 0, total: 0, percentage: 0 };
     }
 
     const userVotes = votes[voterName] || {};
-    const completedVotes = entries.filter(entry =>
+    const completedVotes = filteredEntries.filter(entry =>
       userVotes[entry.id] && isVoteComplete(userVotes[entry.id])
     ).length;
 
     return {
       completed: completedVotes,
-      total: entries.length,
-      percentage: Math.round((completedVotes / entries.length) * 100)
+      total: filteredEntries.length,
+      percentage: Math.round((completedVotes / filteredEntries.length) * 100)
     };
-  }, [voterName, votes, entries]);
+  }, [voterName, votes, entries, selectedContestId]);
 
   if (!isVoterNameSubmitted) {
     return (
@@ -191,72 +208,111 @@ const VotePage: React.FC<VotePageProps> = ({
         } : undefined}
       />
 
-      {entries.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl shadow-lg">
-          <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600 text-lg">No entries yet</p>
-          <p className="text-gray-400">Submit the first entry to get started!</p>
+      {/* Contest Tabs */}
+      {contests.length > 1 && (
+        <div className="mb-6">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <nav className="flex border-b border-gray-200" aria-label="Contest Tabs">
+              <button
+                onClick={() => setSelectedContestId(null)}
+                className={`flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors ${
+                  selectedContestId === null
+                    ? 'border-indigo-500 text-indigo-600 bg-indigo-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <span className="text-lg">🎯</span>
+                  All Contests
+                </span>
+              </button>
+              {contests.map((contest) => {
+                const contestEmoji = contest.contest_type === 'dessert' ? '🍰' :
+                                   contest.contest_type === 'cocktail' ? '🍹' :
+                                   contest.contest_type === 'appetizer' ? '🥗' : '🎯';
+
+                return (
+                  <button
+                    key={contest.id}
+                    onClick={() => setSelectedContestId(contest.id)}
+                    className={`flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm transition-colors ${
+                      selectedContestId === contest.id
+                        ? 'border-indigo-500 text-indigo-600 bg-indigo-50'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="text-lg">{contestEmoji}</span>
+                      <span className="hidden sm:inline">{contest.contest_name}</span>
+                      <span className="sm:hidden">{contest.contest_type}</span>
+                    </span>
+                    <div className="text-xs text-gray-400 mt-1 hidden sm:block">
+                      {contest.event_name}
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-8">
-          {(() => {
-            // Check if any entries will be shown after filtering
-            const userVotes = votes[voterName] || {};
-            const hasVisibleEntries = Object.entries(CONTEST_TYPES).some(([contestType]) => {
-              const contestEntries = entries.filter(entry => entry.contest_type === contestType as ContestType);
-              if (contestEntries.length === 0) return false;
+      )}
 
-              const filteredEntries = hideCompletedVotes
-                ? contestEntries.filter(entry =>
-                    !userVotes[entry.id] || !isVoteComplete(userVotes[entry.id])
-                  )
-                : contestEntries;
+      {(() => {
+        const filteredEntries = selectedContestId
+          ? entries.filter(e => e.contest_id === selectedContestId)
+          : entries;
 
-              return filteredEntries.length > 0;
-            });
+        if (filteredEntries.length === 0) {
+          return (
+            <div className="text-center py-12 bg-white rounded-xl shadow-lg">
+              <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 text-lg">No entries yet</p>
+              <p className="text-gray-400">Submit the first entry to get started!</p>
+            </div>
+          );
+        }
 
-            // Show message if all entries are filtered out
-            if (hideCompletedVotes && !hasVisibleEntries) {
-              return (
-                <div className="text-center py-12 bg-white rounded-xl shadow-lg">
-                  <div className="text-4xl mb-4">🎉</div>
-                  <p className="text-gray-700 text-xl font-semibold mb-2">
-                    All done! You've voted on all entries.
-                  </p>
-                  <p className="text-gray-500 mb-4">
-                    Click "Show All Entries" to review your votes.
-                  </p>
-                </div>
-              );
-            }
+        // Group entries by contest
+        const entriesByContest: { [contestId: string]: Entry[] } = {};
+        filteredEntries.forEach(entry => {
+          if (!entriesByContest[entry.contest_id]) {
+            entriesByContest[entry.contest_id] = [];
+          }
+          entriesByContest[entry.contest_id].push(entry);
+        });
 
-            return Object.entries(CONTEST_TYPES).map(([contestType, { name, emoji }]) => {
-              const contestEntries = entries.filter(entry => entry.contest_type === contestType as ContestType);
-              if (contestEntries.length === 0) return null;
+        return (
+          <div className="space-y-8">
+            {Object.entries(entriesByContest).map(([contestId, contestEntries]) => {
+              const contest = contests.find(c => c.id === contestId);
+              const userVotes = votes[voterName] || {};
 
               // Filter out completed votes if hide toggle is enabled
-              const filteredEntries = hideCompletedVotes
+              const visibleEntries = hideCompletedVotes
                 ? contestEntries.filter(entry =>
                     !userVotes[entry.id] || !isVoteComplete(userVotes[entry.id])
                   )
                 : contestEntries;
 
               // Don't render section if all entries are filtered out
-              if (filteredEntries.length === 0) return null;
+              if (visibleEntries.length === 0) return null;
+
+              const contestEmoji = contest?.contest_type === 'dessert' ? '🍰' :
+                                 contest?.contest_type === 'cocktail' ? '🍹' : '🥗';
 
               return (
-                <div key={contestType}>
+                <div key={contestId}>
                   <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <span className="text-3xl">{emoji}</span>
-                    {name}
+                    <span className="text-3xl">{contestEmoji}</span>
+                    {contest?.contest_name || 'Unknown Contest'}
                     {hideCompletedVotes && (
                       <span className="text-sm font-normal text-gray-600">
-                        ({filteredEntries.length} of {contestEntries.length} shown)
+                        ({visibleEntries.length} of {contestEntries.length} shown)
                       </span>
                     )}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {filteredEntries.map((entry) => (
+                    {visibleEntries.map((entry) => (
                       <VoteCard
                         key={entry.id}
                         entry={entry}
@@ -270,10 +326,10 @@ const VotePage: React.FC<VotePageProps> = ({
                   </div>
                 </div>
               );
-            });
-          })()}
-        </div>
-      )}
+            })}
+          </div>
+        );
+      })()}
 
       <AllergenModal
         isOpen={!!allergenPopup}

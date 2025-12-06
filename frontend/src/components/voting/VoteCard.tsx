@@ -9,8 +9,9 @@ interface VoteCardProps {
   userVote: VotesByVoter[string] | undefined;
   onRatingChange: (entryId: number, ratingType: string, rating: number) => void;
   onCommentChange: (entryId: number, comment: string) => void;
-  onAllergenClick: (entryName: string, allergens: string[]) => void;
+  onAllergenClick?: (entryName: string, allergens: string[]) => void;
   disabled?: boolean;
+  showAllergens?: boolean;
 }
 
 const VoteCard: React.FC<VoteCardProps> = ({
@@ -25,6 +26,7 @@ const VoteCard: React.FC<VoteCardProps> = ({
   onCommentChange,
   onAllergenClick,
   disabled = false,
+  showAllergens = true,
 }) => {
   const isVoteComplete =
     userVote.appearance_rating > 0 &&
@@ -50,7 +52,7 @@ const VoteCard: React.FC<VoteCardProps> = ({
           alt={entry.entry_name}
           className="w-full h-64 object-cover"
         />
-        {entry.allergens && entry.allergens.length > 0 && (
+        {showAllergens && entry.allergens && entry.allergens.length > 0 && onAllergenClick && (
           <div className="absolute top-2 right-2">
             <Button
               variant="danger"

@@ -6,12 +6,14 @@ interface VoterNameFormProps {
   onSubmit: (voterName: string) => void;
   autoLogoutEnabled: boolean;
   onAutoLogoutToggle: (enabled: boolean) => void;
+  eventName?: string;
 }
 
 const VoterNameForm: React.FC<VoterNameFormProps> = ({
   onSubmit,
   autoLogoutEnabled,
   onAutoLogoutToggle,
+  eventName,
 }) => {
   const [voterName, setVoterName] = useState('');
 
@@ -35,7 +37,7 @@ const VoterNameForm: React.FC<VoterNameFormProps> = ({
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="text-center">
         <h2 className="text-3xl font-bold text-gray-800 mb-2">
-          🗳️ Holiday Contest Voting
+          🗳️ {eventName ? `${eventName} - Contest Voting` : 'Holiday Contest Voting'}
         </h2>
         <p className="text-gray-600">
           Help choose the best entries by rating appearance, texture, and flavor!

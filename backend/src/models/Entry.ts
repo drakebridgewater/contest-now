@@ -6,12 +6,16 @@ import { config } from '@/config';
 
 interface EntryResultRow {
   id: number;
+  contest_id: string;
   entry_name: string;
   contestant_name: string;
-  contest_type: ContestType;
   photo_path: string;
   allergens: string;
   created_at: string;
+  contest_type: ContestType;
+  contest_name: string;
+  event_id: number;
+  event_name: string;
   vote_count: number;
   avg_appearance: number;
   avg_texture: number;
@@ -36,9 +40,24 @@ interface EntryResultRow {
 }
 
 export class EntryModel {
-  public async findAll(): Promise<EntryWithPhoto[]> {
+  public async findAll(contestId?: string): Promise<EntryWithPhoto[]> {
     try {
-      const entries = await database.all<Entry>('SELECT * FROM entries ORDER BY created_at DESC');
+      let query = `
+        SELECT e.*, c.contest_type, c.contest_name, c.event_id, ev.event_name
+        FROM entries e
+        JOIN contests c ON e.contest_id = c.id
+        JOIN events ev ON c.event_id = ev.id
+      `;
+      const params: unknown[] = [];
+
+      if (contestId !== undefined) {
+        query += ' WHERE e.contest_id = ?';
+        params.push(contestId);
+      }
+
+      query += ' ORDER BY e.created_at DESC';
+
+      const entries = await database.all<Entry & { contest_type: ContestType; contest_name: string; event_id: number; event_name: string }>(query, params);
 
       return entries.map(entry => ({
         ...entry,
@@ -66,8 +85,8 @@ export class EntryModel {
       const allergensJson = entryData.allergens ? JSON.stringify(entryData.allergens) : '[]';
 
       const result = await database.run(
-        'INSERT INTO entries (entry_name, contestant_name, contest_type, photo_path, allergens) VALUES (?, ?, ?, ?, ?)',
-        [entryData.entry_name, entryData.contestant_name, entryData.contest_type, photoFileName, allergensJson]
+        'INSERT INTO entries (contest_id, entry_name, contestant_name, photo_path, allergens) VALUES (?, ?, ?, ?, ?)',
+        [entryData.contest_id, entryData.entry_name, entryData.contestant_name, photoFileName, allergensJson]
       );
 
       if (!result.lastID) {
@@ -75,15 +94,28 @@ export class EntryModel {
         throw new InternalServerError('Failed to create entry');
       }
 
+      // Get contest info for the response
+      const contestInfo = await database.get<{ contest_type: ContestType; contest_name: string; event_id: number; event_name: string }>(
+        `SELECT c.contest_type, c.contest_name, c.event_id, ev.event_name
+         FROM contests c
+         JOIN events ev ON c.event_id = ev.id
+         WHERE c.id = ?`,
+        [entryData.contest_id]
+      );
+
       return {
         id: result.lastID,
+        contest_id: entryData.contest_id,
         entry_name: entryData.entry_name,
         contestant_name: entryData.contestant_name,
-        contest_type: entryData.contest_type,
         photo_path: photoFileName,
         photo: `${config.server.baseUrl}/uploads/${photoFileName}`,
         allergens: entryData.allergens || [],
         created_at: new Date().toISOString(),
+        contest_type: contestInfo?.contest_type,
+        contest_name: contestInfo?.contest_name,
+        event_id: contestInfo?.event_id,
+        event_name: contestInfo?.event_name,
       };
     } catch (error) {
       logger.error('Error creating entry:', error);
@@ -121,11 +153,15 @@ export class EntryModel {
     }
   }
 
-  public async getResults(): Promise<EntryResult[]> {
+  public async getResults(contestId?: string): Promise<EntryResult[]> {
     try {
-      const query = `
+      let query = `
         SELECT
           e.*,
+          c.contest_type,
+          c.contest_name,
+          c.event_id,
+          ev.event_name,
           COUNT(v.id) as vote_count,
           COALESCE(AVG(CAST(v.appearance_rating AS REAL)), 0) as avg_appearance,
           COALESCE(AVG(CAST(v.texture_rating AS REAL)), 0) as avg_texture,
@@ -152,12 +188,21 @@ export class EntryModel {
           SUM(CASE WHEN v.flavor_rating = 4 THEN 1 ELSE 0 END) as flavor_4_count,
           SUM(CASE WHEN v.flavor_rating = 5 THEN 1 ELSE 0 END) as flavor_5_count
         FROM entries e
+        JOIN contests c ON e.contest_id = c.id
+        JOIN events ev ON c.event_id = ev.id
         LEFT JOIN votes v ON e.id = v.entry_id
-        GROUP BY e.id, e.entry_name, e.contestant_name, e.contest_type, e.photo_path, e.allergens, e.created_at
-        ORDER BY e.contest_type, average_rating DESC, vote_count DESC
       `;
+      
+      const params: unknown[] = [];
+      if (contestId !== undefined) {
+        query += ' WHERE e.contest_id = ?';
+        params.push(contestId);
+      }
 
-      const results = await database.all<EntryResultRow>(query);
+      query += ' GROUP BY e.id, e.entry_name, e.contestant_name, e.contest_id, e.photo_path, e.allergens, e.created_at, c.contest_type, c.contest_name, c.event_id, ev.event_name';
+      query += ' ORDER BY c.contest_type, average_rating DESC, vote_count DESC';
+
+      const results = await database.all<EntryResultRow>(query, params);
 
       return results.map((row: EntryResultRow) => {
         // Parse comments
@@ -176,13 +221,17 @@ export class EntryModel {
 
         return {
           id: row.id,
+          contest_id: row.contest_id,
           entry_name: row.entry_name,
           contestant_name: row.contestant_name,
-          contest_type: row.contest_type,
           photo_path: row.photo_path,
           photo: `${config.server.baseUrl}/uploads/${row.photo_path}`,
           allergens: row.allergens ? JSON.parse(row.allergens) : [],
           created_at: row.created_at,
+          contest_type: row.contest_type,
+          contest_name: row.contest_name,
+          event_id: row.event_id,
+          event_name: row.event_name,
           vote_count: row.vote_count || 0,
           average_rating: row.average_rating || 0,
           avg_appearance: row.avg_appearance || 0,
