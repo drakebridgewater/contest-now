@@ -149,7 +149,7 @@ const App: React.FC = () => {
           <h1 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
             <span className="text-4xl">🎄</span>PDXmas 2025<span className="text-4xl">❄️</span>
           </h1>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <Button
               onClick={() => setCurrentPage('submit')}
               variant={currentPage === 'submit' ? 'secondary' : 'ghost'}
@@ -183,6 +183,16 @@ const App: React.FC = () => {
             >
               🏆 Results
             </Button>
+
+            <div className="ml-4 border-l border-red-300 pl-4">
+              <Button
+                onClick={() => window.open('https://photoshare.drakebridgewater.com/Gallery?tab=galleries&identifier=003aa119b75047f8893895a26c476cc9&key=ARrUbtFAAR3c8GIF6cFQWKFJWWe77pqW5QRdX0LUeJY7Oxe%2bQrolES1FaLYbwRBfl%2bOAVoRi3va6VZcXXghN8mPo8rYLoOoWoFRjRZy9GNI%3d&enc=true', '_blank')}
+                variant="ghost"
+                className="bg-green-600 bg-opacity-20 text-white hover:bg-opacity-30"
+              >
+                📷 Photo Sharing
+              </Button>
+            </div>
           </div>
         </div>
       </div>
