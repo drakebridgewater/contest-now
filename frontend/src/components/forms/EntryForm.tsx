@@ -30,10 +30,14 @@ const EntryForm: React.FC<EntryFormProps> = ({
 
     if (!formData.entry_name.trim()) {
       newErrors.entry_name = 'Entry name is required';
+    } else if (formData.entry_name.length > 200) {
+      newErrors.entry_name = 'Entry name must be 200 characters or less';
     }
 
     if (!formData.contestant_name.trim()) {
       newErrors.contestant_name = 'Contestant name is required';
+    } else if (formData.contestant_name.length > 100) {
+      newErrors.contestant_name = 'Your name must be 100 characters or less';
     }
 
     if (!formData.photo) {
@@ -99,25 +103,35 @@ const EntryForm: React.FC<EntryFormProps> = ({
       {/*</h2>*/}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Input
-          label="Your Name"
-          value={formData.contestant_name}
-          onChange={(e) => handleInputChange('contestant_name', e.target.value)}
-          placeholder="Your name"
-          required
-          disabled={loading}
-          error={errors.contestant_name}
-        />
+        <div>
+          <Input
+            label="Your Name"
+            value={formData.contestant_name}
+            onChange={(e) => handleInputChange('contestant_name', e.target.value)}
+            placeholder="Your name"
+            required
+            disabled={loading}
+            error={errors.contestant_name}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {formData.contestant_name.length}/100 characters
+          </p>
+        </div>
 
-        <Input
-          label="Contest Entry Name"
-          value={formData.entry_name}
-          onChange={(e) => handleInputChange('entry_name', e.target.value)}
-          placeholder="e.g., Santa's Sunset Paradise"
-          required
-          disabled={loading}
-          error={errors.entry_name}
-        />
+        <div>
+          <Input
+            label="Contest Entry Name"
+            value={formData.entry_name}
+            onChange={(e) => handleInputChange('entry_name', e.target.value)}
+            placeholder="e.g., Santa's Sunset Paradise"
+            required
+            disabled={loading}
+            error={errors.entry_name}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {formData.entry_name.length}/200 characters
+          </p>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">

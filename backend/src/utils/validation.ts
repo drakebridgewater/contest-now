@@ -4,7 +4,7 @@ import { CreateEntryRequest, CreateVoteRequest, ContestType } from '@/types';
 const contestTypes: ContestType[] = ['dessert', 'cocktail', 'appetizer'];
 
 export const entryValidationSchema = Joi.object<CreateEntryRequest>({
-  entry_name: Joi.string().trim().min(1).max(100).required(),
+  entry_name: Joi.string().trim().min(1).max(200).required(),
   contestant_name: Joi.string().trim().min(1).max(100).required(),
   contest_type: Joi.string().valid(...contestTypes).required(),
   photo: Joi.string().pattern(/^data:image\/[a-zA-Z]*;base64,/).required(),

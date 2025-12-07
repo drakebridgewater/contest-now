@@ -101,8 +101,6 @@ export interface ServerConfig {
   corsOrigin: string;
   uploadsDir: string;
   maxFileSize: number;
-  rateLimitWindowMs: number;
-  rateLimitMax: number;
   baseUrl: string;
 }
 
