@@ -217,6 +217,13 @@ export const voterService = {
     return response.data.data || [];
   },
 
+  async updateName(oldVoterName: string, newVoterName: string): Promise<void> {
+    await api.put('/voters/update-name', {
+      oldVoterName,
+      newVoterName,
+    });
+  },
+
   async delete(voterName: string): Promise<void> {
     await api.delete(`/voters/${encodeURIComponent(voterName)}`);
   },

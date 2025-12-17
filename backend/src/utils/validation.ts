@@ -48,7 +48,14 @@ export const validateVote = (data: unknown): CreateVoteRequest => {
     throw new Error(`Validation error: ${error.details.map(d => d.message).join(', ')}`);
   }
 
+  // Normalize voter name
+  value.voter_name = normalizeVoterName(value.voter_name);
+
   return value;
+};
+
+export const normalizeVoterName = (voterName: string): string => {
+  return voterName.trim().toLowerCase();
 };
 
 export const validateVoterName = (voterName: string | undefined): string => {
@@ -62,7 +69,7 @@ export const validateVoterName = (voterName: string | undefined): string => {
     throw new Error(`Invalid voter name: ${error.message}`);
   }
 
-  return value;
+  return normalizeVoterName(value);
 };
 
 export const validateEntryId = (entryId: string | number | undefined): number => {
@@ -74,6 +81,24 @@ export const validateEntryId = (entryId: string | number | undefined): number =>
 
   if (error) {
     throw new Error(`Invalid entry ID: ${error.message}`);
+  }
+
+  return value;
+};
+
+export const updateVoterNameSchema = Joi.object({
+  oldVoterName: Joi.string().trim().min(2).max(100).required(),
+  newVoterName: Joi.string().trim().min(2).max(100).required(),
+});
+
+export const validateUpdateVoterName = (data: unknown): { oldVoterName: string; newVoterName: string } => {
+  const { error, value } = updateVoterNameSchema.validate(data, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
+
+  if (error) {
+    throw new Error(`Validation error: ${error.details.map(d => d.message).join(', ')}`);
   }
 
   return value;

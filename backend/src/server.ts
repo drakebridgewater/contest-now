@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import fs from 'node:fs';
 
 import { config } from '@/config';
@@ -17,16 +16,6 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: config.server.rateLimitWindowMs,
-  max: config.server.rateLimitMax,
-  message: {
-    success: false,
-    error: 'Too many requests from this IP, please try again later.',
-  },
-});
-app.use(limiter);
 
 // CORS
 app.use(cors({

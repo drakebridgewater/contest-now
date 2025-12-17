@@ -120,6 +120,27 @@ const ResultsPage: React.FC = () => {
     });
   };
 
+  const handleUpdateVoterName = async (oldName: string, newName: string) => {
+    try {
+      await voterService.updateName(oldName, newName);
+      setAlert({
+        isOpen: true,
+        title: 'Success',
+        message: `Voter name updated from "${oldName}" to "${newName}"!`,
+        variant: 'success'
+      });
+      await loadData();
+    } catch (error) {
+      console.error('Error updating voter name:', error);
+      setAlert({
+        isOpen: true,
+        title: 'Update Error',
+        message: 'Failed to update voter name. Please try again.',
+        variant: 'error'
+      });
+    }
+  };
+
   const handleDeleteVoter = (voterName: string, voteCount: number) => {
     setConfirmation({
       isOpen: true,
@@ -246,6 +267,7 @@ const ResultsPage: React.FC = () => {
         <VoterManagement
           voters={votersData}
           onDeleteVoter={handleDeleteVoter}
+          onUpdateVoterName={handleUpdateVoterName}
         />
       ) : (
         <div>

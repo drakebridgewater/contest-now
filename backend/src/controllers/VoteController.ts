@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { voteService } from '@/services/VoteService';
-import { validateVote, validateVoterName } from '@/utils/validation';
+import { validateVote, validateVoterName, validateUpdateVoterName } from '@/utils/validation';
 import { ApiResponse } from '@/types';
 import { asyncHandler } from '@/middleware/errorHandler';
 
@@ -47,6 +47,23 @@ export class VoteController {
     const response: ApiResponse = {
       success: true,
       data: voters,
+    };
+
+    res.json(response);
+  });
+
+  public updateVoterName = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { oldVoterName, newVoterName } = validateUpdateVoterName(req.body);
+    const updatedCount = await voteService.updateVoterName(oldVoterName, newVoterName);
+
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        oldVoterName,
+        newVoterName,
+        updatedVotes: updatedCount,
+      },
+      message: `Voter name updated from "${oldVoterName}" to "${newVoterName}"`,
     };
 
     res.json(response);
