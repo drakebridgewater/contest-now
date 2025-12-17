@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { EntryResult, VoterInfo, ContestWithEvent } from '@/types';
 import { PasswordForm, ResultCard, VoterManagement } from '@/components/results';
 import { MenuBar, ConfirmDialog, AlertDialog, LoadingSpinner } from '@/components/common';
@@ -29,6 +29,37 @@ const ResultsPage: React.FC = () => {
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
+  const loadContests = useCallback(async () => {
+    try {
+      const activeContests = await contestService.getActive();
+      setContests(activeContests);
+    } catch (error) {
+      console.error('Error loading contests:', error);
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [results, voters] = await Promise.all([
+        entryService.getResults(selectedContestId || undefined),
+        voterService.getAll(),
+      ]);
+      setResultsData(results);
+      setVotersData(voters);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setAlert({
+        isOpen: true,
+        title: 'Loading Error',
+        message: 'Failed to load data. Make sure the server is running.',
+        variant: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedContestId]);
+
   const handlePasswordSubmit = (password: string) => {
     // Clear any existing alerts first
     setAlert({ isOpen: false, title: '', message: '' });
@@ -53,44 +84,13 @@ const ResultsPage: React.FC = () => {
     if (isAuthorized) {
       loadContests();
     }
-  }, [isAuthorized]);
+  }, [isAuthorized, loadContests]);
 
   useEffect(() => {
     if (isAuthorized) {
       loadData();
     }
-  }, [selectedContestId, isAuthorized]);
-
-  const loadContests = async () => {
-    try {
-      const activeContests = await contestService.getActive();
-      setContests(activeContests);
-    } catch (error) {
-      console.error('Error loading contests:', error);
-    }
-  };
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [results, voters] = await Promise.all([
-        entryService.getResults(selectedContestId || undefined),
-        voterService.getAll(),
-      ]);
-      setResultsData(results);
-      setVotersData(voters);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      setAlert({
-        isOpen: true,
-        title: 'Loading Error',
-        message: 'Failed to load data. Make sure the server is running.',
-        variant: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [selectedContestId, isAuthorized, loadData]);
 
   const handleDeleteEntry = (entryId: number, entryName: string) => {
     setConfirmation({
@@ -180,6 +180,7 @@ const ResultsPage: React.FC = () => {
       case 'dessert': return '🍰';
       case 'cocktail': return '🍹';
       case 'appetizer': return '🥗';
+      case 'sweater': return '🧥';
       default: return '🎯';
     }
   };
@@ -297,17 +298,37 @@ const ResultsPage: React.FC = () => {
                 {Object.entries(resultsByContest).map(([contestIdStr, contestResults]) => {
                   const contest = contests.find(c => c.id === contestIdStr);
                   const contestEmoji = getContestEmoji(contest?.contest_type || '');
+                  const isSweaterContest = contest?.contest_type === 'sweater';
 
                   return (
-                    <div key={contestIdStr}>
-                      <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                        <span className="text-3xl">{contestEmoji}</span>
-                        {contest?.contest_name || 'Unknown Contest'}
-                        <span className="text-sm font-normal text-gray-600">
-                          - {contest?.event_name}
-                        </span>
-                      </h3>
-                      <div className="space-y-6">
+                    <div key={contestIdStr} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                      <div className="border-b border-gray-200 pb-4 mb-6">
+                        <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                          <span className="text-3xl">{contestEmoji}</span>
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <span>{contest?.contest_name || 'Unknown Contest'}</span>
+                              {isSweaterContest && (
+                                <span className="text-xs bg-gradient-to-r from-red-100 via-green-100 to-blue-100 text-gray-700 px-3 py-1 rounded-full font-semibold">
+                                  Ranking System
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm font-normal text-gray-600 mt-1">
+                              📅 {contest?.event_name} • {contestResults.length} entries
+                            </div>
+                          </div>
+                        </h3>
+                        {isSweaterContest && (
+                          <div className="mt-3 bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
+                            <p className="text-xs text-blue-800">
+                              <strong>ℹ️ Note:</strong> This contest uses a ranking system where voters select their top 5 and rank them. 
+                              Results show aggregate scores based on rankings (1st place = 5 points, 2nd = 4, etc.).
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
                         {contestResults.map((entry, index) => (
                           <ResultCard
                             key={entry.id}
