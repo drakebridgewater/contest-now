@@ -10,6 +10,9 @@ import {
   Vote,
   CreateVoteRequest,
   VotesByVoter,
+  RankingVote,
+  CreateRankingVoteRequest,
+  RankingVotesByVoter,
   VoterInfo,
   EntryResult,
   ApiResponse,
@@ -180,6 +183,30 @@ export const voteService = {
 
   async getAll(): Promise<Vote[]> {
     const response = await api.get<ApiResponse<Vote[]>>('/votes');
+    return response.data.data || [];
+  },
+};
+
+export const rankingVoteService = {
+  async getByVoter(voterName: string): Promise<RankingVotesByVoter> {
+    const response = await api.get<ApiResponse<RankingVotesByVoter>>(`/ranking-votes/${encodeURIComponent(voterName)}`);
+    return response.data.data || {};
+  },
+
+  async submit(voteData: CreateRankingVoteRequest): Promise<RankingVote> {
+    const response = await api.post<ApiResponse<RankingVote>>('/ranking-votes', voteData);
+    if (!response.data.data) {
+      throw new Error(response.data.error || 'Failed to submit ranking vote');
+    }
+    return response.data.data;
+  },
+
+  async delete(voterName: string, entryId: number): Promise<void> {
+    await api.delete(`/ranking-votes/${encodeURIComponent(voterName)}/${entryId}`);
+  },
+
+  async getAll(): Promise<RankingVote[]> {
+    const response = await api.get<ApiResponse<RankingVote[]>>('/ranking-votes');
     return response.data.data || [];
   },
 };

@@ -4,6 +4,7 @@ import ContestSelectionPage from './pages/ContestSelectionPage';
 import ContestPage from './pages/ContestPage';
 import ManagePage from './pages/ManagePage';
 import TabletVotePage from './pages/TabletVotePage';
+import SweaterPage from './pages/SweaterPage';
 
 const App: React.FC = () => {
   return (
@@ -14,6 +15,9 @@ const App: React.FC = () => {
 
         {/* Contest-specific page with UUID parameter */}
         <Route path="/contest/:contestId" element={<ContestPage />} />
+
+        {/* Sweater contest page - special ranking system */}
+        <Route path="/sweater" element={<SweaterPage />} />
 
         {/* Manage page - combines results, voter management, and admin controls */}
         <Route path="/manage" element={<ManagePage />} />

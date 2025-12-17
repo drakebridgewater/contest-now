@@ -42,8 +42,18 @@ const Navigation: React.FC<NavigationProps> = ({
   }, []);
 
   const navigation = [
-    { name: 'Contest Selection', href: '/', icon: HomeIcon, current: location.pathname === '/' },
-    { name: 'Manage', href: '/manage', icon: ClipboardDocumentListIcon, current: location.pathname === '/manage' },
+    { 
+      name: 'Home', 
+      href: '/', 
+      icon: HomeIcon, 
+      current: location.pathname === '/' 
+    },
+    { 
+      name: 'Manage', 
+      href: '/manage', 
+      icon: ClipboardDocumentListIcon, 
+      current: location.pathname === '/manage' || location.pathname.startsWith('/manage')
+    },
   ];
 
   const classNames = (...classes: string[]) => {
@@ -58,32 +68,41 @@ const Navigation: React.FC<NavigationProps> = ({
             <div className="flex h-16 items-center justify-between">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <Link to="/" className="flex items-center gap-2">
-                    <span className="text-2xl">🎄</span>
-                    <span className="text-white font-bold text-xl hidden sm:block">
-                      Instant Vote
-                    </span>
+                  <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+                    <span className="text-3xl">🎄</span>
+                    <div className="hidden sm:block">
+                      <span className="text-white font-bold text-xl block">
+                        Instant Vote
+                      </span>
+                      <span className="text-red-200 text-xs">
+                        PDXmas 2025
+                      </span>
+                    </div>
                   </Link>
                 </div>
                 <div className="hidden md:block">
                   <div className="ml-10 flex items-baseline space-x-4">
                     {navigation.map((item) => {
                       const Icon = item.icon;
+                      const isCurrentPage = item.href === '/' 
+                        ? location.pathname === '/' 
+                        : location.pathname.startsWith(item.href);
+                      
                       return (
                         <Link
                           key={item.name}
                           to={item.href}
                           className={classNames(
-                            item.current
+                            isCurrentPage
                               ? 'bg-red-800 text-white'
                               : 'text-red-100 hover:bg-red-600 hover:text-white',
                             'group flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200'
                           )}
-                          aria-current={item.current ? 'page' : undefined}
+                          aria-current={isCurrentPage ? 'page' : undefined}
                         >
                           <Icon
                             className={classNames(
-                              item.current ? 'text-white' : 'text-red-200 group-hover:text-white',
+                              isCurrentPage ? 'text-white' : 'text-red-200 group-hover:text-white',
                               'mr-2 h-4 w-4 transition-colors duration-200'
                             )}
                             aria-hidden="true"
@@ -227,21 +246,25 @@ const Navigation: React.FC<NavigationProps> = ({
             <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3">
               {navigation.map((item) => {
                 const Icon = item.icon;
+                const isCurrentPage = item.href === '/' 
+                  ? location.pathname === '/' 
+                  : location.pathname.startsWith(item.href);
+                
                 return (
                   <Link
                     key={item.name}
                     to={item.href}
                     className={classNames(
-                      item.current
+                      isCurrentPage
                         ? 'bg-red-800 text-white'
                         : 'text-red-100 hover:bg-red-600 hover:text-white',
                       'group flex items-center px-3 py-2 rounded-md text-base font-medium'
                     )}
-                    aria-current={item.current ? 'page' : undefined}
+                    aria-current={isCurrentPage ? 'page' : undefined}
                   >
                     <Icon
                       className={classNames(
-                        item.current ? 'text-white' : 'text-red-200 group-hover:text-white',
+                        isCurrentPage ? 'text-white' : 'text-red-200 group-hover:text-white',
                         'mr-3 h-5 w-5'
                       )}
                       aria-hidden="true"

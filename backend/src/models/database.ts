@@ -108,7 +108,7 @@ export class Database {
           id TEXT PRIMARY KEY,
           event_id INTEGER NOT NULL,
           contest_name TEXT NOT NULL,
-          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer', 'other')),
+          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer', 'sweater', 'other')),
           description TEXT,
           is_active INTEGER DEFAULT 1,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -123,7 +123,7 @@ export class Database {
           entry_name TEXT NOT NULL,
           contestant_name TEXT NOT NULL,
           contest_id TEXT NOT NULL,
-          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer', 'other')),
+          contest_type TEXT NOT NULL CHECK(contest_type IN ('dessert', 'cocktail', 'appetizer', 'sweater', 'other')),
           photo_path TEXT NOT NULL,
           allergens TEXT DEFAULT '[]',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -141,6 +141,20 @@ export class Database {
           texture_rating INTEGER NOT NULL CHECK(texture_rating >= 1 AND texture_rating <= 5),
           flavor_rating INTEGER NOT NULL CHECK(flavor_rating >= 1 AND flavor_rating <= 5),
           comment TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+          UNIQUE(voter_name, entry_id)
+        )
+      `);
+
+      // Create ranking_votes table for sweater contest (top 5 ranking system)
+      await runAsync(`
+        CREATE TABLE IF NOT EXISTS ranking_votes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          voter_name TEXT NOT NULL,
+          entry_id INTEGER NOT NULL,
+          rank INTEGER NOT NULL CHECK(rank >= 1 AND rank <= 5),
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,

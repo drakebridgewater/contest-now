@@ -10,14 +10,17 @@ const ContestSelectionPage: React.FC = () => {
   const [contests, setContests] = useState<ContestWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAllContests, setShowAllContests] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const activeContests = await contestService.getActive();
-        setContests(activeContests);
+        const allContests = showAllContests 
+          ? await contestService.getAll() 
+          : await contestService.getActive();
+        setContests(allContests);
         setError(null);
       } catch (err) {
         console.error('Error loading data:', err);
@@ -28,13 +31,14 @@ const ContestSelectionPage: React.FC = () => {
     };
 
     loadData();
-  }, []);
+  }, [showAllContests]);
 
   const getContestEmoji = (contestType: string) => {
     switch (contestType) {
       case 'dessert': return '🍰';
       case 'cocktail': return '🍹';
       case 'appetizer': return '🥗';
+      case 'sweater': return '🧥';
       case 'other': return '🏆';
       default: return '🎯';
     }
@@ -45,9 +49,14 @@ const ContestSelectionPage: React.FC = () => {
       case 'dessert': return 'from-pink-400 to-red-400';
       case 'cocktail': return 'from-blue-400 to-purple-400';
       case 'appetizer': return 'from-green-400 to-teal-400';
+      case 'sweater': return 'from-red-500 via-green-500 to-blue-500';
       case 'other': return 'from-yellow-400 to-orange-400';
       default: return 'from-gray-400 to-slate-400';
     }
+  };
+
+  const handleSweaterContest = () => {
+    navigate('/sweater');
   };
 
   const handleContestSelect = (contestId: string) => {
@@ -110,7 +119,18 @@ const ContestSelectionPage: React.FC = () => {
             PDXmas 2025 Contests
             <span className="text-5xl">❄️</span>
           </h1>
-          <p className="text-gray-600 text-center text-lg">Choose a contest to participate in</p>
+          <p className="text-gray-600 text-center text-lg mb-4">Choose a contest to participate in</p>
+          
+          {/* Toggle for showing all contests */}
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowAllContests(!showAllContests)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium text-gray-700"
+            >
+              <span>{showAllContests ? '✓' : '○'}</span>
+              <span>Show {showAllContests ? 'Active Only' : 'All Contests (including archived)'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -118,42 +138,71 @@ const ContestSelectionPage: React.FC = () => {
       {/* Contest Selection Grid */}
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {contests.map((contest) => (
-            <div
-              key={contest.id}
-              onClick={() => handleContestSelect(contest.id)}
-              className="group cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
-            >
-              <div className={`bg-gradient-to-br ${getContestColor(contest.contest_type)} p-1 rounded-2xl shadow-lg`}>
-                <div className="bg-white rounded-2xl p-8 h-full flex flex-col items-center text-center">
-                  <div className="text-6xl mb-4 group-hover:animate-bounce">
-                    {getContestEmoji(contest.contest_type)}
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2 group-hover:text-gray-900">
-                    {contest.contest_name}
-                  </h3>
-                  <div className="text-sm text-gray-600 mb-2 font-medium">
-                    {contest.event_name}
-                  </div>
-                  <div className="text-sm text-gray-500 mb-4">
-                    📅 {formatDate(contest.event_date, {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </div>
-                  {contest.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {contest.description}
-                    </p>
-                  )}
-                  <div className={`mt-auto w-full py-3 px-6 bg-gradient-to-r ${getContestColor(contest.contest_type)} text-white font-semibold rounded-xl transition-all group-hover:shadow-lg`}>
-                    Enter Contest
+          {contests.map((contest) => {
+            const isSweater = contest.contest_type === 'sweater';
+            const isActive = contest.is_active;
+            const onClick = isSweater ? handleSweaterContest : () => handleContestSelect(contest.id);
+            
+            return (
+              <div
+                key={contest.id}
+                onClick={onClick}
+                className={`group cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${!isActive && 'opacity-75'}`}
+              >
+                <div className={`bg-gradient-to-br ${getContestColor(contest.contest_type)} p-1 rounded-2xl shadow-lg`}>
+                  <div className="bg-white rounded-2xl p-8 h-full flex flex-col items-center text-center">
+                    <div className="text-6xl mb-4 group-hover:animate-bounce">
+                      {getContestEmoji(contest.contest_type)}
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2 group-hover:text-gray-900">
+                      {contest.contest_name}
+                    </h3>
+                    <div className="flex flex-wrap gap-2 justify-center mb-2">
+                      {isSweater && (
+                        <div className="text-xs bg-gradient-to-r from-red-100 via-green-100 to-blue-100 text-gray-700 px-3 py-1 rounded-full font-semibold">
+                          ⭐ Ranking System
+                        </div>
+                      )}
+                      {!isActive && (
+                        <div className="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full font-semibold">
+                          📦 Archived
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2 font-medium">
+                      {contest.event_name}
+                    </div>
+                    <div className="text-sm text-gray-500 mb-4">
+                      📅 {formatDate(contest.event_date, {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                    {contest.description && (
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {contest.description}
+                      </p>
+                    )}
+                    <div className={`mt-auto w-full py-3 px-6 bg-gradient-to-r ${getContestColor(contest.contest_type)} text-white font-semibold rounded-xl transition-all group-hover:shadow-lg`}>
+                      {!isActive ? 'View Results' : isSweater ? 'Rank Top 5 🏆' : 'Enter Contest'}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+
+        {/* Admin Link */}
+        <div className="mt-12 text-center">
+          <button
+            onClick={() => navigate('/manage')}
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors"
+          >
+            <span className="text-xl">⚙️</span>
+            <span>Manage Contests & View Results</span>
+          </button>
         </div>
       </div>
     </Layout>

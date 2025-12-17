@@ -98,6 +98,7 @@ export const CONTEST_TYPES: Record<ContestType, {name: string; emoji: string}> =
   dessert: {name: 'Dessert Contest', emoji: '🍰'},
   cocktail: {name: 'Cocktail Contest', emoji: '🍹'},
   appetizer: {name: 'Appetizer Contest', emoji: '🥗'},
+  sweater: {name: 'Sweater Contest', emoji: '🧥'},
   other: {name: 'Other Contests', emoji: '🎯'},
 };
 

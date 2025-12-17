@@ -99,6 +99,28 @@ export interface VoterInfo {
   last_vote: string;
 }
 
+// Ranking votes for sweater contest (top 5 ranking system)
+export interface RankingVote {
+  id: number;
+  voter_name: string;
+  entry_id: number;
+  rank: number; // 1-5, where 1 is best
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRankingVoteRequest {
+  voter_name: string;
+  entry_id: number;
+  rank: number;
+}
+
+export interface RankingVotesByVoter {
+  [entryId: string]: {
+    rank: number;
+  };
+}
+
 export interface RatingDistribution {
   1: number;
   2: number;
@@ -123,7 +145,7 @@ export interface EntryResult extends Entry {
   }>;
 }
 
-export type ContestType = 'dessert' | 'cocktail' | 'appetizer' | 'other';
+export type ContestType = 'dessert' | 'cocktail' | 'appetizer' | 'sweater' | 'other';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

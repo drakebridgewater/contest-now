@@ -165,6 +165,7 @@ const ManagePage: React.FC = () => {
       dessert: '🍰',
       cocktail: '🍹',
       appetizer: '🥗',
+      sweater: '🧥',
       other: '🎯',
     };
     return emojiMap[contestType] || '🎯';
@@ -199,7 +200,7 @@ const ManagePage: React.FC = () => {
     setLoading(true);
     try {
       const [contestsData, eventsData] = await Promise.all([
-        contestService.getActive(),
+        contestService.getAll(), // Load ALL contests for admin view
         eventService.getAll(),
       ]);
       setContests(contestsData);
