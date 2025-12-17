@@ -45,6 +45,7 @@ const ResultsContent: React.FC<ResultsContentProps> = ({
       {Object.entries(resultsByContest).map(([contestIdStr, contestResults]) => {
         const contest = contests.find(c => c.id === contestIdStr);
         const contestEmoji = getContestEmoji(contest?.contest_type || '');
+        const isSweaterContest = contest?.contest_type === 'sweater';
 
         return (
           <div key={contestIdStr} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -52,12 +53,27 @@ const ResultsContent: React.FC<ResultsContentProps> = ({
               <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                 <span className="text-3xl">{contestEmoji}</span>
                 <div>
-                  <div>{contest?.contest_name || 'Unknown Contest'}</div>
+                  <div className="flex items-center gap-3">
+                    <span>{contest?.contest_name || 'Unknown Contest'}</span>
+                    {isSweaterContest && (
+                      <span className="text-xs bg-gradient-to-r from-red-100 via-green-100 to-blue-100 text-gray-700 px-3 py-1 rounded-full font-semibold">
+                        Ranking System
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm font-normal text-gray-600 mt-1">
                     📅 {contest?.event_name} • {contestResults.length} entries
                   </div>
                 </div>
               </h3>
+              {isSweaterContest && (
+                <div className="mt-3 bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
+                  <p className="text-xs text-blue-800">
+                    <strong>ℹ️ Note:</strong> This contest uses a ranking system where voters select their top 5 and rank them. 
+                    Results show aggregate scores based on rankings (1st place = 5 points, 2nd = 4, etc.).
+                  </p>
+                </div>
+              )}
             </div>
             <div className="space-y-4">
               {contestResults.map((entry, index) => (
@@ -776,11 +792,17 @@ const ManagePage: React.FC = () => {
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
-                    <option value="dessert">🍰 Dessert</option>
-                    <option value="cocktail">🍹 Cocktail</option>
-                    <option value="appetizer">🥗 Appetizer</option>
-                    <option value="other">🎯 Other</option>
+                    <option value="dessert">🍰 Dessert (rated on appearance/texture/flavor)</option>
+                    <option value="cocktail">🍹 Cocktail (rated on appearance/texture/flavor)</option>
+                    <option value="appetizer">🥗 Appetizer (rated on appearance/texture/flavor)</option>
+                    <option value="sweater">🧥 Sweater (ranked top 5 system)</option>
+                    <option value="other">🎯 Other (rated on appearance/texture/flavor)</option>
                   </select>
+                  {contestForm.contest_type === 'sweater' && (
+                    <p className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                      <strong>ℹ️ Sweater contests use a ranking system:</strong> Voters select their top 5 favorites, then rank them from 1st to 5th place. No appearance/texture/flavor ratings.
+                    </p>
+                  )}
                 </div>
 
                 <div>

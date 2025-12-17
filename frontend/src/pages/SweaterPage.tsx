@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ImageIcon, Trophy, Star, ArrowLeft, ChevronUp, ChevronDown, Check, Info } from 'lucide-react';
+import { ImageIcon, Trophy, Star, ArrowLeft, ChevronUp, ChevronDown, Check, Info, GripVertical } from 'lucide-react';
 import { Entry, ContestWithEvent } from '@/types';
 import { Button, LoadingSpinner, AlertDialog } from '@/components/common';
 import { MenuBar } from '@/components/common';
@@ -23,6 +23,10 @@ const SweaterPage: React.FC = () => {
   const [rankedEntries, setRankedEntries] = useState<number[]>([]);
   const [isRankingMode, setIsRankingMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
 
   const [alert, setAlert] = useState<{
     isOpen: boolean;
@@ -169,6 +173,31 @@ const SweaterPage: React.FC = () => {
     setRankedEntries(newRanked);
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnter = (index: number) => {
+    if (draggedIndex === null || draggedIndex === index) return;
+    setDraggedOverIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    if (draggedIndex !== null && draggedOverIndex !== null && draggedIndex !== draggedOverIndex) {
+      const newRanked = [...rankedEntries];
+      const [removed] = newRanked.splice(draggedIndex, 1);
+      newRanked.splice(draggedOverIndex, 0, removed);
+      setRankedEntries(newRanked);
+    }
+    setDraggedIndex(null);
+    setDraggedOverIndex(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Required to allow drop
+  };
+
   const handleSubmitRankings = async () => {
     if (!voterName || rankedEntries.length !== 5) {
       setAlert({
@@ -311,6 +340,24 @@ const SweaterPage: React.FC = () => {
               Start Ranking Sweaters
             </Button>
 
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">or</span>
+              </div>
+            </div>
+
+            <Button 
+              type="button" 
+              variant="secondary" 
+              className="w-full text-lg py-4 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+              onClick={() => sweaterContest && navigate(`/contest/${sweaterContest.id}`)}
+            >
+              📸 Submit a Sweater Entry
+            </Button>
+
             <Button type="button" variant="ghost" className="w-full" onClick={() => navigate('/')}>
               <ArrowLeft className="w-5 h-5 mr-2" />
               Back to Home
@@ -328,6 +375,12 @@ const SweaterPage: React.FC = () => {
         title={`🧥 Sweater Contest: ${voterName}`}
         subtitle={sweaterContest.event_name}
         actions={[
+          {
+            label: 'Submit Entry',
+            onClick: () => navigate(`/contest/${sweaterContest.id}`),
+            variant: 'primary',
+            icon: '📸'
+          },
           {
             label: 'Change voter',
             onClick: handleVoterLogout,
@@ -506,7 +559,7 @@ const SweaterPage: React.FC = () => {
                   </h2>
                   <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
                     <p className="text-blue-800 font-semibold mb-2">
-                      Use the ↑↓ buttons to arrange from best to 5th place:
+                      Drag to reorder or use ↑↓ buttons:
                     </p>
                     <div className="flex flex-wrap gap-2 text-sm text-blue-700">
                       <span className="bg-white px-2 py-1 rounded">🥇 = Your favorite</span>
@@ -515,6 +568,10 @@ const SweaterPage: React.FC = () => {
                       <span className="bg-white px-2 py-1 rounded">4️⃣ = 4th</span>
                       <span className="bg-white px-2 py-1 rounded">5️⃣ = 5th</span>
                     </div>
+                    <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+                      <GripVertical className="w-4 h-4" />
+                      <span>Grab the handle and drag to reorder</span>
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -552,6 +609,8 @@ const SweaterPage: React.FC = () => {
 
                 const isFirst = index === 0;
                 const isLast = index === rankedEntries.length - 1;
+                const isDragging = draggedIndex === index;
+                const isDraggedOver = draggedOverIndex === index;
                 const rankColor = index === 0 ? 'from-yellow-400 to-yellow-600' :
                                  index === 1 ? 'from-gray-300 to-gray-500' :
                                  index === 2 ? 'from-orange-400 to-orange-600' :
@@ -560,11 +619,23 @@ const SweaterPage: React.FC = () => {
                 return (
                   <div
                     key={entryId}
-                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300"
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragEnter={() => handleDragEnter(index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={handleDragOver}
+                    className={`bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 ${
+                      isDragging ? 'opacity-50 scale-95' : 'hover:shadow-2xl'
+                    } ${
+                      isDraggedOver && draggedIndex !== index ? 'ring-4 ring-blue-400 scale-105' : ''
+                    } cursor-move`}
                   >
                     <div className="flex flex-col sm:flex-row items-stretch">
-                      {/* Rank badge */}
-                      <div className={`bg-gradient-to-br ${rankColor} w-full sm:w-24 flex-shrink-0 flex items-center justify-center text-5xl font-bold text-white py-4 sm:py-6 relative`}>
+                      {/* Drag handle + Rank badge */}
+                      <div className={`bg-gradient-to-br ${rankColor} w-full sm:w-28 flex-shrink-0 flex items-center justify-center text-5xl font-bold text-white py-4 sm:py-6 relative`}>
+                        <div className="absolute top-2 left-2 opacity-75 hover:opacity-100 cursor-grab active:cursor-grabbing">
+                          <GripVertical className="w-6 h-6" />
+                        </div>
                         <div className="text-center">
                           <div>{getRankEmoji(index + 1)}</div>
                           <div className="text-xs font-normal mt-1 opacity-90">
@@ -578,7 +649,7 @@ const SweaterPage: React.FC = () => {
                         <img
                           src={entry.photo}
                           alt={entry.entry_name}
-                          className="w-full sm:w-32 h-32 object-cover rounded-lg shadow-md"
+                          className="w-full sm:w-32 h-32 object-cover rounded-lg shadow-md pointer-events-none"
                         />
                         <div className="flex-1 text-center sm:text-left">
                           <h3 className="font-bold text-xl text-gray-800 mb-1">
@@ -587,13 +658,13 @@ const SweaterPage: React.FC = () => {
                           <p className="text-gray-600 mb-2">by {entry.contestant_name}</p>
                           <div className="text-sm text-gray-500">
                             {isFirst && '👑 Your top pick!'}
-                            {!isFirst && !isLast && `Want to move ${index === 1 ? 'to 1st place' : 'up or down'}?`}
-                            {isLast && '💡 Move up to rank higher'}
+                            {!isFirst && !isLast && 'Drag to reorder'}
+                            {isLast && '💡 Drag up to rank higher'}
                           </div>
                         </div>
                       </div>
 
-                      {/* Move buttons */}
+                      {/* Move buttons (alternative to dragging) */}
                       <div className="flex sm:flex-col justify-center gap-2 p-4 bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200">
                         <Button
                           onClick={() => moveEntryUp(index)}

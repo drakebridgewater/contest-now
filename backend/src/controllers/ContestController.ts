@@ -69,7 +69,7 @@ export class ContestController {
         throw new ValidationError('Event ID, contest name, and contest type are required');
       }
 
-      const validTypes = ['dessert', 'cocktail', 'appetizer', 'other'];
+      const validTypes = ['dessert', 'cocktail', 'appetizer', 'sweater', 'other'];
       if (!validTypes.includes(contestData.contest_type)) {
         throw new ValidationError('Invalid contest type');
       }
@@ -93,7 +93,7 @@ export class ContestController {
 
       // Validate contest type if provided
       if (contestData.contest_type) {
-        const validTypes = ['dessert', 'cocktail', 'appetizer', 'other'];
+        const validTypes = ['dessert', 'cocktail', 'appetizer', 'sweater', 'other'];
         if (!validTypes.includes(contestData.contest_type)) {
           throw new ValidationError('Invalid contest type');
         }

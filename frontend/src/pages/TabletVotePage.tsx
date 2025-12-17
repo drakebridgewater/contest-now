@@ -62,12 +62,15 @@ const TabletVotePage: React.FC = () => {
         contestService.getByEventId(parseInt(eventId))
       ]);
 
-      setEvent(eventData);
-      setContests(contestsData);
+      // Filter out sweater contests (they use the ranking page)
+      const nonSweaterContests = contestsData.filter(c => c.contest_type !== 'sweater');
 
-      // Load all entries for this event's contests
+      setEvent(eventData);
+      setContests(nonSweaterContests);
+
+      // Load all entries for this event's contests (excluding sweater)
       const allEntries: Entry[] = [];
-      for (const contest of contestsData) {
+      for (const contest of nonSweaterContests) {
         const contestEntries = await entryService.getByContest(contest.id);
         allEntries.push(...contestEntries);
       }

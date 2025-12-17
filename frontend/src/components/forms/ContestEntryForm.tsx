@@ -84,6 +84,7 @@ const ContestEntryForm: React.FC<ContestEntryFormProps> = ({
       case 'dessert': return '🍰';
       case 'cocktail': return '🍹';
       case 'appetizer': return '🥗';
+      case 'sweater': return '🧥';
       case 'other': return '🏆';
       default: return '🎯';
     }
@@ -141,6 +142,7 @@ const ContestEntryForm: React.FC<ContestEntryFormProps> = ({
           placeholder={`e.g., ${contest.contest_type === 'dessert' ? 'Santa\'s Sunset Paradise' :
                             contest.contest_type === 'cocktail' ? 'Holiday Eggnog Martini' :
                             contest.contest_type === 'appetizer' ? 'Festive Cheese Board' :
+                            contest.contest_type === 'sweater' ? 'Rudolph\'s Reindeer Pullover' :
                             'My Amazing Entry'}`}
           required
           disabled={loading}

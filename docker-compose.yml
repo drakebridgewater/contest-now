@@ -11,7 +11,7 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - DATABASE_PATH=/app/data/contest.db
-      - BASE_URL=https://pdxmas.drakebridgewater.com
+      - BASE_URL=${BASE_URL:-http://localhost:3099}
     restart: unless-stopped
     networks:
       - pdxmas-network

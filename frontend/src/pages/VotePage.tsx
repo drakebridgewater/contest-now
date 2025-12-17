@@ -44,7 +44,9 @@ const VotePage: React.FC<VotePageProps> = ({
     const loadContests = async () => {
       try {
         const activeContests = await contestService.getActive();
-        setContests(activeContests);
+        // Filter out sweater contests (they use the ranking page)
+        const nonSweaterContests = activeContests.filter(c => c.contest_type !== 'sweater');
+        setContests(nonSweaterContests);
       } catch (error) {
         console.error('Error loading contests:', error);
       }

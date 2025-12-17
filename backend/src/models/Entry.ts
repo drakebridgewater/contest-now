@@ -84,17 +84,7 @@ export class EntryModel {
     try {
       const allergensJson = entryData.allergens ? JSON.stringify(entryData.allergens) : '[]';
 
-      const result = await database.run(
-        'INSERT INTO entries (contest_id, entry_name, contestant_name, photo_path, allergens) VALUES (?, ?, ?, ?, ?)',
-        [entryData.contest_id, entryData.entry_name, entryData.contestant_name, photoFileName, allergensJson]
-      );
-
-      if (!result.lastID) {
-        logger.error('No lastID returned after entry creation');
-        throw new InternalServerError('Failed to create entry');
-      }
-
-      // Get contest info for the response
+      // Get contest info first to get the contest_type (required for insert)
       const contestInfo = await database.get<{ contest_type: ContestType; contest_name: string; event_id: number; event_name: string }>(
         `SELECT c.contest_type, c.contest_name, c.event_id, ev.event_name
          FROM contests c
@@ -102,6 +92,21 @@ export class EntryModel {
          WHERE c.id = ?`,
         [entryData.contest_id]
       );
+
+      if (!contestInfo) {
+        logger.error('Contest not found:', entryData.contest_id);
+        throw new InternalServerError('Contest not found');
+      }
+
+      const result = await database.run(
+        'INSERT INTO entries (contest_id, entry_name, contestant_name, photo_path, allergens, contest_type) VALUES (?, ?, ?, ?, ?, ?)',
+        [entryData.contest_id, entryData.entry_name, entryData.contestant_name, photoFileName, allergensJson, contestInfo.contest_type]
+      );
+
+      if (!result.lastID) {
+        logger.error('No lastID returned after entry creation');
+        throw new InternalServerError('Failed to create entry');
+      }
 
       return {
         id: result.lastID,
@@ -112,10 +117,10 @@ export class EntryModel {
         photo: `${config.server.baseUrl}/uploads/${photoFileName}`,
         allergens: entryData.allergens || [],
         created_at: new Date().toISOString(),
-        contest_type: contestInfo?.contest_type,
-        contest_name: contestInfo?.contest_name,
-        event_id: contestInfo?.event_id,
-        event_name: contestInfo?.event_name,
+        contest_type: contestInfo.contest_type,
+        contest_name: contestInfo.contest_name,
+        event_id: contestInfo.event_id,
+        event_name: contestInfo.event_name,
       };
     } catch (error) {
       logger.error('Error creating entry:', error);
