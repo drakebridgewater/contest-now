@@ -114,11 +114,6 @@ const ContestSelectionPage: React.FC = () => {
       {/* Page Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center gap-3 justify-center">
-            <span className="text-5xl">🎄</span>
-            PDXmas 2025 Contests
-            <span className="text-5xl">❄️</span>
-          </h1>
           <p className="text-gray-600 text-center text-lg mb-4">Choose a contest to participate in</p>
           
           {/* Toggle for showing all contests */}
