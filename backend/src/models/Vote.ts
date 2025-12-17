@@ -84,13 +84,32 @@ export class VoteModel {
 
   public async getVoters(): Promise<VoterInfo[]> {
     try {
+      // Combine voters from both votes and ranking_votes tables
       const query = `
         SELECT
           voter_name,
-          COUNT(*) as vote_count,
-          MIN(created_at) as first_vote,
-          MAX(updated_at) as last_vote
-        FROM votes
+          SUM(vote_count) as vote_count,
+          MIN(first_vote) as first_vote,
+          MAX(last_vote) as last_vote
+        FROM (
+          SELECT
+            voter_name,
+            COUNT(*) as vote_count,
+            MIN(created_at) as first_vote,
+            MAX(updated_at) as last_vote
+          FROM votes
+          GROUP BY voter_name
+          
+          UNION ALL
+          
+          SELECT
+            voter_name,
+            COUNT(*) as vote_count,
+            MIN(created_at) as first_vote,
+            MAX(updated_at) as last_vote
+          FROM ranking_votes
+          GROUP BY voter_name
+        ) combined_votes
         GROUP BY voter_name
         ORDER BY voter_name
       `;
@@ -107,34 +126,48 @@ export class VoteModel {
       const normalizedOldName = normalizeVoterName(oldVoterName);
       const normalizedNewName = normalizeVoterName(newVoterName);
 
-      // Check if old voter exists
-      const voteCount = await database.get<{ count: number }>(
+      // Check if old voter exists in either table
+      const traditionalVoteCount = await database.get<{ count: number }>(
         'SELECT COUNT(*) as count FROM votes WHERE voter_name = ?',
         [normalizedOldName]
       );
+      const rankingVoteCount = await database.get<{ count: number }>(
+        'SELECT COUNT(*) as count FROM ranking_votes WHERE voter_name = ?',
+        [normalizedOldName]
+      );
 
-      if (!voteCount || voteCount.count === 0) {
+      const totalVotes = (traditionalVoteCount?.count || 0) + (rankingVoteCount?.count || 0);
+
+      if (totalVotes === 0) {
         logger.error(`Voter '${normalizedOldName}' not found for update`);
         throw new NotFoundError('Voter not found');
       }
 
-      // Check if new voter name already exists
-      const existingCount = await database.get<{ count: number }>(
+      // Check if new voter name already exists in either table
+      const existingTraditionalCount = await database.get<{ count: number }>(
         'SELECT COUNT(*) as count FROM votes WHERE voter_name = ?',
         [normalizedNewName]
       );
+      const existingRankingCount = await database.get<{ count: number }>(
+        'SELECT COUNT(*) as count FROM ranking_votes WHERE voter_name = ?',
+        [normalizedNewName]
+      );
 
-      if (existingCount && existingCount.count > 0) {
+      if ((existingTraditionalCount?.count || 0) + (existingRankingCount?.count || 0) > 0) {
         throw new Error('A voter with that name already exists');
       }
 
-      // Update all votes for this voter
-      const result = await database.run(
+      // Update all votes for this voter in both tables
+      const traditionalResult = await database.run(
         'UPDATE votes SET voter_name = ?, updated_at = CURRENT_TIMESTAMP WHERE voter_name = ?',
         [normalizedNewName, normalizedOldName]
       );
+      const rankingResult = await database.run(
+        'UPDATE ranking_votes SET voter_name = ?, updated_at = CURRENT_TIMESTAMP WHERE voter_name = ?',
+        [normalizedNewName, normalizedOldName]
+      );
 
-      return result.changes || 0;
+      return (traditionalResult.changes || 0) + (rankingResult.changes || 0);
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;
@@ -146,21 +179,28 @@ export class VoteModel {
 
   public async deleteVoter(voterName: string): Promise<number> {
     try {
-      // First check if voter exists
-      const voteCount = await database.get<{ count: number }>(
+      // Check if voter exists in either table
+      const traditionalVoteCount = await database.get<{ count: number }>(
         'SELECT COUNT(*) as count FROM votes WHERE voter_name = ?',
         [voterName]
       );
+      const rankingVoteCount = await database.get<{ count: number }>(
+        'SELECT COUNT(*) as count FROM ranking_votes WHERE voter_name = ?',
+        [voterName]
+      );
 
-      if (!voteCount || voteCount.count === 0) {
+      const totalVotes = (traditionalVoteCount?.count || 0) + (rankingVoteCount?.count || 0);
+
+      if (totalVotes === 0) {
         logger.error(`Voter '${voterName}' not found for deletion`);
         throw new NotFoundError('Voter not found');
       }
 
-      // Delete all votes for this voter
-      const result = await database.run('DELETE FROM votes WHERE voter_name = ?', [voterName]);
+      // Delete all votes for this voter from both tables
+      const traditionalResult = await database.run('DELETE FROM votes WHERE voter_name = ?', [voterName]);
+      const rankingResult = await database.run('DELETE FROM ranking_votes WHERE voter_name = ?', [voterName]);
 
-      return result.changes || 0;
+      return (traditionalResult.changes || 0) + (rankingResult.changes || 0);
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;

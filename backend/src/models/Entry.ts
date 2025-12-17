@@ -160,7 +160,8 @@ export class EntryModel {
 
   public async getResults(contestId?: string): Promise<EntryResult[]> {
     try {
-      let query = `
+      // Query for traditional contests (using votes table)
+      let traditionalQuery = `
         SELECT
           e.*,
           c.contest_type,
@@ -196,18 +197,56 @@ export class EntryModel {
         JOIN contests c ON e.contest_id = c.id
         JOIN events ev ON c.event_id = ev.id
         LEFT JOIN votes v ON e.id = v.entry_id
+        WHERE c.contest_type != 'sweater'
+      `;
+
+      // Query for sweater contests (using ranking_votes table)
+      // Ranking points: 1st place = 5 points, 2nd = 4, 3rd = 3, 4th = 2, 5th = 1
+      let sweaterQuery = `
+        SELECT
+          e.*,
+          c.contest_type,
+          c.contest_name,
+          c.event_id,
+          ev.event_name,
+          COUNT(rv.id) as vote_count,
+          0 as avg_appearance,
+          0 as avg_texture,
+          0 as avg_flavor,
+          COALESCE(AVG(CAST((6 - rv.rank) AS REAL)), 0) as average_rating,
+          NULL as comments_concat,
+          0 as appearance_1_count, 0 as appearance_2_count, 0 as appearance_3_count, 0 as appearance_4_count, 0 as appearance_5_count,
+          0 as texture_1_count, 0 as texture_2_count, 0 as texture_3_count, 0 as texture_4_count, 0 as texture_5_count,
+          0 as flavor_1_count, 0 as flavor_2_count, 0 as flavor_3_count, 0 as flavor_4_count, 0 as flavor_5_count
+        FROM entries e
+        JOIN contests c ON e.contest_id = c.id
+        JOIN events ev ON c.event_id = ev.id
+        LEFT JOIN ranking_votes rv ON e.id = rv.entry_id
+        WHERE c.contest_type = 'sweater'
       `;
       
       const params: unknown[] = [];
       if (contestId !== undefined) {
-        query += ' WHERE e.contest_id = ?';
+        traditionalQuery += ' AND e.contest_id = ?';
+        sweaterQuery += ' AND e.contest_id = ?';
+        params.push(contestId);
         params.push(contestId);
       }
 
-      query += ' GROUP BY e.id, e.entry_name, e.contestant_name, e.contest_id, e.photo_path, e.allergens, e.created_at, c.contest_type, c.contest_name, c.event_id, ev.event_name';
-      query += ' ORDER BY c.contest_type, average_rating DESC, vote_count DESC';
+      traditionalQuery += ' GROUP BY e.id, e.entry_name, e.contestant_name, e.contest_id, e.photo_path, e.allergens, e.created_at, c.contest_type, c.contest_name, c.event_id, ev.event_name';
+      sweaterQuery += ' GROUP BY e.id, e.entry_name, e.contestant_name, e.contest_id, e.photo_path, e.allergens, e.created_at, c.contest_type, c.contest_name, c.event_id, ev.event_name';
 
-      const results = await database.all<EntryResultRow>(query, params);
+      // Combine queries with UNION
+      const combinedQuery = `
+        SELECT * FROM (
+          ${traditionalQuery}
+          UNION ALL
+          ${sweaterQuery}
+        )
+        ORDER BY contest_type, average_rating DESC, vote_count DESC
+      `;
+
+      const results = await database.all<EntryResultRow>(combinedQuery, params);
 
       return results.map((row: EntryResultRow) => {
         // Parse comments
