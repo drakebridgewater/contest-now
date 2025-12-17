@@ -37,6 +37,11 @@ interface EntryResultRow {
   flavor_3_count: number;
   flavor_4_count: number;
   flavor_5_count: number;
+  rank_1_count: number;
+  rank_2_count: number;
+  rank_3_count: number;
+  rank_4_count: number;
+  rank_5_count: number;
 }
 
 export class EntryModel {
@@ -192,7 +197,12 @@ export class EntryModel {
           SUM(CASE WHEN v.flavor_rating = 2 THEN 1 ELSE 0 END) as flavor_2_count,
           SUM(CASE WHEN v.flavor_rating = 3 THEN 1 ELSE 0 END) as flavor_3_count,
           SUM(CASE WHEN v.flavor_rating = 4 THEN 1 ELSE 0 END) as flavor_4_count,
-          SUM(CASE WHEN v.flavor_rating = 5 THEN 1 ELSE 0 END) as flavor_5_count
+          SUM(CASE WHEN v.flavor_rating = 5 THEN 1 ELSE 0 END) as flavor_5_count,
+          0 as rank_1_count,
+          0 as rank_2_count,
+          0 as rank_3_count,
+          0 as rank_4_count,
+          0 as rank_5_count
         FROM entries e
         JOIN contests c ON e.contest_id = c.id
         JOIN events ev ON c.event_id = ev.id
@@ -217,7 +227,12 @@ export class EntryModel {
           NULL as comments_concat,
           0 as appearance_1_count, 0 as appearance_2_count, 0 as appearance_3_count, 0 as appearance_4_count, 0 as appearance_5_count,
           0 as texture_1_count, 0 as texture_2_count, 0 as texture_3_count, 0 as texture_4_count, 0 as texture_5_count,
-          0 as flavor_1_count, 0 as flavor_2_count, 0 as flavor_3_count, 0 as flavor_4_count, 0 as flavor_5_count
+          0 as flavor_1_count, 0 as flavor_2_count, 0 as flavor_3_count, 0 as flavor_4_count, 0 as flavor_5_count,
+          SUM(CASE WHEN rv.rank = 1 THEN 1 ELSE 0 END) as rank_1_count,
+          SUM(CASE WHEN rv.rank = 2 THEN 1 ELSE 0 END) as rank_2_count,
+          SUM(CASE WHEN rv.rank = 3 THEN 1 ELSE 0 END) as rank_3_count,
+          SUM(CASE WHEN rv.rank = 4 THEN 1 ELSE 0 END) as rank_4_count,
+          SUM(CASE WHEN rv.rank = 5 THEN 1 ELSE 0 END) as rank_5_count
         FROM entries e
         JOIN contests c ON e.contest_id = c.id
         JOIN events ev ON c.event_id = ev.id
@@ -301,6 +316,13 @@ export class EntryModel {
             3: row.flavor_3_count || 0,
             4: row.flavor_4_count || 0,
             5: row.flavor_5_count || 0,
+          },
+          ranking_distribution: {
+            1: row.rank_1_count || 0,
+            2: row.rank_2_count || 0,
+            3: row.rank_3_count || 0,
+            4: row.rank_4_count || 0,
+            5: row.rank_5_count || 0,
           },
           comments,
         };

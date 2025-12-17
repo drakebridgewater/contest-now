@@ -106,6 +106,18 @@ export class RankingVoteModel {
       throw new InternalServerError('Failed to delete voter');
     }
   }
+
+  public async deleteAllForVoter(voterName: string): Promise<number> {
+    try {
+      // Delete all ranking votes for this voter (without checking if they exist first)
+      // This is useful when replacing all votes for a voter
+      const result = await database.run('DELETE FROM ranking_votes WHERE voter_name = ?', [voterName]);
+      return result.changes || 0;
+    } catch (error) {
+      logger.error('Error deleting all rankings for voter:', error);
+      throw new InternalServerError('Failed to delete all rankings for voter');
+    }
+  }
 }
 
 export const rankingVoteModel = new RankingVoteModel();

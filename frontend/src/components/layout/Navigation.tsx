@@ -74,9 +74,6 @@ const Navigation: React.FC<NavigationProps> = ({
                       <span className="text-white font-bold text-xl block">
                         Instant Vote
                       </span>
-                      <span className="text-red-200 text-xs">
-                        PDXmas 2025
-                      </span>
                     </div>
                   </Link>
                 </div>
@@ -113,7 +110,7 @@ const Navigation: React.FC<NavigationProps> = ({
                     })}
 
                     {/* Tablet Voting Dropdown */}
-                    {events.length > 0 && (
+                    {/* {events.length > 0 && (
                       <Menu as="div" className="relative">
                         <Menu.Button className="group flex items-center px-3 py-2 rounded-md text-sm font-medium text-red-100 hover:bg-red-600 hover:text-white transition-colors duration-200">
                           <DeviceTabletIcon className="mr-2 h-4 w-4 text-red-200 group-hover:text-white transition-colors duration-200" />
@@ -158,7 +155,7 @@ const Navigation: React.FC<NavigationProps> = ({
                           </Menu.Items>
                         </Transition>
                       </Menu>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </div>

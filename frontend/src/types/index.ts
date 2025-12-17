@@ -139,6 +139,7 @@ export interface EntryResult extends Entry {
   appearance_distribution: RatingDistribution;
   texture_distribution: RatingDistribution;
   flavor_distribution: RatingDistribution;
+  ranking_distribution?: RatingDistribution;
   comments: Array<{
     voter_name: string;
     comment: string;

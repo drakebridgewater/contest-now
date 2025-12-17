@@ -201,8 +201,23 @@ export const rankingVoteService = {
     return response.data.data;
   },
 
+  async submitAll(voterName: string, rankings: Array<{ entry_id: number; rank: number }>): Promise<RankingVote[]> {
+    const response = await api.post<ApiResponse<RankingVote[]>>('/ranking-votes/submit-all', {
+      voter_name: voterName,
+      rankings,
+    });
+    if (!response.data.data) {
+      throw new Error(response.data.error || 'Failed to submit rankings');
+    }
+    return response.data.data;
+  },
+
   async delete(voterName: string, entryId: number): Promise<void> {
     await api.delete(`/ranking-votes/${encodeURIComponent(voterName)}/${entryId}`);
+  },
+
+  async deleteAllForVoter(voterName: string): Promise<void> {
+    await api.delete(`/ranking-votes/voter/${encodeURIComponent(voterName)}`);
   },
 
   async getAll(): Promise<RankingVote[]> {

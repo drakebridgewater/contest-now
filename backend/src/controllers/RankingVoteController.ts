@@ -75,6 +75,64 @@ export class RankingVoteController {
       next(error);
     }
   }
+
+  public async deleteAllForVoter(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { voterName } = req.params;
+
+      if (!voterName) {
+        throw new ValidationError('Voter name is required');
+      }
+
+      const deletedCount = await rankingVoteModel.deleteAllForVoter(voterName);
+      logger.info(`All ranking votes deleted for voter: ${voterName} (${deletedCount} votes)`);
+
+      res.json({ success: true, message: `Deleted ${deletedCount} ranking votes`, data: { deletedCount } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async submitAllRankings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { voter_name, rankings } = req.body as { voter_name: string; rankings: Array<{ entry_id: number; rank: number }> };
+
+      if (!voter_name) {
+        throw new ValidationError('Voter name is required');
+      }
+
+      if (!rankings || !Array.isArray(rankings) || rankings.length !== 5) {
+        throw new ValidationError('Exactly 5 rankings are required');
+      }
+
+      // Validate each ranking
+      for (const ranking of rankings) {
+        if (!ranking.entry_id || !ranking.rank || ranking.rank < 1 || ranking.rank > 5) {
+          throw new ValidationError('Each ranking must have a valid entry_id and rank (1-5)');
+        }
+      }
+
+      // Delete all existing rankings for this voter first
+      await rankingVoteModel.deleteAllForVoter(voter_name);
+
+      // Submit all new rankings
+      const submittedVotes = await Promise.all(
+        rankings.map((ranking) =>
+          rankingVoteModel.createOrUpdate({
+            voter_name,
+            entry_id: ranking.entry_id,
+            rank: ranking.rank,
+          })
+        )
+      );
+
+      logger.info(`All rankings submitted for voter: ${voter_name}`);
+
+      res.json({ success: true, data: submittedVotes });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const rankingVoteController = new RankingVoteController();

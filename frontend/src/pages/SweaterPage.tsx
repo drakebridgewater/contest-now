@@ -92,12 +92,23 @@ const SweaterPage: React.FC = () => {
         .map(([entryId]) => parseInt(entryId));
       
       if (rankedEntryIds.length > 0) {
-        setSelectedEntries(rankedEntryIds);
-        setRankedEntries(rankedEntryIds);
-        setIsRankingMode(rankedEntryIds.length === 5);
+        // Cap at 5 entries (in case there are orphaned votes in the database)
+        const validEntryIds = rankedEntryIds.slice(0, 5);
+        setSelectedEntries(validEntryIds);
+        setRankedEntries(validEntryIds);
+        setIsRankingMode(validEntryIds.length === 5);
+      } else {
+        // Clear any existing selections if no rankings found
+        setSelectedEntries([]);
+        setRankedEntries([]);
+        setIsRankingMode(false);
       }
     } catch (error) {
       console.error('Error loading rankings:', error);
+      // On error, clear selections to avoid stale state
+      setSelectedEntries([]);
+      setRankedEntries([]);
+      setIsRankingMode(false);
     }
   };
 
@@ -127,16 +138,21 @@ const SweaterPage: React.FC = () => {
     if (isRankingMode) return;
     
     if (selectedEntries.includes(entryId)) {
+      // Deselect the entry
       setSelectedEntries(selectedEntries.filter(id => id !== entryId));
-    } else if (selectedEntries.length < 5) {
-      setSelectedEntries([...selectedEntries, entryId]);
     } else {
-      setAlert({
-        isOpen: true,
-        title: 'Maximum Selections',
-        message: 'You can only select up to 5 sweaters.',
-        variant: 'info'
-      });
+      // Check if we're at the limit
+      if (selectedEntries.length >= 5) {
+        setAlert({
+          isOpen: true,
+          title: 'Maximum Selections',
+          message: 'You can only select up to 5 sweaters. Please deselect one first.',
+          variant: 'info'
+        });
+        return;
+      }
+      // Select the entry
+      setSelectedEntries([...selectedEntries, entryId]);
     }
   };
 
@@ -156,6 +172,7 @@ const SweaterPage: React.FC = () => {
 
   const handleBackToSelection = () => {
     setIsRankingMode(false);
+    // Keep selectedEntries as is, but clear rankedEntries for re-ranking
     setRankedEntries([]);
   };
 
@@ -212,16 +229,14 @@ const SweaterPage: React.FC = () => {
     try {
       setSubmitting(true);
       
-      // Submit all rankings
-      await Promise.all(
-        rankedEntries.map((entryId, index) =>
-          rankingVoteService.submit({
-            voter_name: voterName,
-            entry_id: entryId,
-            rank: index + 1, // Rank 1-5 (1 is best)
-          })
-        )
-      );
+      // Prepare rankings array with entry_id and rank
+      const rankings = rankedEntries.map((entryId, index) => ({
+        entry_id: entryId,
+        rank: index + 1, // Rank 1-5 (1 is best)
+      }));
+
+      // Submit all rankings at once (this will replace all existing rankings)
+      await rankingVoteService.submitAll(voterName, rankings);
 
       setAlert({
         isOpen: true,
@@ -230,7 +245,7 @@ const SweaterPage: React.FC = () => {
         variant: 'success'
       });
 
-      // Reload rankings
+      // Reload rankings to reflect the new submission
       await loadVoterRankings(voterName);
     } catch (error) {
       console.error('Error submitting rankings:', error);

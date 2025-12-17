@@ -58,6 +58,85 @@ const ResultCard: React.FC<ResultCardProps> = ({
     );
   };
 
+  const RankingDistribution: React.FC<{
+    distribution: { [key: number]: number };
+    voteCount: number;
+  }> = ({ distribution, voteCount }) => {
+    const rankEmojis: { [key: number]: string } = {
+      1: '🥇',
+      2: '🥈',
+      3: '🥉',
+      4: '4️⃣',
+      5: '5️⃣',
+    };
+
+    const rankLabels: { [key: number]: string } = {
+      1: '1st Place',
+      2: '2nd Place',
+      3: '3rd Place',
+      4: '4th Place',
+      5: '5th Place',
+    };
+
+    const getRankBarColor = (rank: number) => {
+      switch (rank) {
+        case 1: return 'bg-gradient-to-r from-yellow-400 to-yellow-600';
+        case 2: return 'bg-gradient-to-r from-gray-300 to-gray-500';
+        case 3: return 'bg-gradient-to-r from-orange-400 to-orange-600';
+        case 4: return 'bg-gradient-to-r from-blue-300 to-blue-500';
+        case 5: return 'bg-gradient-to-r from-purple-300 to-purple-500';
+        default: return 'bg-gray-400';
+      }
+    };
+
+    return (
+      <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4 rounded-lg border-2 border-purple-200">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">🏆</span>
+          <h4 className="text-lg font-semibold text-gray-800">Ranking Distribution</h4>
+        </div>
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map(rank => {
+            const count = distribution[rank] || 0;
+            const percentage = voteCount > 0 ? (count / voteCount) * 100 : 0;
+            return (
+              <div key={rank} className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-2 w-24">
+                  <span className="text-xl">{rankEmojis[rank]}</span>
+                  <span className="font-medium text-gray-700 text-xs">{rankLabels[rank]}</span>
+                </div>
+                <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div
+                    className={`${getRankBarColor(rank)} h-3 rounded-full transition-all duration-300 shadow-sm`}
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+                <div className="flex items-center gap-2 w-16 justify-end">
+                  <span className="font-semibold text-gray-700 min-w-[2rem] text-right">{count}</span>
+                  {voteCount > 0 && (
+                    <span className="text-xs text-gray-500 w-10 text-right">
+                      ({percentage.toFixed(0)}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 pt-3 border-t border-purple-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">
+              💡 Scoring: 1st = 5pts, 2nd = 4pts, 3rd = 3pts, 4th = 2pts, 5th = 1pt
+            </span>
+            <span className="text-sm font-semibold text-gray-700">
+              Total: {voteCount} rankings
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       <div className="md:flex">
@@ -127,19 +206,11 @@ const ResultCard: React.FC<ResultCardProps> = ({
             </div>
           )}
 
-          {entry.contest_type === 'sweater' && (
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg mb-4 border-2 border-purple-200">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">🏆</span>
-                <h4 className="text-lg font-semibold text-gray-800">Ranking Score</h4>
-              </div>
-              <p className="text-sm text-gray-700 mb-2">
-                This entry received <strong>{entry.vote_count} rankings</strong> from voters who included it in their top 5.
-              </p>
-              <p className="text-xs text-gray-600">
-                💡 Scores are calculated from voter rankings: 1st place = 5 points, 2nd = 4 points, 3rd = 3 points, 4th = 2 points, 5th = 1 point
-              </p>
-            </div>
+          {entry.contest_type === 'sweater' && entry.ranking_distribution && (
+            <RankingDistribution
+              distribution={entry.ranking_distribution}
+              voteCount={entry.vote_count}
+            />
           )}
 
           {entry.comments && entry.comments.length > 0 && (

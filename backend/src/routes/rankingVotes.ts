@@ -9,6 +9,13 @@ router.get('/', rankingVoteController.getAllVotes);
 // POST /api/ranking-votes - Submit/update ranking vote
 router.post('/', rankingVoteController.submitVote);
 
+// POST /api/ranking-votes/submit-all - Submit all rankings (replaces all existing)
+// MUST come before /:voterName route to avoid route conflicts
+router.post('/submit-all', rankingVoteController.submitAllRankings);
+
+// DELETE /api/ranking-votes/voter/:voterName - Delete all rankings for a voter
+router.delete('/voter/:voterName', rankingVoteController.deleteAllForVoter);
+
 // GET /api/ranking-votes/:voterName - Get ranking votes for specific voter
 router.get('/:voterName', rankingVoteController.getByVoter);
 
