@@ -62,15 +62,13 @@ const TabletVotePage: React.FC = () => {
         contestService.getByEventId(parseInt(eventId))
       ]);
 
-      // Filter out sweater contests (they use the ranking page)
-      const nonSweaterContests = contestsData.filter(c => c.contest_type !== 'sweater');
-
+      // Include all contest types (sweater contests now supported)
       setEvent(eventData);
-      setContests(nonSweaterContests);
+      setContests(contestsData);
 
-      // Load all entries for this event's contests (excluding sweater)
+      // Load all entries for this event's contests
       const allEntries: Entry[] = [];
-      for (const contest of nonSweaterContests) {
+      for (const contest of contestsData) {
         const contestEntries = await entryService.getByContest(contest.id);
         allEntries.push(...contestEntries);
       }
@@ -364,7 +362,8 @@ const TabletVotePage: React.FC = () => {
                 {contests.map((contest) => {
                   const contestEmoji = contest.contest_type === 'dessert' ? '🍰' :
                                      contest.contest_type === 'cocktail' ? '🍹' :
-                                     contest.contest_type === 'appetizer' ? '🥗' : '🎯';
+                                     contest.contest_type === 'appetizer' ? '🥗' :
+                                     contest.contest_type === 'sweater' ? '🧥' : '🎯';
 
                   return (
                     <button
@@ -431,7 +430,54 @@ const TabletVotePage: React.FC = () => {
 
                 const contestEmoji = contest?.contest_type === 'dessert' ? '🍰' :
                                    contest?.contest_type === 'cocktail' ? '🍹' :
-                                   contest?.contest_type === 'appetizer' ? '🥗' : '🎯';
+                                   contest?.contest_type === 'appetizer' ? '🥗' :
+                                   contest?.contest_type === 'sweater' ? '🧥' : '🎯';
+
+                // Sweater contests use ranking system - show special card
+                if (contest?.contest_type === 'sweater') {
+                  return (
+                    <div key={contestId}>
+                      <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <span className="text-3xl">{contestEmoji}</span>
+                        {contest?.contest_name || 'Unknown Contest'}
+                      </h3>
+                      <div className="bg-gradient-to-br from-red-50 via-green-50 to-blue-50 rounded-xl shadow-lg p-8 border-2 border-dashed border-gray-300">
+                        <div className="text-center">
+                          <div className="text-6xl mb-4">🧥</div>
+                          <h4 className="text-2xl font-bold text-gray-800 mb-3">
+                            Ranking Contest
+                          </h4>
+                          <p className="text-gray-600 mb-2">
+                            This contest uses a <strong>Top 5 Ranking System</strong>
+                          </p>
+                          <p className="text-gray-500 text-sm mb-6">
+                            Select your 5 favorite entries, then rank them from best to 5th place
+                          </p>
+                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <button
+                              onClick={() => navigate(`/contest/${contestId}`)}
+                              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                            >
+                              <span className="text-xl">🏆</span>
+                              Start Ranking
+                            </button>
+                            <button
+                              onClick={() => navigate('/')}
+                              className="inline-flex items-center justify-center gap-2 bg-white text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors border-2 border-gray-300"
+                            >
+                              Back to Home
+                            </button>
+                          </div>
+                          <div className="mt-6 pt-6 border-t border-gray-300">
+                            <p className="text-xs text-gray-500">
+                              {contestEntries.length} {contestEntries.length === 1 ? 'entry' : 'entries'} available for ranking
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <div key={contestId}>

@@ -110,7 +110,7 @@ const ContestEntryForm: React.FC<ContestEntryFormProps> = ({
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8">
+    <div className="max-w-2xl mx-auto">
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
           <span className="text-3xl">{getContestEmoji(contest.contest_type)}</span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ImageIcon, Trophy, Star, Check, Info, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { ContestWithEvent, Entry, VotesByVoter, AllergenPopupData } from '@/types';
@@ -40,47 +40,7 @@ const ContestPage: React.FC = () => {
     variant?: 'info' | 'success' | 'warning' | 'error';
   }>({ isOpen: false, title: '', message: '' });
 
-  useEffect(() => {
-    if (!contestId) {
-      navigate('/');
-      return;
-    }
-    loadContestData();
-  }, [contestId, navigate]);
-
-  const loadContestData = async () => {
-    if (!contestId) return;
-
-    try {
-      setLoading(true);
-
-      // Load contest details and entries in parallel
-      const [contestData, entriesData] = await Promise.all([
-        contestService.getById(contestId),
-        entryService.getByContest(contestId)
-      ]);
-
-      setContest(contestData);
-      setEntries(entriesData);
-
-      // Load existing rankings if this is a sweater contest
-      if (contestData.contest_type === 'sweater' && voterName) {
-        await loadVoterRankingsForEntries(voterName, entriesData);
-      }
-    } catch (error) {
-      console.error('Error loading contest data:', error);
-      setAlert({
-        isOpen: true,
-        title: 'Error',
-        message: 'Failed to load contest. This contest may not exist or be inactive.',
-        variant: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadVoterRankingsForEntries = async (voter: string, entriesList: Entry[]) => {
+  const loadVoterRankingsForEntries = useCallback(async (voter: string, entriesList: Entry[]) => {
     if (!voter || !contestId) return;
     try {
       const rankings = await rankingVoteService.getByVoter(voter);
@@ -100,9 +60,54 @@ const ContestPage: React.FC = () => {
     } catch (error) {
       console.error('Error loading rankings:', error);
     }
-  };
+  }, [contestId]);
 
-  const loadVoterVotes = async (voter: string) => {
+  const loadContestData = useCallback(async () => {
+    if (!contestId) return;
+
+    try {
+      setLoading(true);
+
+      // Load contest details and entries in parallel
+      const [contestData, entriesData] = await Promise.all([
+        contestService.getById(contestId),
+        entryService.getByContest(contestId)
+      ]);
+
+      setContest(contestData);
+      setEntries(entriesData);
+
+      // Reset ranking state when loading new contest
+      setSelectedEntries([]);
+      setRankedEntries([]);
+      setIsRankingMode(false);
+
+      // Load existing rankings if this is a sweater contest
+      if (contestData.contest_type === 'sweater' && voterName) {
+        await loadVoterRankingsForEntries(voterName, entriesData);
+      }
+    } catch (error) {
+      console.error('Error loading contest data:', error);
+      setAlert({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to load contest. This contest may not exist or be inactive.',
+        variant: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [contestId, voterName, loadVoterRankingsForEntries]);
+
+  useEffect(() => {
+    if (!contestId) {
+      navigate('/');
+      return;
+    }
+    loadContestData();
+  }, [contestId, navigate, loadContestData]);
+
+  const loadVoterVotes = useCallback(async (voter: string) => {
     if (!voter) return;
 
     try {
@@ -111,13 +116,13 @@ const ContestPage: React.FC = () => {
     } catch (error) {
       console.error('Error loading votes:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (voterName && voterName.trim().length >= 2) {
       loadVoterVotes(voterName);
     }
-  }, [voterName]);
+  }, [voterName, loadVoterVotes]);
 
   const handleEntrySubmit = async (entryData: any) => {
     if (!contestId) return;
@@ -497,32 +502,53 @@ const ContestPage: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 py-6">
 
-        {/* View Toggle */}
-        <div className="flex gap-4 mb-6">
-          <Button
-            onClick={() => setCurrentView('submit')}
-            variant={currentView === 'submit' ? 'primary' : 'ghost'}
-          >
-            🎁 Submit Entry
-          </Button>
-          <Button
-            onClick={() => setCurrentView('vote')}
-            variant={currentView === 'vote' ? 'primary' : 'ghost'}
-          >
-            🗳️ Vote
-          </Button>
+        {/* View Toggle - Styled as integrated tabs */}
+        <div className="bg-white rounded-t-xl shadow-sm border-b-2 border-gray-200 mb-0">
+          <nav className="flex -mb-px">
+            <button
+              onClick={() => setCurrentView('submit')}
+              className={`flex-1 py-4 px-6 text-center font-semibold transition-all duration-200 ${
+                currentView === 'submit'
+                  ? 'border-b-4 border-indigo-600 text-indigo-600 bg-indigo-50'
+                  : 'border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-2 text-lg">
+                <span>🎁</span>
+                <span>Submit Entry</span>
+              </span>
+            </button>
+            <button
+              onClick={() => setCurrentView('vote')}
+              className={`flex-1 py-4 px-6 text-center font-semibold transition-all duration-200 ${
+                currentView === 'vote'
+                  ? 'border-b-4 border-indigo-600 text-indigo-600 bg-indigo-50'
+                  : 'border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-2 text-lg">
+                <span>🗳️</span>
+                <span>Vote</span>
+              </span>
+            </button>
+          </nav>
         </div>
-        {currentView === 'submit' && (
-          <ContestEntryForm
-            contestId={contestId!}
-            contest={contest}
-            onSubmit={handleEntrySubmit}
-            loading={submitting}
-          />
-        )}
+        
+        {/* Tab Content */}
+        <div className="bg-white rounded-b-xl shadow-lg">
+          {currentView === 'submit' && (
+            <div className="p-6">
+              <ContestEntryForm
+                contestId={contestId!}
+                contest={contest}
+                onSubmit={handleEntrySubmit}
+                loading={submitting}
+              />
+            </div>
+          )}
 
-        {currentView === 'vote' && (
-          <div>
+          {currentView === 'vote' && (
+            <div className="p-6">
             {!voterName ? (
               <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Enter Your Name to Vote</h2>
@@ -589,12 +615,16 @@ const ContestPage: React.FC = () => {
                     </div>
 
                     {selectedEntries.length === 5 && (
-                      <div className="bg-green-50 border-2 border-green-500 rounded-xl p-4 flex items-center justify-between animate-bounce">
+                      <div className="bg-green-50 border-2 border-green-500 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <Check className="w-6 h-6 text-green-600" />
                           <span className="text-green-800 font-semibold">All 5 selected! Ready to rank?</span>
                         </div>
-                        <Button onClick={handleProceedToRanking} variant="primary">
+                        <Button 
+                          onClick={handleProceedToRanking} 
+                          variant="primary"
+                          className="w-full sm:w-auto"
+                        >
                           Proceed to Ranking →
                         </Button>
                       </div>
@@ -787,8 +817,9 @@ const ContestPage: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       <AllergenModal
