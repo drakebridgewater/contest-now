@@ -15,14 +15,6 @@ services:
     restart: unless-stopped
     networks:
       - pdxmas-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
 
   frontend:
     build:
@@ -35,15 +27,6 @@ services:
     restart: unless-stopped
     networks:
       - pdxmas-network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
-
 networks:
   pdxmas-network:
     driver: bridge
