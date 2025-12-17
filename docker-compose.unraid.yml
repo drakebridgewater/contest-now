@@ -1,6 +1,6 @@
 services:
   backend:
-    image: pdxmas-backend:latest
+    build: ./backend
     container_name: pdxmas-backend
     ports:
       - "3001:3001"
@@ -10,6 +10,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - BASE_URL=${BASE_URL:-http://localhost:3099}
+      - DATABASE_PATH=/app/data/contest.db
     restart: unless-stopped
     networks:
       - pdxmas-network
@@ -23,18 +25,16 @@ services:
           memory: 128M
 
   frontend:
-    image: pdxmas-frontend:latest
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_ADMIN_PASSWORD: ${REACT_APP_ADMIN_PASSWORD:-pdxmas2025}
     container_name: pdxmas-frontend
     ports:
       - "3099:80"
-    depends_on:
-      backend:
-        condition: service_healthy
     restart: unless-stopped
     networks:
       - pdxmas-network
-    environment:
-      - REACT_APP_API_URL=http://YOUR-UNRAID-IP:3001/api
     deploy:
       resources:
         limits:
