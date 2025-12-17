@@ -1,10 +1,15 @@
 import Joi from 'joi';
 import { CreateEntryRequest, CreateVoteRequest, ContestType } from '@/types';
 
-const contestTypes: ContestType[] = ['dessert', 'cocktail', 'appetizer'];
+const contestTypes: ContestType[] = ['dessert', 'cocktail', 'appetizer', 'sweater', 'other'];
+
+// UUID v4 validation pattern
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const entryValidationSchema = Joi.object<CreateEntryRequest>({
-  contest_id: Joi.number().integer().positive().required(),
+  contest_id: Joi.string().pattern(uuidPattern).required().messages({
+    'string.pattern.base': 'contest_id must be a valid UUID',
+  }),
   entry_name: Joi.string().trim().min(1).max(100).required(),
   contestant_name: Joi.string().trim().min(1).max(100).required(),
   photo: Joi.string().pattern(/^data:image\/[a-zA-Z]*;base64,/).required(),
