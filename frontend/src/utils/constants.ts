@@ -102,7 +102,9 @@ export const CONTEST_TYPES: Record<ContestType, {name: string; emoji: string}> =
   other: {name: 'Other Contests', emoji: '🎯'},
 };
 
-export const RESULTS_PASSWORD = 'pdxmas2025';
+// Admin password loaded from environment variable at build time
+// Default to 'pdxmas2025' if not set
+export const RESULTS_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'pdxmas2025';
 
 export const AUTO_LOGOUT_DURATION = 30; // seconds
 

@@ -224,3 +224,4 @@ GitHub.sublime-settings
 **/node_modules/
 **/build/
 **/uploads/
+.env

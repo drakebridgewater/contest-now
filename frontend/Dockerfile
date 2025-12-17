@@ -18,8 +18,12 @@ COPY public ./public
 COPY tailwind.config.js ./
 COPY postcss.config.js ./
 
-# Set environment variable for build
+# Accept build arguments
+ARG REACT_APP_ADMIN_PASSWORD=pdxmas2025
+
+# Set environment variables for build
 ENV REACT_APP_API_URL=/api
+ENV REACT_APP_ADMIN_PASSWORD=$REACT_APP_ADMIN_PASSWORD
 
 # Build the app
 RUN npm run build
