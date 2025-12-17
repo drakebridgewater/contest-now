@@ -143,6 +143,10 @@ export interface EntryResult extends Entry {
     voter_name: string;
     comment: string;
   }>;
+  contest_type?: ContestType;
+  contest_name?: string;
+  event_id?: number;
+  event_name?: string;
 }
 
 export type ContestType = 'dessert' | 'cocktail' | 'appetizer' | 'sweater' | 'other';

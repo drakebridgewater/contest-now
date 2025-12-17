@@ -104,26 +104,43 @@ const ResultCard: React.FC<ResultCardProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <RatingDistribution
-              title="Appearance"
-              average={entry.avg_appearance}
-              distribution={entry.appearance_distribution}
-              color="text-blue-600"
-            />
-            <RatingDistribution
-              title="Texture"
-              average={entry.avg_texture}
-              distribution={entry.texture_distribution}
-              color="text-green-600"
-            />
-            <RatingDistribution
-              title="Flavor"
-              average={entry.avg_flavor}
-              distribution={entry.flavor_distribution}
-              color="text-orange-600"
-            />
-          </div>
+          {entry.contest_type !== 'sweater' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <RatingDistribution
+                title="Appearance"
+                average={entry.avg_appearance}
+                distribution={entry.appearance_distribution}
+                color="text-blue-600"
+              />
+              <RatingDistribution
+                title="Texture"
+                average={entry.avg_texture}
+                distribution={entry.texture_distribution}
+                color="text-green-600"
+              />
+              <RatingDistribution
+                title="Flavor"
+                average={entry.avg_flavor}
+                distribution={entry.flavor_distribution}
+                color="text-orange-600"
+              />
+            </div>
+          )}
+
+          {entry.contest_type === 'sweater' && (
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg mb-4 border-2 border-purple-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-2xl">🏆</span>
+                <h4 className="text-lg font-semibold text-gray-800">Ranking Score</h4>
+              </div>
+              <p className="text-sm text-gray-700 mb-2">
+                This entry received <strong>{entry.vote_count} rankings</strong> from voters who included it in their top 5.
+              </p>
+              <p className="text-xs text-gray-600">
+                💡 Scores are calculated from voter rankings: 1st place = 5 points, 2nd = 4 points, 3rd = 3 points, 4th = 2 points, 5th = 1 point
+              </p>
+            </div>
+          )}
 
           {entry.comments && entry.comments.length > 0 && (
             <div>
