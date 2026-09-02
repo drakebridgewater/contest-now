@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm:dev -w apps/api\" \"npm:dev -w apps/web\"",
-    "build": "npm run build -w packages/shared -w apps/api -w apps/web",
+    "build": "npm run build -w apps/api -w apps/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",

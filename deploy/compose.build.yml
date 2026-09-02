@@ -1,0 +1,15 @@
+# Overlay that builds the images from this checkout instead of pulling from GHCR.
+# Local run:
+#   docker compose -f deploy/docker-compose.yml -f deploy/compose.build.yml up --build
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - '3001:3001'
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile

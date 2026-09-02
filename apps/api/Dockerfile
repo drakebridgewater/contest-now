@@ -1,4 +1,9 @@
 # Build from the repository root:  docker build -f apps/api/Dockerfile .
+#
+# The workspace layout is preserved in the runtime image so Node resolves
+# apps/api/node_modules and then the hoisted /app/node_modules, exactly as npm
+# installed them.
+
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -9,6 +14,7 @@ RUN npm ci --workspace apps/api --workspace packages/shared --include-workspace-
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/api apps/api
+# tsup bundles @contest/shared into dist, so the shared package is build-time only.
 RUN npm run build -w apps/api
 
 FROM node:22-alpine AS deps
@@ -17,7 +23,7 @@ COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-RUN npm ci --omit=dev --workspace apps/api --workspace packages/shared --include-workspace-root \
+RUN npm ci --omit=dev --workspace apps/api --include-workspace-root \
   && npm cache clean --force
 
 FROM node:22-alpine
@@ -27,20 +33,20 @@ ENV NODE_ENV=production \
     PORT=3001 \
     HOST=0.0.0.0 \
     UPLOADS_DIR=/data/uploads \
-    MIGRATIONS_DIR=/app/drizzle \
+    MIGRATIONS_DIR=/app/apps/api/drizzle \
     LOG_LEVEL=info
-WORKDIR /app
+WORKDIR /app/apps/api
 RUN apk add --no-cache curl \
   && addgroup -S app && adduser -S app -G app \
   && mkdir -p /data/uploads && chown -R app:app /data
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=build /app/apps/api/dist ./dist
-COPY apps/api/drizzle ./drizzle
-COPY apps/api/package.json ./package.json
+# One copy of the whole install tree: hoisted /app/node_modules plus any
+# per-workspace node_modules npm chose not to hoist.
+COPY --from=deps /app /app
+COPY --from=build /app/apps/api/dist /app/apps/api/dist
+COPY apps/api/drizzle /app/apps/api/drizzle
 USER app
 EXPOSE 3001
 VOLUME ["/data/uploads"]
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
   CMD curl -fsS http://localhost:3001/api/health || exit 1
 CMD ["node", "dist/index.js"]
