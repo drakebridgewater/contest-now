@@ -65,11 +65,9 @@ export function createApp({ db, config, logger, state }: AppDeps): Express {
       next();
       return;
     }
-    res
-      .status(503)
-      .json({
-        error: 'The server is still starting up. Try again in a moment.',
-      } satisfies ApiError);
+    res.status(503).json({
+      error: 'The server is still starting up. Try again in a moment.',
+    } satisfies ApiError);
   });
 
   app.use(

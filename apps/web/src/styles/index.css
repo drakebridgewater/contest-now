@@ -1,1 +1,74 @@
 @import 'tailwindcss';
+
+/*
+ * Theme tokens. Change these to retheme the whole app (next year's colors go here).
+ * Tailwind 4 reads @theme variables and generates utilities such as bg-brand, text-accent.
+ */
+@theme {
+  --color-brand-50: oklch(0.971 0.013 17.4);
+  --color-brand-100: oklch(0.936 0.032 17.7);
+  --color-brand-200: oklch(0.885 0.062 18.3);
+  --color-brand-500: oklch(0.637 0.208 25.3);
+  --color-brand-600: oklch(0.577 0.207 27.3);
+  --color-brand-700: oklch(0.505 0.19 27.5);
+  --color-brand-800: oklch(0.444 0.161 26.9);
+
+  --color-accent-100: oklch(0.962 0.044 156.7);
+  --color-accent-500: oklch(0.596 0.145 163.2);
+  --color-accent-600: oklch(0.508 0.118 165.6);
+  --color-accent-700: oklch(0.432 0.095 166.9);
+
+  --color-surface: oklch(1 0 0);
+  --color-surface-muted: oklch(0.984 0.003 247.9);
+  --color-ink: oklch(0.21 0.034 264.7);
+  --color-ink-muted: oklch(0.446 0.027 256.8);
+
+  --font-display: 'Georgia', 'Times New Roman', serif;
+
+  --radius-card: 1rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background: linear-gradient(
+      180deg,
+      var(--color-brand-50) 0%,
+      var(--color-surface-muted) 40%,
+      var(--color-surface-muted) 100%
+    );
+    color: var(--color-ink);
+    min-height: 100dvh;
+    /* Room for the fixed bottom tab bar on phones. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Visible focus for keyboard users on every interactive element. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid var(--color-accent-600);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+}
+
+@utility tap-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
