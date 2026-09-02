@@ -10,7 +10,8 @@ COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-RUN npm ci --workspace apps/api --workspace packages/shared --include-workspace-root
+# No --include-workspace-root: the image never needs the repo's lint/test tooling.
+RUN npm ci --workspace apps/api --workspace packages/shared
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/api apps/api
@@ -23,7 +24,7 @@ COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-RUN npm ci --omit=dev --workspace apps/api --include-workspace-root \
+RUN npm ci --omit=dev --workspace apps/api \
   && npm cache clean --force
 
 FROM node:22-alpine
