@@ -1,6 +1,9 @@
-import { defineConfig } from 'drizzle-kit';
-
-export default defineConfig({
+// Consumed by `npm run db:generate`, which fetches drizzle-kit on demand rather
+// than installing it: drizzle-kit pins an esbuild version Vite rejects, and the
+// generated SQL under drizzle/ is committed, so nothing else needs the tool.
+// Typed loosely for that reason; drizzle-kit validates the shape when it runs.
+export default {
+  $schema: 'https://json.schemastore.org/drizzle.config.json',
   dialect: 'postgresql',
   schema: './src/db/schema.ts',
   out: './drizzle',
@@ -10,4 +13,4 @@ export default defineConfig({
   },
   strict: true,
   verbose: true,
-});
+};
