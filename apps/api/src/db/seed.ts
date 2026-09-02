@@ -6,7 +6,10 @@ export const DEFAULT_EVENT_NAME = 'Holiday Contest';
 
 const defaultCriteria = {
   appearance: { name: 'Appearance', helpText: 'How does it look? Plating, color, presentation.' },
-  texture: { name: 'Texture', helpText: 'Mouthfeel and consistency: is it what this dish should be?' },
+  texture: {
+    name: 'Texture',
+    helpText: 'Mouthfeel and consistency: is it what this dish should be?',
+  },
   flavor: { name: 'Flavor', helpText: 'Taste and balance. Would you go back for seconds?' },
   balance: { name: 'Balance', helpText: 'Sweet, sour, bitter and strength working together.' },
 } as const;
@@ -30,9 +33,27 @@ export async function seedDefaults(db: Db): Promise<{ seeded: boolean }> {
 
   await db.transaction(async (tx) => {
     await tx.insert(categories).values([
-      { id: 'appetizer', name: 'Appetizers', emoji: '🥗', description: 'Small bites and starters', sortOrder: 10 },
-      { id: 'cocktail', name: 'Cocktails', emoji: '🍹', description: 'Drinks, with or without alcohol', sortOrder: 20 },
-      { id: 'dessert', name: 'Desserts', emoji: '🍰', description: 'Sweets and baked goods', sortOrder: 30 },
+      {
+        id: 'appetizer',
+        name: 'Appetizers',
+        emoji: '🥗',
+        description: 'Small bites and starters',
+        sortOrder: 10,
+      },
+      {
+        id: 'cocktail',
+        name: 'Cocktails',
+        emoji: '🍹',
+        description: 'Drinks, with or without alcohol',
+        sortOrder: 20,
+      },
+      {
+        id: 'dessert',
+        name: 'Desserts',
+        emoji: '🍰',
+        description: 'Sweets and baked goods',
+        sortOrder: 30,
+      },
     ]);
 
     const rows: (typeof criteria.$inferInsert)[] = [];

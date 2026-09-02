@@ -92,7 +92,10 @@ export const entries = pgTable(
       .notNull()
       .references(() => categories.id, { onDelete: 'restrict' }),
     photoPath: text().notNull(),
-    allergens: text().array().notNull().default(sql`'{}'::text[]`),
+    allergens: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('entries_category_idx').on(t.categoryId)],
@@ -111,7 +114,10 @@ export const votes = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique('votes_voter_entry').on(t.voterName, t.entryId), index('votes_voter_idx').on(t.voterName)],
+  (t) => [
+    unique('votes_voter_entry').on(t.voterName, t.entryId),
+    index('votes_voter_idx').on(t.voterName),
+  ],
 );
 
 export const voteScores = pgTable(

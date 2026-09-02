@@ -8,7 +8,9 @@ const handle = connectPostgres(config.databaseUrl);
 try {
   await handle.migrate(config.migrationsDir);
   const { seeded } = await seedDefaults(handle.db);
-  console.warn(seeded ? 'Migrated and seeded default contest.' : 'Migrated; existing contest kept.');
+  console.warn(
+    seeded ? 'Migrated and seeded default contest.' : 'Migrated; existing contest kept.',
+  );
 } finally {
   await handle.close();
 }

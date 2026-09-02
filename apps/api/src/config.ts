@@ -6,9 +6,7 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3001),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required (postgres://user:pass@host:5432/db)'),
-  ADMIN_PASSWORD: z
-    .string()
-    .min(4, 'ADMIN_PASSWORD is required and must be at least 4 characters'),
+  ADMIN_PASSWORD: z.string().min(4, 'ADMIN_PASSWORD is required and must be at least 4 characters'),
   UPLOADS_DIR: z.string().default('./uploads'),
   /** Public path prefix photos are served from (through the web proxy). */
   UPLOADS_PUBLIC_PATH: z.string().default('/uploads'),
@@ -36,7 +34,9 @@ export interface AppConfig {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = EnvSchema.safeParse(env);
   if (!parsed.success) {
-    const problems = parsed.error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`);
+    const problems = parsed.error.issues.map(
+      (issue) => `  ${issue.path.join('.')}: ${issue.message}`,
+    );
     throw new Error(`Invalid configuration:\n${problems.join('\n')}`);
   }
   const e = parsed.data;
