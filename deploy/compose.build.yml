@@ -1,15 +1,31 @@
-# Overlay that builds the images from this checkout instead of pulling from GHCR.
-# Local run:
+# Overlay that builds both images from this checkout instead of pulling them
+# from GHCR, and keeps all state in named volumes so the stack runs anywhere
+# rather than only on Unraid's appdata share.
+#
+# Requires deploy/.env first (ADMIN_PASSWORD and POSTGRES_PASSWORD are required):
+#   cp deploy/.env.example deploy/.env
 #   docker compose -f deploy/docker-compose.yml -f deploy/compose.build.yml up --build
+#
+# For everyday development you want the root compose.yaml instead.
 services:
+  db:
+    volumes:
+      - contest-local-db:/var/lib/postgresql/data
+
   api:
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
     ports:
       - '3001:3001'
+    volumes:
+      - contest-local-uploads:/data/uploads
 
   web:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+
+volumes:
+  contest-local-db:
+  contest-local-uploads:

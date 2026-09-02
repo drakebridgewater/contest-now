@@ -1,0 +1,37 @@
+# Local development database only.
+#
+#   docker compose up -d db
+#
+# The API and the web app run on the host via `npm run dev` so they hot-reload.
+# Credentials match apps/api/.env.example, so DATABASE_URL there works unedited.
+#
+# This is NOT the deployed stack: deploy/docker-compose.yml is what Dockhand
+# runs on Unraid, and it deliberately keeps Postgres unpublished.
+
+name: contest-dev
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: contest-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: contest
+      POSTGRES_USER: contest
+      POSTGRES_PASSWORD: contest
+    ports:
+      # Override DEV_DB_PORT if 5432 is already taken on your machine.
+      - '${DEV_DB_PORT:-5432}:5432'
+    volumes:
+      # A named volume: nothing is written into the working tree, and
+      # `docker compose down -v` throws the whole database away.
+      - contest-dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U contest -d contest']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  contest-dev-db:

@@ -28,19 +28,26 @@ Requires Node 22 (`.nvmrc`) and Docker for the database.
 ```bash
 npm ci
 
-# Start Postgres on :5432
-docker compose -f deploy/docker-compose.yml up -d db
+# Throwaway dev database on a named volume, published on :5432
+docker compose up -d db
 
-cp apps/api/.env.example apps/api/.env    # then set ADMIN_PASSWORD
+cp apps/api/.env.example apps/api/.env    # set ADMIN_PASSWORD; the rest already matches
 npm run dev                               # API on :3001, web on :5173
 ```
+
+The root `compose.yaml` runs only Postgres; the API and web app stay on the host
+so they hot-reload. Its credentials match `apps/api/.env.example`, so
+`DATABASE_URL` works unedited. `docker compose down -v` throws the database away.
+If port 5432 is already in use, set `DEV_DB_PORT` and match it in your `.env`.
 
 The API applies its migrations and seeds a default contest on first start, so
 `http://localhost:5173` is usable immediately. The admin area is at `/admin`.
 
-To run the whole stack in containers exactly as the server does:
+To run the whole stack in containers, close to how the server does. This uses the
+deployment file, which requires `ADMIN_PASSWORD` and `POSTGRES_PASSWORD`:
 
 ```bash
+cp deploy/.env.example deploy/.env    # then fill in both passwords
 docker compose -f deploy/docker-compose.yml -f deploy/compose.build.yml up --build
 ```
 

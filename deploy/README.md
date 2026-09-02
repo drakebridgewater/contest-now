@@ -3,6 +3,11 @@
 Images are built by GitHub Actions and published to GHCR. The server only pulls
 them, so nothing compiles on Unraid.
 
+`deploy/docker-compose.yml` is the **server** stack: it stores data on the Unraid
+appdata share and deliberately leaves Postgres unpublished, reachable only by the
+other containers. Do not run it for day-to-day development — use the root
+`compose.yaml` instead (see the main [README](../README.md)).
+
 ## One-time setup
 
 **1. Make the packages readable.** After the first successful run of the Release
