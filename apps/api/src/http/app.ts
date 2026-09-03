@@ -46,7 +46,19 @@ export function createApp({ db, config, logger, state }: AppDeps): Express {
     }),
   );
   if (config.nodeEnv !== 'test') {
-    app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
+    app.use(
+      pinoHttp({
+        logger,
+        autoLogging: { ignore: (req) => req.url === '/api/health' },
+        // One compact line per request. The defaults serialize every request and
+        // response header, which buries real problems and would write the admin
+        // password (sent as x-admin-password) into the logs.
+        serializers: {
+          req: (req) => ({ id: req.id, method: req.method, url: req.url }),
+          res: (res) => ({ statusCode: res.statusCode }),
+        },
+      }),
+    );
   }
   app.use(express.json({ limit: '1mb' }));
 
