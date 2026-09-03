@@ -1,0 +1,58 @@
+# Contest stack for Unraid via Dockhand.
+#
+# Point a Dockhand Git stack at this repository and this file. Images are built
+# by GitHub Actions and published to GHCR, so nothing is compiled on the server.
+# Set the variables from .env.example in Dockhand before the first deploy.
+
+name: contest
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: contest-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-contest}
+      POSTGRES_USER: ${POSTGRES_USER:-contest}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - ${APPDATA_PATH:-/mnt/user/appdata/contest-now}/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-contest} -d ${POSTGRES_DB:-contest}']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [contest]
+
+  api:
+    image: ghcr.io/${GITHUB_OWNER:-drakebridgewater}/contest-now-api:${IMAGE_TAG:-latest}
+    container_name: contest-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-contest}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contest}
+      # The password for the host area at /admin.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
+      # Browsers reach the API through the web container, so same-origin is enough.
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ${APPDATA_PATH:-/mnt/user/appdata/contest-now}/uploads:/data/uploads
+    networks: [contest]
+
+  web:
+    image: ghcr.io/${GITHUB_OWNER:-drakebridgewater}/contest-now-web:${IMAGE_TAG:-latest}
+    container_name: contest-web
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - '${WEB_PORT:-3099}:80'
+    networks: [contest]
+
+networks:
+  contest:
+    name: contest
