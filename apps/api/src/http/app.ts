@@ -17,6 +17,8 @@ export interface AppState {
   /** Flips to true once migrations and seeding are done. */
   ready: boolean;
   dbStatus: HealthStatus['db'];
+  /** Checked at start-up, so a bad uploads mount shows up before a guest finds it. */
+  uploadsStatus: HealthStatus['uploads'];
   version: string;
 }
 
@@ -63,12 +65,23 @@ export function createApp({ db, config, logger, state }: AppDeps): Express {
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/health', (_req, res) => {
+    // Unwritable uploads only break submissions, so the app keeps serving votes
+    // and results. It still fails the health check, because the container going
+    // yellow in Unraid is how the host finds out before the party does.
+    const healthy = state.ready && state.uploadsStatus === 'ready';
     const body: HealthStatus = {
-      status: state.ready ? 'ok' : state.dbStatus === 'unavailable' ? 'error' : 'starting',
+      status: !state.ready
+        ? state.dbStatus === 'unavailable'
+          ? 'error'
+          : 'starting'
+        : healthy
+          ? 'ok'
+          : 'degraded',
       db: state.dbStatus,
+      uploads: state.uploadsStatus,
       version: state.version,
     };
-    res.status(state.ready ? 200 : 503).json(body);
+    res.status(healthy ? 200 : 503).json(body);
   });
 
   // Everything else waits for the database.

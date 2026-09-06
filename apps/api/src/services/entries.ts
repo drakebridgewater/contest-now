@@ -5,7 +5,7 @@ import { PHOTO_STORED_EXTENSION, type CreateEntryFields, type Entry } from '@con
 import { desc, eq } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
 import { categories, entries } from '../db/schema.ts';
-import { badRequest, conflict, notFound } from '../http/errors.ts';
+import { badRequest, conflict, notFound, serviceUnavailable } from '../http/errors.ts';
 import { getSettings } from './contest.ts';
 import { toStoredPhoto } from './photos.ts';
 
@@ -42,6 +42,28 @@ export async function getEntry(db: Db, id: number): Promise<typeof entries.$infe
 }
 
 /**
+ * Whether photos can actually be written to disk.
+ *
+ * `mkdir` with `recursive` is not a test of this: uploadsDir is a mounted
+ * volume, so it already exists and mkdir returns happily however the mount is
+ * owned. Only a write finds out. Called at start-up so a misconfigured mount is
+ * a deployment-time error in the log rather than a 500 for the first guest who
+ * tries to submit.
+ */
+export async function isUploadsDirWritable(uploadsDir: string): Promise<boolean> {
+  const probe = path.join(uploadsDir, `.write-probe-${randomUUID().slice(0, 8)}`);
+  try {
+    await fs.mkdir(uploadsDir, { recursive: true });
+    await fs.writeFile(probe, '');
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await fs.rm(probe, { force: true }).catch(() => {});
+  }
+}
+
+/**
  * Converts an upload of any supported format to the stored one and writes it
  * under uploadsDir. Conversion happens fully in memory first, so a file that
  * turns out to be unreadable never leaves a stray half-written photo behind.
@@ -49,8 +71,17 @@ export async function getEntry(db: Db, id: number): Promise<typeof entries.$infe
 export async function storePhoto(buffer: Buffer, storage: PhotoStorage): Promise<string> {
   const stored = await toStoredPhoto(buffer);
   const fileName = `${Date.now()}-${randomUUID().slice(0, 8)}.${PHOTO_STORED_EXTENSION}`;
-  await fs.mkdir(storage.uploadsDir, { recursive: true });
-  await fs.writeFile(path.join(storage.uploadsDir, fileName), stored);
+  try {
+    await fs.mkdir(storage.uploadsDir, { recursive: true });
+    await fs.writeFile(path.join(storage.uploadsDir, fileName), stored);
+  } catch (error) {
+    // The photo itself was fine, so this is the server's problem, not the
+    // guest's: say so rather than letting it surface as a bare 500.
+    throw serviceUnavailable(
+      'Photos cannot be saved right now. The server cannot write to its uploads folder.',
+      { cause: error },
+    );
+  }
   return fileName;
 }
 

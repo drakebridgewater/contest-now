@@ -5,8 +5,9 @@ export class HttpError extends Error {
     public readonly status: number,
     message: string,
     public readonly details?: unknown,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = 'HttpError';
   }
 }
@@ -18,6 +19,9 @@ export const notFound = (message = 'Not found') => new HttpError(404, message);
 export const conflict = (message: string, details?: unknown) =>
   new HttpError(409, message, details);
 export const unsupportedMedia = (message: string) => new HttpError(415, message);
+/** The request was fine and the server could not honour it. `cause` is logged, never sent. */
+export const serviceUnavailable = (message: string, options?: ErrorOptions) =>
+  new HttpError(503, message, undefined, options);
 
 /** Parses with a Zod schema and turns failures into a 400 carrying the issues. */
 export function parse<T>(schema: ZodType<T>, data: unknown, what = 'request'): T {

@@ -2,7 +2,14 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createTestContext, samplePhoto, submitEntry, type TestContext } from './helpers.ts';
+import { isUploadsDirWritable } from '../src/services/entries.ts';
+import {
+  createTestContext,
+  samplePhoto,
+  submitEntry,
+  unusableUploadsDir,
+  type TestContext,
+} from './helpers.ts';
 
 let ctx: TestContext;
 
@@ -154,5 +161,44 @@ describe('entries', () => {
     expect((await ctx.api.delete(`/api/admin/entries/${res.body.id}`).set(ctx.admin)).status).toBe(
       404,
     );
+  });
+});
+
+describe('when the uploads directory cannot be written to', () => {
+  // What a bind-mounted volume the container user does not own looks like from
+  // the inside: the write is refused however good the photo was.
+  let broken: TestContext;
+
+  beforeAll(async () => {
+    broken = await createTestContext({ uploadsDir: await unusableUploadsDir() });
+  });
+  afterAll(async () => {
+    await broken.close();
+  });
+
+  it('answers a submission with a 503 that blames the server, not the guest', async () => {
+    const res = await submitEntry(broken, { entryName: 'Unlucky' });
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/uploads folder/i);
+    // And nothing half-made was recorded against it.
+    expect((await broken.api.get('/api/entries')).body).toHaveLength(0);
+  });
+
+  it('is spotted by the start-up probe rather than by the first guest', async () => {
+    expect(await isUploadsDirWritable(broken.uploadsDir)).toBe(false);
+    expect(await isUploadsDirWritable(ctx.uploadsDir)).toBe(true);
+  });
+
+  it('reports it on /api/health, so the container shows unhealthy', async () => {
+    broken.state.uploadsStatus = 'unwritable';
+    const res = await broken.api.get('/api/health');
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({ status: 'degraded', db: 'ready', uploads: 'unwritable' });
+  });
+
+  it('leaves a healthy stack reporting ok', async () => {
+    const res = await ctx.api.get('/api/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'ok', uploads: 'ready' });
   });
 });

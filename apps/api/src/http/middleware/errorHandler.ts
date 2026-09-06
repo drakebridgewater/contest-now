@@ -11,6 +11,11 @@ export const notFoundHandler: RequestHandler = (req, res) => {
 export function errorHandler(logger: Logger): ErrorRequestHandler {
   return (err, req, res, _next) => {
     if (err instanceof HttpError) {
+      // 4xx is the caller's problem and stays out of the log; 5xx is ours, and
+      // the cause (a filesystem error, say) is only ever logged, never returned.
+      if (err.status >= 500) {
+        logger.error({ err, method: req.method, url: req.originalUrl }, err.message);
+      }
       const body: ApiError = {
         error: err.message,
         ...(err.details !== undefined ? { details: err.details } : {}),

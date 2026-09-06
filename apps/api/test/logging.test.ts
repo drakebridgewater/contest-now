@@ -30,7 +30,7 @@ beforeAll(async () => {
   const app = createApp({
     db: ctx.db,
     logger: pino({ level: 'info' }, captured),
-    state: { ready: true, dbStatus: 'ready', version: 'test' },
+    state: { ready: true, dbStatus: 'ready', uploadsStatus: 'ready', version: 'test' },
     config: {
       adminPassword: ADMIN_PASSWORD,
       corsOrigin: '*',

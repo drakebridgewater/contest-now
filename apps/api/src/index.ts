@@ -1,15 +1,16 @@
-import fs from 'node:fs/promises';
 import { loadConfig } from './config.ts';
 import { connectPostgres } from './db/client.ts';
 import { seedDefaults } from './db/seed.ts';
 import { createApp, type AppState } from './http/app.ts';
 import { createLogger } from './logger.ts';
+import { isUploadsDirWritable } from './services/entries.ts';
 
 const config = loadConfig();
 const logger = createLogger(config.logLevel, config.nodeEnv === 'development');
 const state: AppState = {
   ready: false,
   dbStatus: 'migrating',
+  uploadsStatus: 'ready',
   version: process.env.APP_VERSION ?? 'dev',
 };
 
@@ -20,8 +21,23 @@ const server = app.listen(config.port, config.host, () => {
   logger.info({ port: config.port, host: config.host }, 'API listening');
 });
 
+async function checkUploads(): Promise<void> {
+  if (await isUploadsDirWritable(config.uploadsDir)) {
+    state.uploadsStatus = 'ready';
+    return;
+  }
+  state.uploadsStatus = 'unwritable';
+  logger.error(
+    { uploadsDir: config.uploadsDir },
+    'Cannot write to the uploads directory, so photo submissions will fail. ' +
+      'It is a mounted volume, and the ownership it has on the host wins over ' +
+      'the image, so give the container user access to it — for this stack: ' +
+      'docker exec -u 0 contest-api chown -R app:app /data/uploads',
+  );
+}
+
 async function prepare(): Promise<void> {
-  await fs.mkdir(config.uploadsDir, { recursive: true });
+  await checkUploads();
   const attempts = 30;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
