@@ -51,6 +51,59 @@ describe('entries', () => {
     expect(res.body.allergens).toEqual(['peanuts']);
   });
 
+  // The submit form used to gate on the part's Content-Type, which browsers fill
+  // in from the file extension. That turned away phone photos whose extension the
+  // browser had no entry for, and it trusted any file that was merely named .jpg.
+  describe('accepts a photo whatever the browser called it', () => {
+    it('takes a file announced as application/octet-stream, as phones send HEIC', async () => {
+      const res = await submitEntry(ctx, {
+        photo: await samplePhoto(),
+        filename: 'IMG_4213.HEIC',
+        contentType: 'application/octet-stream',
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.photoUrl).toMatch(/\.webp$/);
+    });
+
+    it('takes a file with no extension at all', async () => {
+      const res = await submitEntry(ctx, {
+        photo: await samplePhoto(),
+        filename: 'image',
+        contentType: 'application/octet-stream',
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it('takes a JPEG that its extension claims is a PNG', async () => {
+      const jpeg = await sharp(await samplePhoto())
+        .jpeg()
+        .toBuffer();
+      const res = await submitEntry(ctx, {
+        photo: jpeg,
+        filename: 'mislabelled.png',
+        contentType: 'image/png',
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it.each(['webp', 'gif', 'tiff', 'avif'] as const)(
+      'stores a %s upload as WebP like every other format',
+      async (format) => {
+        const source = sharp(await samplePhoto());
+        const photo = await (
+          format === 'avif' ? source.avif({ effort: 0 }) : source.toFormat(format)
+        ).toBuffer();
+        const res = await submitEntry(ctx, {
+          photo,
+          filename: `dish.${format}`,
+          contentType: `image/${format}`,
+        });
+        expect(res.status).toBe(201);
+        expect(res.body.photoUrl).toMatch(/\.webp$/);
+      },
+    );
+  });
+
   it('rejects missing photo, bad types, unknown categories and unknown allergens', async () => {
     const noPhoto = await ctx.api
       .post('/api/entries')

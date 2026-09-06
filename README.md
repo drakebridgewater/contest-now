@@ -13,7 +13,7 @@ category or a new award never needs a deploy.
 | Piece             | What it is                                                           |
 | ----------------- | -------------------------------------------------------------------- |
 | `apps/web`        | Vite + React 19 + Tailwind 4, mobile-first, served by nginx          |
-| `apps/api`        | Express 5 + Drizzle on Postgres 17, photos stored on disk            |
+| `apps/api`        | Express 5 + Drizzle on Postgres 17, photos converted to WebP on disk |
 | `packages/shared` | Zod schemas, the types inferred from them, and the scoring functions |
 | `deploy/`         | The compose stack Dockhand tracks on Unraid                          |
 
@@ -62,6 +62,32 @@ npm run build
 
 API tests run the real migrations against PGlite, an in-process Postgres, so
 they need no database and no Docker.
+
+## Photos
+
+Guests submit from whatever phone they have, so the upload path assumes nothing
+about the file it is given.
+
+The browser shrinks the photo before sending it, but that runs through a canvas
+and fails on anything the browser itself cannot decode, so it is only an
+optimisation — a file it cannot read is uploaded untouched.
+
+The API then decides what the file is **from its bytes**, never from its name.
+A browser fills in a file part's `Content-Type` by looking the extension up in a
+table it may not have an entry for, which is why an iPhone `.heic` so often
+arrives announced as `application/octet-stream`. JPEG, PNG, WebP, HEIC, AVIF,
+GIF and TIFF are all accepted. HEIC needs a hand: sharp's prebuilt libvips reads
+the HEIF container but ships libheif without an HEVC decoder, so `heic-convert`
+(WebAssembly, loaded only when a HEIC actually turns up) decodes those.
+
+Everything accepted is re-encoded to **WebP**, bounded to 1600px on its longest
+edge, with the EXIF orientation baked in and the rest of the EXIF — the GPS
+coordinates included — dropped. So `photoUrl` always points at a `.webp` and the
+front end has exactly one format to render.
+
+Adding a format means teaching `apps/api/src/services/photos.ts` to decode it
+and listing it in `PHOTO_INPUT_FORMATS` in `packages/shared/src/photos.ts`,
+which also drives the file picker's `accept` attribute.
 
 ## Changing the contest
 

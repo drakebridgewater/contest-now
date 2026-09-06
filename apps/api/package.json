@@ -20,6 +20,7 @@
     "drizzle-orm": "^0.45.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.0",
+    "heic-convert": "^2.1.0",
     "helmet": "^8.1.0",
     "multer": "^2.0.0",
     "pino": "^10.0.0",

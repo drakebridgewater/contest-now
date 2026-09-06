@@ -1,20 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { CreateEntryFields, Entry } from '@contest/shared';
+import { PHOTO_STORED_EXTENSION, type CreateEntryFields, type Entry } from '@contest/shared';
 import { desc, eq } from 'drizzle-orm';
-import sharp from 'sharp';
 import type { Db } from '../db/client.ts';
 import { categories, entries } from '../db/schema.ts';
 import { badRequest, conflict, notFound } from '../http/errors.ts';
 import { getSettings } from './contest.ts';
+import { toStoredPhoto } from './photos.ts';
 
 export interface PhotoStorage {
   uploadsDir: string;
   publicPath: string;
 }
-
-export const PHOTO_MAX_EDGE = 1600;
 
 export function toEntry(row: typeof entries.$inferSelect, storage: PhotoStorage): Entry {
   return {
@@ -43,24 +41,16 @@ export async function getEntry(db: Db, id: number): Promise<typeof entries.$infe
   return row;
 }
 
-/** Re-encodes any decodable image to a bounded WebP and writes it under uploadsDir. */
+/**
+ * Converts an upload of any supported format to the stored one and writes it
+ * under uploadsDir. Conversion happens fully in memory first, so a file that
+ * turns out to be unreadable never leaves a stray half-written photo behind.
+ */
 export async function storePhoto(buffer: Buffer, storage: PhotoStorage): Promise<string> {
-  const fileName = `${Date.now()}-${randomUUID().slice(0, 8)}.webp`;
+  const stored = await toStoredPhoto(buffer);
+  const fileName = `${Date.now()}-${randomUUID().slice(0, 8)}.${PHOTO_STORED_EXTENSION}`;
   await fs.mkdir(storage.uploadsDir, { recursive: true });
-  try {
-    await sharp(buffer, { failOn: 'error' })
-      .rotate()
-      .resize({
-        width: PHOTO_MAX_EDGE,
-        height: PHOTO_MAX_EDGE,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .webp({ quality: 82 })
-      .toFile(path.join(storage.uploadsDir, fileName));
-  } catch {
-    throw badRequest('Could not read that photo. Please try a JPEG or PNG image.');
-  }
+  await fs.writeFile(path.join(storage.uploadsDir, fileName), stored);
   return fileName;
 }
 

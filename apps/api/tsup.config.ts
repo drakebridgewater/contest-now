@@ -13,6 +13,8 @@ export default defineConfig({
   noExternal: ['@contest/shared'],
   external: [
     'sharp',
+    // Carries wasm that must stay on disk rather than be inlined into the bundle.
+    'heic-convert',
     'postgres',
     'pino',
     'pino-http',

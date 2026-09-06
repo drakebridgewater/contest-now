@@ -10,7 +10,7 @@ export const EntrySchema = z.object({
   entryName: z.string().min(1).max(ENTRY_NAME_MAX),
   contestantName: z.string().min(1).max(CONTESTANT_NAME_MAX),
   categoryId: Slug,
-  /** Absolute or root-relative URL of the photo. */
+  /** Absolute or root-relative URL of the photo. Always a WebP; see `photos.ts`. */
   photoUrl: z.string(),
   allergens: z.array(z.string()),
   createdAt: z.string(),
@@ -25,12 +25,3 @@ export const CreateEntryFieldsSchema = z.object({
   allergens: z.array(AllergenOrDietaryId).max(40).default([]),
 });
 export type CreateEntryFields = z.infer<typeof CreateEntryFieldsSchema>;
-
-export const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
-export const PHOTO_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-] as const;
