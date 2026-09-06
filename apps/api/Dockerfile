@@ -37,7 +37,9 @@ ENV NODE_ENV=production \
     MIGRATIONS_DIR=/app/apps/api/drizzle \
     LOG_LEVEL=info
 WORKDIR /app/apps/api
-RUN apk add --no-cache curl \
+# su-exec drops privileges in the entrypoint; see docker-entrypoint.sh for why
+# the container has to start as root at all.
+RUN apk add --no-cache curl su-exec \
   && addgroup -S app && adduser -S app -G app \
   && mkdir -p /data/uploads && chown -R app:app /data
 # One copy of the whole install tree: hoisted /app/node_modules plus any
@@ -45,9 +47,14 @@ RUN apk add --no-cache curl \
 COPY --from=deps /app /app
 COPY --from=build /app/apps/api/dist /app/apps/api/dist
 COPY apps/api/drizzle /app/apps/api/drizzle
-USER app
+COPY apps/api/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# Set here too, so the image does not depend on the checkout preserving the bit.
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Deliberately not `USER app`: the entrypoint needs root to chown the uploads
+# mount, and drops to app with su-exec before the server ever starts.
 EXPOSE 3001
 VOLUME ["/data/uploads"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
   CMD curl -fsS http://localhost:3001/api/health || exit 1
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]

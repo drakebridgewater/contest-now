@@ -40,6 +40,13 @@ branch you deploy from (`main`).
 `api` and `web`. The API waits for Postgres to report healthy, applies its
 migrations, seeds a default contest, and only then starts answering requests.
 
+Nothing to do about the uploads directory. Docker creates a missing bind-mount
+source as `root`, and the ownership a mount has on the host replaces whatever
+the image set, so the API's entrypoint starts as root, takes ownership of
+`/data/uploads`, and drops to its unprivileged `app` user before the server
+runs. It only touches the ownership when it is already wrong, so restarts do
+not walk the whole photo directory.
+
 **5. Automate redeploys (optional).** Copy the stack's webhook URL from Dockhand
 and add it to this repository under Settings → Secrets → Actions as
 `DOCKHAND_WEBHOOK_URL`. The Release workflow calls it _after_ both images are
@@ -50,12 +57,25 @@ push lands, before the images exist, and redeploy the previous build.
 
 ```bash
 curl -s http://<unraid-host>:3099/api/health
-# {"status":"ok","db":"ready","version":"<commit sha>"}
+# {"status":"ok","db":"ready","uploads":"ready","version":"<commit sha>"}
 ```
 
 `version` is the commit the running image was built from. `status` is
-`starting` while migrations run and `error` if the database never became
-reachable.
+`starting` while migrations run, `error` if the database never became
+reachable, and `degraded` if the app is serving but something is wrong — check
+`db` and `uploads` for which. A degraded API answers `/api/health` with a 503,
+so the container shows unhealthy rather than looking fine until someone tries
+to use the broken part.
+
+`uploads: "unwritable"` means photo submissions will fail: the API cannot write
+to `${APPDATA_PATH}/uploads`. Voting and results are unaffected. The container
+takes ownership of that directory at start-up, so this should heal itself on a
+restart; if it does not, the mount is being held by something else:
+
+```bash
+docker logs contest-api | grep uploads
+docker exec -u 0 contest-api chown -R app:app /data/uploads && docker restart contest-api
+```
 
 ## Backups
 
