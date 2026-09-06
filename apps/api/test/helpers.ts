@@ -77,6 +77,10 @@ export async function submitEntry(
     contestantName: string;
     categoryId: string;
     allergens: string[];
+    /** The photo part, for tests about how a file is named and announced. */
+    photo: Buffer;
+    filename: string;
+    contentType: string;
   }> = {},
 ) {
   const fields = {
@@ -84,6 +88,8 @@ export async function submitEntry(
     contestantName: 'Tester',
     categoryId: 'dessert',
     allergens: [] as string[],
+    filename: 'photo.png',
+    contentType: 'image/png',
     ...overrides,
   };
   let req = ctx.api
@@ -92,8 +98,8 @@ export async function submitEntry(
     .field('contestantName', fields.contestantName)
     .field('categoryId', fields.categoryId);
   for (const allergen of fields.allergens) req = req.field('allergens', allergen);
-  return req.attach('photo', await samplePhoto(), {
-    filename: 'photo.png',
-    contentType: 'image/png',
+  return req.attach('photo', fields.photo ?? (await samplePhoto()), {
+    filename: fields.filename,
+    contentType: fields.contentType,
   });
 }

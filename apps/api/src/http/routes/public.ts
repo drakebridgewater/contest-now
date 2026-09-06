@@ -1,7 +1,8 @@
 import {
   CreateEntryFieldsSchema,
+  couldBePhotoPart,
+  PHOTO_INPUT_FORMAT_LIST,
   PHOTO_MAX_BYTES,
-  PHOTO_MIME_TYPES,
   UpsertBallotSchema,
   UpsertVoteSchema,
   VoterName,
@@ -40,9 +41,13 @@ export function publicRoutes(db: Db, storage: PhotoStorage): Router {
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: PHOTO_MAX_BYTES, files: 1, fields: 20 },
+    // Only a bandwidth filter: it turns away a part that says it is a PDF or a
+    // video before reading it, and lets everything else through. What the file
+    // actually is gets decided from its bytes in storePhoto, because the type a
+    // browser puts on the part is just its guess from the file extension.
     fileFilter: (_req, file, cb) => {
-      if ((PHOTO_MIME_TYPES as readonly string[]).includes(file.mimetype)) cb(null, true);
-      else cb(unsupportedMedia('Please upload a JPEG, PNG, WebP or HEIC photo'));
+      if (couldBePhotoPart(file.mimetype)) cb(null, true);
+      else cb(unsupportedMedia(`Please upload a photo: ${PHOTO_INPUT_FORMAT_LIST}.`));
     },
   });
 
