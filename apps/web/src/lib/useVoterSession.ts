@@ -1,4 +1,4 @@
-import type { Rating, VoterState, VoterVote } from '@contest/shared';
+import { impliesTasted, type Rating, type VoterState, type VoterVote } from '@contest/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { api } from './api.ts';
@@ -6,6 +6,7 @@ import { queryKeys, useVoterState } from './queries.ts';
 import { useLocalStorage } from './useLocalStorage.ts';
 
 const EMPTY: VoterState = { votes: {}, ballots: {} };
+const EMPTY_VOTE: VoterVote = { scores: {}, comment: '', tasted: false };
 
 /**
  * The voter's name (remembered on this device) plus their server-side votes and
@@ -31,15 +32,18 @@ export function useVoterSession() {
       entryId,
       scores,
       comment,
+      tasted,
     }: {
       entryId: number;
       scores?: Record<string, Rating | null>;
       comment?: string;
+      tasted?: boolean;
     }) =>
       api.saveVote(entryId, {
         voterName: active!,
         ...(scores ? { scores } : {}),
         ...(comment !== undefined ? { comment } : {}),
+        ...(tasted !== undefined ? { tasted } : {}),
       }),
     onSuccess: (vote: VoterVote, variables) => {
       patchState((current) => ({
@@ -75,17 +79,20 @@ export function useVoterSession() {
   const setScore = useCallback(
     (entryId: number, criterionId: number, rating: Rating | null) => {
       const key = String(criterionId);
+      const update = { [key]: rating };
       patchState((current) => {
-        const existing = current.votes[String(entryId)] ?? { scores: {}, comment: '' };
+        const existing = current.votes[String(entryId)] ?? EMPTY_VOTE;
         const scores = { ...existing.scores };
         if (rating === null) delete scores[key];
         else scores[key] = rating;
+        // The server applies the same rule; mirroring it keeps the tap instant.
+        const tasted = existing.tasted || impliesTasted(update);
         return {
           ...current,
-          votes: { ...current.votes, [String(entryId)]: { ...existing, scores } },
+          votes: { ...current.votes, [String(entryId)]: { ...existing, scores, tasted } },
         };
       });
-      return voteMutation.mutateAsync({ entryId, scores: { [key]: rating } });
+      return voteMutation.mutateAsync({ entryId, scores: update });
     },
     [patchState, voteMutation],
   );
@@ -93,13 +100,27 @@ export function useVoterSession() {
   const setComment = useCallback(
     (entryId: number, comment: string) => {
       patchState((current) => {
-        const existing = current.votes[String(entryId)] ?? { scores: {}, comment: '' };
+        const existing = current.votes[String(entryId)] ?? EMPTY_VOTE;
         return {
           ...current,
           votes: { ...current.votes, [String(entryId)]: { ...existing, comment } },
         };
       });
       return voteMutation.mutateAsync({ entryId, comment });
+    },
+    [patchState, voteMutation],
+  );
+
+  const setTasted = useCallback(
+    (entryId: number, tasted: boolean) => {
+      patchState((current) => {
+        const existing = current.votes[String(entryId)] ?? EMPTY_VOTE;
+        return {
+          ...current,
+          votes: { ...current.votes, [String(entryId)]: { ...existing, tasted } },
+        };
+      });
+      return voteMutation.mutateAsync({ entryId, tasted });
     },
     [patchState, voteMutation],
   );
@@ -113,6 +134,7 @@ export function useVoterSession() {
     isLoading: query.isLoading,
     setScore,
     setComment,
+    setTasted,
     pickAward: (awardId: string, entryId: number) =>
       ballotMutation.mutateAsync({ awardId, entryId }),
     clearAward: (awardId: string) => clearBallotMutation.mutateAsync({ awardId }),

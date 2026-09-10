@@ -1,5 +1,6 @@
 import {
   activeCriteriaFor,
+  impliesTasted,
   isEntryInAwardScope,
   isVoteComplete,
   normalizeVoterName,
@@ -52,6 +53,7 @@ export async function getVoterState(db: Db, rawVoterName: string): Promise<Voter
     state.votes[String(vote.entryId)] = {
       scores: scoresFor(vote.id, scoreRows),
       comment: vote.comment,
+      tasted: vote.tasted,
     };
   }
   for (const ballot of ballotRows) {
@@ -76,8 +78,10 @@ async function assertVotingOpen(db: Db): Promise<void> {
 }
 
 /**
- * Merges the given scores/comment into the voter's vote for the entry.
+ * Merges the given scores/comment/tasted into the voter's vote for the entry.
  * Only keys present in `scores` change; null deletes that criterion's rating.
+ * Rating anything implies the voter tried it, so a rating also marks it tasted;
+ * an explicit `tasted` in the input still wins, which is how it gets cleared.
  */
 export async function upsertVote(db: Db, entryId: number, input: UpsertVote): Promise<VoterVote> {
   await assertVotingOpen(db);
@@ -104,16 +108,26 @@ export async function upsertVote(db: Db, entryId: number, input: UpsertVote): Pr
     }
   }
 
+  const tasted = input.tasted ?? (impliesTasted(input.scores) || undefined);
+
   return db.transaction(async (tx) => {
     const now = new Date();
     const inserted = await tx
       .insert(votes)
-      .values({ voterName, entryId, comment: input.comment ?? '', createdAt: now, updatedAt: now })
+      .values({
+        voterName,
+        entryId,
+        comment: input.comment ?? '',
+        tasted: tasted ?? false,
+        createdAt: now,
+        updatedAt: now,
+      })
       .onConflictDoUpdate({
         target: [votes.voterName, votes.entryId],
         set: {
           updatedAt: now,
           ...(input.comment !== undefined ? { comment: input.comment } : {}),
+          ...(tasted !== undefined ? { tasted } : {}),
         },
       })
       .returning()
@@ -137,7 +151,9 @@ export async function upsertVote(db: Db, entryId: number, input: UpsertVote): Pr
     }
 
     const scoreRows = await tx.select().from(voteScores).where(eq(voteScores.voteId, inserted.id));
-    return { scores: scoresFor(inserted.id, scoreRows), comment: inserted.comment };
+    const scores = scoresFor(inserted.id, scoreRows);
+    // Clearing the last star does not un-taste; only an explicit `tasted: false` does.
+    return { scores, comment: inserted.comment, tasted: inserted.tasted };
   });
 }
 
@@ -218,6 +234,7 @@ export async function listVoters(db: Db): Promise<VoterInfo[]> {
         voterName: name,
         voteCount: 0,
         completeVoteCount: 0,
+        tastedCount: 0,
         ballotCount: 0,
         firstActivity: at.toISOString(),
         lastActivity: at.toISOString(),
@@ -232,6 +249,7 @@ export async function listVoters(db: Db): Promise<VoterInfo[]> {
   for (const vote of voteRows) {
     const info = touch(vote.voterName, vote.createdAt);
     touch(vote.voterName, vote.updatedAt);
+    if (vote.tasted) info.tastedCount += 1;
     const scores = scoresFor(vote.id, scoreRows);
     if (Object.keys(scores).length === 0 && vote.comment === '') continue;
     info.voteCount += 1;

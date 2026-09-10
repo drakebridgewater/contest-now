@@ -111,6 +111,8 @@ export const votes = pgTable(
       .notNull()
       .references(() => entries.id, { onDelete: 'cascade' }),
     comment: text().notNull().default(''),
+    /** The voter has tried this entry. Set by rating it, or on its own. */
+    tasted: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

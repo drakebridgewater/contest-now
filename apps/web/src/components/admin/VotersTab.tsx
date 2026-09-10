@@ -54,7 +54,7 @@ export function VotersTab({
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{voter.voterName}</p>
                 <p className="text-sm text-ink-muted">
-                  {voter.completeVoteCount} rated
+                  {voter.tastedCount} tasted · {voter.completeVoteCount} rated
                   {voter.voteCount > voter.completeVoteCount
                     ? ` · ${voter.voteCount - voter.completeVoteCount} part-finished`
                     : ''}

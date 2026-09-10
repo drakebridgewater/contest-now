@@ -16,6 +16,8 @@ export interface EntrySummary {
   voteCount: number;
   /** Votes that rated some but not all active criteria. */
   partialVoteCount: number;
+  /** Voters who marked the entry tasted, rated or not. */
+  tastedCount: number;
   /** Weighted mean of the criterion averages, 0..5. */
   overall: number;
   criteria: CriterionStats[];
@@ -25,6 +27,8 @@ export interface EntryResult extends Entry, EntrySummary {
   /** 1-based rank inside its category; ties share a rank. */
   rank: number;
   comments: { voterName: string; comment: string }[];
+  /** Names of the voters who marked it tasted, sorted. */
+  tasters: string[];
 }
 
 export interface CategoryResults {
@@ -53,6 +57,7 @@ export interface ContestResults {
     voterCount: number;
     entryCount: number;
     completeVoteCount: number;
+    tastedCount: number;
     ballotCount: number;
   };
 }

@@ -33,6 +33,15 @@ export function isVoteComplete(
   return criteria.every((c) => scores[scoreKey(c.id)] !== undefined);
 }
 
+/**
+ * Rating an entry means the voter tried it, so a score update that sets at
+ * least one star also marks it tasted. Clearing stars leaves tasted alone.
+ * Both halves apply this to the same payload they send/receive.
+ */
+export function impliesTasted(scores: Record<string, Rating | null> | undefined): boolean {
+  return scores !== undefined && Object.values(scores).some((rating) => rating !== null);
+}
+
 export function ratedCriteriaCount(
   scores: Scores | undefined,
   criteria: readonly Criterion[],
@@ -63,6 +72,7 @@ export function summarizeEntry(
     (vote) =>
       !isVoteComplete(vote.scores, criteria) && ratedCriteriaCount(vote.scores, criteria) > 0,
   ).length;
+  const tastedCount = votes.filter((vote) => vote.tasted).length;
 
   const stats: CriterionStats[] = criteria.map((criterion) => {
     const distribution = emptyDistribution();
@@ -89,7 +99,7 @@ export function summarizeEntry(
             totalWeight,
         );
 
-  return { voteCount: complete.length, partialVoteCount, overall, criteria: stats };
+  return { voteCount: complete.length, partialVoteCount, tastedCount, overall, criteria: stats };
 }
 
 /**

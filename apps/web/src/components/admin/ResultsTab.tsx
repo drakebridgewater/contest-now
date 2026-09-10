@@ -1,5 +1,5 @@
 import { RATING_VALUES, type CategoryResults, type EntryResult } from '@contest/shared';
-import { Medal, Trash2 } from 'lucide-react';
+import { Medal, Trash2, Utensils } from 'lucide-react';
 import { AllergenBadges } from '../AllergenBadges.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Card } from '../ui/Card.tsx';
@@ -94,6 +94,28 @@ function ResultCard({
               </p>
             </div>
           </div>
+
+          <details className="rounded-lg border border-black/10 p-2">
+            <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold">
+              <Utensils className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+              Tasted by {entry.tastedCount}
+              {entry.tastedCount === 1 ? ' guest' : ' guests'}
+            </summary>
+            {entry.tasters.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-muted">Nobody has marked this tasted yet.</p>
+            ) : (
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {entry.tasters.map((taster) => (
+                  <li
+                    key={taster}
+                    className="rounded-full bg-surface-muted px-2 py-0.5 text-sm capitalize"
+                  >
+                    {taster}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </details>
 
           {entry.partialVoteCount > 0 ? (
             <p className="rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900">

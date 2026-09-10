@@ -66,12 +66,17 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
     const list = votesByEntry.get(row.entryId) ?? [];
     list.push({
       voterName: row.voterName,
-      vote: { scores: scoresByVote.get(row.id) ?? {}, comment: row.comment },
+      vote: {
+        scores: scoresByVote.get(row.id) ?? {},
+        comment: row.comment,
+        tasted: row.tasted,
+      },
     });
     votesByEntry.set(row.entryId, list);
   }
 
   let completeVoteCount = 0;
+  let tastedCount = 0;
   const categoryResults: CategoryResults[] = categoryRows.map((categoryRow) => {
     const category = toCategory(categoryRow);
     const activeCriteria = activeCriteriaFor(allCriteria, category.id);
@@ -84,10 +89,15 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
           entryVotes.map((v) => v.vote),
         );
         completeVoteCount += summary.voteCount;
+        tastedCount += summary.tastedCount;
         const comments = entryVotes
           .filter((v) => v.vote.comment.trim() !== '')
           .map((v) => ({ voterName: v.voterName, comment: v.vote.comment.trim() }));
-        return { ...entry, ...summary, comments };
+        const tasters = entryVotes
+          .filter((v) => v.vote.tasted)
+          .map((v) => v.voterName)
+          .sort((a, b) => a.localeCompare(b));
+        return { ...entry, ...summary, comments, tasters };
       });
     return { category, criteria: activeCriteria, entries: rankEntries(summarized) };
   });
@@ -121,7 +131,7 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
     const active = entry ? activeCriteriaFor(allCriteria, entry.categoryId) : [];
     if (isVoteComplete(scoresByVote.get(row.id), active) || row.comment !== '')
       voterNames.add(row.voterName);
-    else if (scoresByVote.has(row.id)) voterNames.add(row.voterName);
+    else if (scoresByVote.has(row.id) || row.tasted) voterNames.add(row.voterName);
   }
   for (const row of ballotRows) voterNames.add(row.voterName);
 
@@ -132,6 +142,7 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
       voterCount: voterNames.size,
       entryCount: allEntries.length,
       completeVoteCount,
+      tastedCount,
       ballotCount: ballotRows.length,
     },
   };
