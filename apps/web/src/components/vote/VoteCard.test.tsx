@@ -1,4 +1,4 @@
-import type { Criterion, Entry } from '@contest/shared';
+import type { Criterion, Entry, VoterVote } from '@contest/shared';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -27,11 +27,18 @@ const criterion = (id: number, name: string): Criterion => ({
 
 const criteria = [criterion(1, 'Appearance'), criterion(2, 'Texture'), criterion(3, 'Flavor')];
 
+const voted = (
+  scores: Record<string, 1 | 2 | 3 | 4 | 5>,
+  comment = '',
+  tasted = true,
+): VoterVote => ({ scores, comment, tasted });
+
 function renderCard(props: Partial<Parameters<typeof VoteCard>[0]> = {}) {
   const onScoreChange = vi.fn();
   const onCommentChange = vi.fn();
   const onCommentFlush = vi.fn();
-  render(
+  const onTastedChange = vi.fn();
+  const view = render(
     <VoteCard
       entry={entry}
       criteria={criteria}
@@ -39,10 +46,11 @@ function renderCard(props: Partial<Parameters<typeof VoteCard>[0]> = {}) {
       onScoreChange={onScoreChange}
       onCommentChange={onCommentChange}
       onCommentFlush={onCommentFlush}
+      onTastedChange={onTastedChange}
       {...props}
     />,
   );
-  return { onScoreChange, onCommentChange, onCommentFlush };
+  return { ...view, onScoreChange, onCommentChange, onCommentFlush, onTastedChange };
 }
 
 describe('VoteCard', () => {
@@ -65,10 +73,11 @@ describe('VoteCard', () => {
       <VoteCard
         entry={entry}
         criteria={criteria}
-        vote={{ scores: { '1': 4 }, comment: '' }}
+        vote={voted({ '1': 4 })}
         onScoreChange={vi.fn()}
         onCommentChange={vi.fn()}
         onCommentFlush={vi.fn()}
+        onTastedChange={vi.fn()}
       />,
     );
     expect(screen.getByText('1 of 3')).toBeInTheDocument();
@@ -77,10 +86,11 @@ describe('VoteCard', () => {
       <VoteCard
         entry={entry}
         criteria={criteria}
-        vote={{ scores: { '1': 4, '2': 5, '3': 3 }, comment: '' }}
+        vote={voted({ '1': 4, '2': 5, '3': 3 })}
         onScoreChange={vi.fn()}
         onCommentChange={vi.fn()}
         onCommentFlush={vi.fn()}
+        onTastedChange={vi.fn()}
       />,
     );
     expect(screen.getByText('Rated')).toBeInTheDocument();
@@ -95,7 +105,7 @@ describe('VoteCard', () => {
 
   it('clears the rating when the chosen star is tapped again', async () => {
     const user = userEvent.setup();
-    const { onScoreChange } = renderCard({ vote: { scores: { '1': 4 }, comment: '' } });
+    const { onScoreChange } = renderCard({ vote: voted({ '1': 4 }) });
     await user.click(screen.getByRole('button', { name: /^4 stars \(tap to clear\)/ }));
     expect(onScoreChange).toHaveBeenCalledWith(1, null);
   });
@@ -115,5 +125,44 @@ describe('VoteCard', () => {
   it('disables rating when voting is closed', () => {
     renderCard({ disabled: true });
     expect(screen.getAllByRole('button', { name: /^3 stars/ })[0]!).toBeDisabled();
+  });
+
+  it('offers to mark an untasted entry, and reports one that is tasted', () => {
+    const { unmount } = render(
+      <VoteCard
+        entry={entry}
+        criteria={criteria}
+        vote={undefined}
+        onScoreChange={vi.fn()}
+        onCommentChange={vi.fn()}
+        onCommentFlush={vi.fn()}
+        onTastedChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Mark as tasted' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    unmount();
+
+    renderCard({ vote: voted({}, '', true) });
+    expect(screen.getByRole('button', { name: 'Tasted' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('toggles tasted both ways', async () => {
+    const user = userEvent.setup();
+    const { onTastedChange, unmount } = renderCard();
+    await user.click(screen.getByRole('button', { name: 'Mark as tasted' }));
+    expect(onTastedChange).toHaveBeenCalledWith(true);
+    unmount();
+
+    const second = renderCard({ vote: voted({}, '', true) });
+    await user.click(screen.getByRole('button', { name: 'Tasted' }));
+    expect(second.onTastedChange).toHaveBeenCalledWith(false);
+  });
+
+  it('disables the tasted toggle when voting is closed', () => {
+    renderCard({ disabled: true });
+    expect(screen.getByRole('button', { name: 'Mark as tasted' })).toBeDisabled();
   });
 });

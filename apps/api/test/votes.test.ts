@@ -26,7 +26,7 @@ describe('votes', () => {
       .put(`/api/votes/${dessertId}`)
       .send({ voterName: ' Alice ', scores: { [a]: 4 } });
     expect(first.status).toBe(200);
-    expect(first.body).toEqual({ scores: { [a]: 4 }, comment: '' });
+    expect(first.body).toEqual({ scores: { [a]: 4 }, comment: '', tasted: true });
 
     const second = await ctx.api
       .put(`/api/votes/${dessertId}`)
@@ -63,6 +63,54 @@ describe('votes', () => {
       .put(`/api/votes/${dessertId}`)
       .send({ voterName: 'a', scores: {} });
     expect(shortName.status).toBe(400);
+  });
+
+  it('marks tasted on its own, without any rating', async () => {
+    const marked = await ctx.api
+      .put(`/api/votes/${cocktailId}`)
+      .send({ voterName: 'dana', tasted: true });
+    expect(marked.status).toBe(200);
+    expect(marked.body).toEqual({ scores: {}, comment: '', tasted: true });
+
+    const state = await ctx.api.get('/api/voters/dana');
+    expect(state.body.votes[String(cocktailId)]).toEqual({
+      scores: {},
+      comment: '',
+      tasted: true,
+    });
+  });
+
+  it('un-tasting keeps the ratings, and clearing stars keeps tasted', async () => {
+    const [a] = dessertCriteria as [number];
+    const rated = await ctx.api
+      .put(`/api/votes/${dessertId}`)
+      .send({ voterName: 'erin', scores: { [a]: 5 } });
+    expect(rated.body.tasted).toBe(true);
+
+    const untasted = await ctx.api
+      .put(`/api/votes/${dessertId}`)
+      .send({ voterName: 'erin', tasted: false });
+    expect(untasted.body).toEqual({ scores: { [a]: 5 }, comment: '', tasted: false });
+
+    // Clearing the last star is not a statement about having tried it.
+    const cleared = await ctx.api
+      .put(`/api/votes/${dessertId}`)
+      .send({ voterName: 'erin', scores: { [a]: null } });
+    expect(cleared.body).toEqual({ scores: {}, comment: '', tasted: false });
+
+    // An explicit tasted in the same request wins over the rating's implication.
+    const both = await ctx.api
+      .put(`/api/votes/${dessertId}`)
+      .send({ voterName: 'erin', scores: { [a]: 3 }, tasted: false });
+    expect(both.body).toEqual({ scores: { [a]: 3 }, comment: '', tasted: false });
+  });
+
+  it('counts tasted per voter without a bare taste counting as a vote', async () => {
+    await ctx.api.put(`/api/votes/${dessertId}`).send({ voterName: 'finn', tasted: true });
+    const res = await ctx.api.get('/api/admin/voters').set(ctx.admin);
+    expect(res.status).toBe(200);
+    const finn = (res.body as { voterName: string }[]).find((v) => v.voterName === 'finn');
+    expect(finn).toMatchObject({ tastedCount: 1, voteCount: 0, completeVoteCount: 0 });
   });
 
   it('refuses votes while voting is closed', async () => {
@@ -121,7 +169,8 @@ describe('admin voters', () => {
     const list = await ctx.api.get('/api/admin/voters').set(ctx.admin);
     expect(list.status).toBe(200);
     const names = list.body.map((v: { voterName: string }) => v.voterName);
-    expect(names).toEqual(['alice', 'bob']);
+    // dana and finn only marked something tasted, which still makes them voters here.
+    expect(names).toEqual(['alice', 'bob', 'dana', 'erin', 'finn']);
     const alice = list.body.find((v: { voterName: string }) => v.voterName === 'alice');
     expect(alice.voteCount).toBe(1);
     expect(alice.completeVoteCount).toBe(0);

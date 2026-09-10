@@ -8,7 +8,7 @@ import {
   type Rating,
   type VoterVote,
 } from '@contest/shared';
-import { Check, CircleDashed, TriangleAlert } from 'lucide-react';
+import { Check, CircleDashed, Square, SquareCheck, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { AllergenBadges } from '../AllergenBadges.tsx';
 import { TextAreaField } from '../ui/Field.tsx';
@@ -22,6 +22,7 @@ export function VoteCard({
   onScoreChange,
   onCommentChange,
   onCommentFlush,
+  onTastedChange,
 }: {
   entry: Entry;
   criteria: Criterion[];
@@ -30,11 +31,14 @@ export function VoteCard({
   onScoreChange: (criterionId: number, rating: Rating | null) => void;
   onCommentChange: (comment: string) => void;
   onCommentFlush: () => void;
+  onTastedChange: (tasted: boolean) => void;
 }) {
   const [saved, setSaved] = useState(false);
   const scores = vote?.scores;
   const complete = isVoteComplete(scores, criteria);
   const rated = ratedCriteriaCount(scores, criteria);
+  const tasted = vote?.tasted ?? false;
+  const TastedIcon = tasted ? SquareCheck : Square;
 
   const status = complete
     ? {
@@ -85,6 +89,24 @@ export function VoteCard({
         </header>
 
         <AllergenBadges ids={entry.allergens} />
+
+        <button
+          type="button"
+          aria-pressed={tasted}
+          disabled={disabled}
+          onClick={() => {
+            onTastedChange(!tasted);
+            flash();
+          }}
+          className={`tap-target flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            tasted
+              ? 'border-accent-500/40 bg-accent-100 text-accent-700'
+              : 'border-black/15 bg-surface-muted text-ink-muted hover:bg-black/5'
+          }`}
+        >
+          <TastedIcon className="size-5 shrink-0" aria-hidden="true" />
+          {tasted ? 'Tasted' : 'Mark as tasted'}
+        </button>
 
         <div className="space-y-4">
           {criteria.map((criterion) => (

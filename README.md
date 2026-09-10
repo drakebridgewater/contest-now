@@ -1,8 +1,9 @@
 # Contest
 
-The app the party runs on. Guests submit a dish or drink with a photo, rate every
-entry with stars, and nominate their favourites for special awards. The host
-unlocks a results area to see rankings, award tallies and to set the contest up.
+The app the party runs on. Guests submit a dish or drink with a photo, tick off
+what they have tasted, rate every entry with stars, and nominate their favourites
+for special awards. The host unlocks a results area to see rankings, award
+tallies, who tasted what, and to set the contest up.
 
 The contest itself is data, not code. Categories, the rating criteria inside each
 category, the awards and the event branding are all edited in the app, so a new
@@ -106,7 +107,7 @@ for guests within a minute.
   the guest view. Deleting is refused once something has been rated or
   nominated, and the app tells you to hide it instead.
 - **Close voting** with the toggle after the awards, which freezes entries,
-  ratings and nominations.
+  ratings, tasting marks and nominations.
 
 Retheming for next year is one file: the color and font tokens in
 `apps/web/src/styles/index.css`.
@@ -116,6 +117,12 @@ Retheming for next year is one file: the color and font tokens in
 - A vote counts toward a ranking only when every **active** criterion of that
   entry's category has a star. Part-finished ratings are shown to the host
   separately and never distort an average.
+- Tasting is tracked per guest and is separate from scoring: it never affects a
+  ranking. Rating an entry marks it tasted, since you cannot rate what you have
+  not tried, but a guest can mark something tasted without rating it, and can
+  clear the mark without losing their stars. Marks are stored against the
+  guest's name, so they follow them to another device. The host sees a per-entry
+  taster list under **Results**.
 - A category ranking is the weighted mean of that entry's criterion averages.
   Entries with the same score and the same number of votes share a rank.
 - Awards are a straight count of nominations. A tie is reported as a tie rather

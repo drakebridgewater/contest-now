@@ -28,6 +28,8 @@ export type Scores = z.infer<typeof ScoresSchema>;
 export const VoterVoteSchema = z.object({
   scores: ScoresSchema,
   comment: z.string(),
+  /** The voter has tried this entry. Rating it sets this; it can be cleared on its own. */
+  tasted: z.boolean(),
 });
 export type VoterVote = z.infer<typeof VoterVoteSchema>;
 
@@ -36,6 +38,7 @@ export const UpsertVoteSchema = z.object({
   voterName: VoterName,
   scores: z.record(z.string(), Rating.nullable()).optional(),
   comment: z.string().max(COMMENT_MAX).optional(),
+  tasted: z.boolean().optional(),
 });
 export type UpsertVote = z.infer<typeof UpsertVoteSchema>;
 
@@ -57,6 +60,7 @@ export const VoterInfoSchema = z.object({
   voterName: z.string(),
   voteCount: z.number().int(),
   completeVoteCount: z.number().int(),
+  tastedCount: z.number().int(),
   ballotCount: z.number().int(),
   firstActivity: z.string(),
   lastActivity: z.string(),

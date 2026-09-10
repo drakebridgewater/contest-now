@@ -69,6 +69,10 @@ describe('GET /api/admin/results', () => {
     expect(byName.Cake?.rank).toBe(1);
     expect(byName.Fudge?.rank).toBe(3);
     expect(byName.Pie?.comments).toEqual([{ voterName: 'ann', comment: 'Best pie: ever' }]);
+    // Rating an entry marks it tasted, so every rater shows up as a taster.
+    expect(byName.Pie?.tastedCount).toBe(2);
+    expect(byName.Pie?.tasters).toEqual(['ann', 'ben']);
+    expect(byName.Cake?.tastedCount).toBe(3); // includes cal's partial rating
     expect(byName.Pie?.criteria[0]?.distribution).toEqual({ 1: 0, 2: 0, 3: 1, 4: 0, 5: 1 });
 
     const award = results.awards.find((a) => a.award.id === 'best-presented')!;
@@ -80,6 +84,7 @@ describe('GET /api/admin/results', () => {
       voterCount: 3,
       entryCount: 3,
       completeVoteCount: 5,
+      tastedCount: 6,
       ballotCount: 2,
     });
   });

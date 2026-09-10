@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Criterion } from './contest.ts';
 import {
   activeCriteriaFor,
+  impliesTasted,
   isEntryInAwardScope,
   isVoteComplete,
   rankEntries,
@@ -22,9 +23,14 @@ const criterion = (id: number, overrides: Partial<Criterion> = {}): Criterion =>
   ...overrides,
 });
 
-const vote = (scores: Record<string, 1 | 2 | 3 | 4 | 5>, comment = ''): VoterVote => ({
+const vote = (
+  scores: Record<string, 1 | 2 | 3 | 4 | 5>,
+  comment = '',
+  tasted = Object.keys(scores).length > 0,
+): VoterVote => ({
   scores,
   comment,
+  tasted,
 });
 
 describe('activeCriteriaFor', () => {
@@ -85,6 +91,27 @@ describe('summarizeEntry', () => {
     expect(summary.overall).toBe(0);
     expect(summary.voteCount).toBe(0);
     expect(summary.criteria.every((c) => c.average === 0)).toBe(true);
+  });
+
+  it('counts tasted independently of whether the vote is complete', () => {
+    const summary = summarizeEntry(criteria, [
+      vote({ '1': 4, '2': 2 }), // complete, tasted
+      vote({ '1': 5 }), // partial, tasted
+      vote({}, '', true), // tasted without rating anything
+      vote({}, '', false), // neither
+    ]);
+    expect(summary.tastedCount).toBe(3);
+    expect(summary.voteCount).toBe(1);
+  });
+});
+
+describe('impliesTasted', () => {
+  it('is true when the update sets a star, false when it only clears one', () => {
+    expect(impliesTasted({ '1': 4 })).toBe(true);
+    expect(impliesTasted({ '1': null, '2': 3 })).toBe(true);
+    expect(impliesTasted({ '1': null })).toBe(false);
+    expect(impliesTasted({})).toBe(false);
+    expect(impliesTasted(undefined)).toBe(false);
   });
 });
 
