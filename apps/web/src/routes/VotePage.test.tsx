@@ -44,15 +44,38 @@ const entry = (id: number, entryName: string): Entry => ({
 const entries = [entry(1, 'Trifle'), entry(2, 'Pavlova'), entry(3, 'Brownies')];
 
 /** The voter has fully rated Trifle, tasted Pavlova, and not touched Brownies. */
-const voterState: VoterState = {
-  votes: {
-    '1': { scores: { '1': 4, '2': 5 }, comment: '', tasted: true },
-    '2': { scores: {}, comment: '', tasted: true },
-  },
-  ballots: {},
-};
+let voterState: VoterState;
+
+function resetVoterState() {
+  voterState = {
+    votes: {
+      '1': { scores: { '1': 4, '2': 5 }, comment: '', tasted: true },
+      '2': { scores: {}, comment: '', tasted: true },
+    },
+    ballots: {},
+  };
+}
 
 const saveVote = vi.fn<(entryId: number, input: UpsertVote) => Promise<VoterVote>>();
+
+/**
+ * Stands in for the server's merge: only the keys present in the request change,
+ * and a star implies tasted. Returning a bare empty vote instead (as this mock
+ * once did) means no entry can ever reach "fully rated".
+ */
+function mergeVote(entryId: number, input: UpsertVote): VoterVote {
+  const current = voterState.votes[String(entryId)] ?? { scores: {}, comment: '', tasted: false };
+  const scores = { ...current.scores };
+  for (const [key, rating] of Object.entries(input.scores ?? {})) {
+    if (rating === null) delete scores[key];
+    else scores[key] = rating;
+  }
+  return {
+    scores,
+    comment: input.comment ?? current.comment,
+    tasted: input.tasted ?? (current.tasted || Object.keys(input.scores ?? {}).length > 0),
+  };
+}
 
 vi.mock('../lib/api.ts', () => ({
   api: {
@@ -83,68 +106,118 @@ function visibleEntryNames(): string[] {
     .map((card) => within(card).getByRole('heading', { level: 3 }).textContent ?? '');
 }
 
-/** Scoped to the Show row: a card's status badge can carry the same wording. */
-async function chooseFilter(user: ReturnType<typeof userEvent.setup>, label: string) {
-  const group = screen.getByRole('group', { name: 'Show' });
-  await user.click(within(group).getByRole('button', { name: label }));
+/** Entries that are shown collapsed rather than open for rating. */
+function collapsedEntryNames(): string[] {
+  return screen
+    .getAllByRole('article')
+    .filter((card) => within(card).queryByRole('button', { name: /^Edit/ }) !== null)
+    .map((card) => within(card).getByRole('heading', { level: 3 }).textContent ?? '');
 }
 
 beforeEach(() => {
+  // The toggle is persisted now, so a stale key would leak into the next test.
+  localStorage.clear();
   localStorage.setItem('contest.voterName', JSON.stringify('Ada'));
+  resetVoterState();
   saveVote.mockReset();
-  saveVote.mockResolvedValue({ scores: {}, comment: '', tasted: true });
+  saveVote.mockImplementation((entryId, input) => Promise.resolve(mergeVote(entryId, input)));
 });
 
-describe('VotePage tasting filter', () => {
-  it('shows every entry until a filter is chosen', async () => {
+describe('VotePage', () => {
+  it('shows every entry until the toggle is turned on', async () => {
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
     expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']);
   });
 
-  it('narrows to what the voter has not tasted', async () => {
-    const user = userEvent.setup();
+  it('starts a fully rated entry collapsed and everything else open', async () => {
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
 
-    await chooseFilter(user, 'Not tasted');
-    await waitFor(() => expect(visibleEntryNames()).toEqual(['Brownies']));
+    // Ada has rated every criterion on Trifle and nothing else.
+    expect(collapsedEntryNames()).toEqual(['Trifle']);
+    // Only the two open cards mount their stars.
+    expect(screen.getAllByRole('group', { name: 'Appearance' })).toHaveLength(2);
   });
 
-  it('narrows to what the voter has tasted', async () => {
+  it('reopens a collapsed entry for editing', async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
+    await waitFor(() => expect(collapsedEntryNames()).toEqual(['Trifle']));
 
-    await chooseFilter(user, 'Tasted');
-    await waitFor(() => expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova']));
+    await user.click(screen.getByRole('button', { name: 'Edit Trifle' }));
+    await waitFor(() => expect(collapsedEntryNames()).toEqual([]));
   });
 
-  it('keeps "Not rated" separate from tasting: a tasted entry can still need stars', async () => {
+  it('does not collapse a card the moment its last criterion is rated', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
 
-    await chooseFilter(user, 'Not rated');
+    // Pavlova is tasted with no stars; rating both criteria completes it.
+    const pavlova = screen
+      .getAllByRole('article')
+      .find((card) => within(card).getByRole('heading', { level: 3 }).textContent === 'Pavlova')!;
+    await user.click(within(pavlova).getByRole('group', { name: 'Appearance' }).children[3]!);
+    await user.click(within(pavlova).getByRole('group', { name: 'Flavor' }).children[4]!);
+
+    await waitFor(() => expect(saveVote).toHaveBeenCalledTimes(2));
+    expect(collapsedEntryNames()).toEqual(['Trifle']);
+  });
+
+  it('collapses and expands every card at once', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(collapsedEntryNames()).toEqual(['Trifle']));
+
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+    await waitFor(() => expect(collapsedEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']));
+
+    await user.click(screen.getByRole('button', { name: 'Expand all' }));
+    await waitFor(() => expect(collapsedEntryNames()).toEqual([]));
+  });
+
+  it('narrows to what the voter still owes', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
+
+    // Trifle is done; Pavlova is tasted but unrated and Brownies untouched.
+    await user.click(screen.getByRole('button', { name: /Only what/ }));
+    await waitFor(() => expect(visibleEntryNames()).toEqual(['Pavlova', 'Brownies']));
+  });
+
+  it('remembers the toggle across a reload', async () => {
+    const user = userEvent.setup();
+    const first = renderPage();
+    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
+    await user.click(screen.getByRole('button', { name: /Only what/ }));
+    await waitFor(() => expect(visibleEntryNames()).toEqual(['Pavlova', 'Brownies']));
+    first.unmount();
+
+    renderPage();
     await waitFor(() => expect(visibleEntryNames()).toEqual(['Pavlova', 'Brownies']));
   });
 
   it('explains an empty result rather than showing a bare page', async () => {
     const user = userEvent.setup();
+    // Everything already tasted and fully rated.
+    voterState = {
+      votes: {
+        '1': { scores: { '1': 4, '2': 5 }, comment: '', tasted: true },
+        '2': { scores: { '1': 3, '2': 3 }, comment: '', tasted: true },
+        '3': { scores: { '1': 5, '2': 4 }, comment: '', tasted: true },
+      },
+      ballots: {},
+    };
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
 
-    await chooseFilter(user, 'Not tasted');
-    await waitFor(() => expect(visibleEntryNames()).toEqual(['Brownies']));
-
-    // Mark the last untasted entry; nothing is left under this filter.
-    await user.click(screen.getByRole('button', { name: 'Mark as tasted' }));
-    await waitFor(() =>
-      expect(screen.getByText('You have tasted everything here')).toBeInTheDocument(),
-    );
+    await user.click(screen.getByRole('button', { name: /Only what/ }));
+    await waitFor(() => expect(screen.getByText('You are all caught up')).toBeInTheDocument());
   });
 
-  it('sends a bare tasted flag, with no scores, when the toggle is tapped', async () => {
+  it('sends a bare tasted flag, with no scores, when the status box is tapped', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));

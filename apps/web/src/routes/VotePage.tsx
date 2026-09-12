@@ -5,7 +5,7 @@ import {
   type Entry,
   type Rating,
 } from '@contest/shared';
-import { LogOut, UserRound } from 'lucide-react';
+import { ListChecks, LogOut, UserRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AwardPicker } from '../components/vote/AwardPicker.tsx';
 import { VoteCard } from '../components/vote/VoteCard.tsx';
@@ -20,14 +20,15 @@ import { useAutoLogout } from '../lib/useAutoLogout.ts';
 import { useDebouncedCallback } from '../lib/useDebouncedCallback.ts';
 import { useLocalStorage } from '../lib/useLocalStorage.ts';
 import { useVoterSession } from '../lib/useVoterSession.ts';
-import {
-  emptyFilterMessage,
-  ENTRY_FILTERS,
-  matchesEntryFilter,
-  type EntryFilter,
-} from '../lib/entryFilter.ts';
+import { needsAttention, NOTHING_HERE, NOTHING_REMAINING } from '../lib/entryFilter.ts';
 
 const AUTO_LOGOUT_SECONDS = 60;
+
+/** Cards the voter has explicitly opened or shut, plus the voter they belong to. */
+interface CollapseState {
+  voter: string;
+  map: Record<number, boolean>;
+}
 
 export function VotePage() {
   const contest = useContest();
@@ -36,8 +37,9 @@ export function VotePage() {
   const toast = useToast();
 
   const [sharedDevice, setSharedDevice] = useLocalStorage('contest.sharedDevice', false);
-  const [filter, setFilter] = useState<EntryFilter>('all');
+  const [onlyRemaining, setOnlyRemaining] = useLocalStorage('contest.vote.onlyRemaining', false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<CollapseState | null>(null);
 
   const { secondsRemaining } = useAutoLogout({
     enabled: sharedDevice && session.voterName !== null,
@@ -60,6 +62,50 @@ export function VotePage() {
     () => new Map(categories.map((category) => [category.id, category.name] as const)),
     [categories],
   );
+
+  const voterName = session.voterName;
+  const voterState = session.state;
+  const dataReady = contest.isSuccess && entriesQuery.isSuccess && session.isReady;
+
+  /**
+   * A card you have already finished starts shut, everything else starts open.
+   *
+   * This is a starting state, not a rule: it is seeded once per voter and then
+   * only the voter changes it, so rating the last criterion never snaps the card
+   * closed under your thumb. All three queries have to have landed first —
+   * `criteria` comes from the contest query and an empty one makes every entry
+   * look unrated, and `isReady` is what distinguishes "no votes" from "not loaded",
+   * which matters because this runs on the signed-out screen too.
+   *
+   * Adjusted during render rather than in an effect: React re-runs the component
+   * immediately without committing the discarded pass, so the first paint already
+   * has the right shape and there is no cascading render to suppress.
+   */
+  if (dataReady && voterName !== null && collapsed?.voter !== voterName) {
+    const map: Record<number, boolean> = {};
+    for (const entry of entries) {
+      const active = activeCriteriaFor(criteria, entry.categoryId);
+      map[entry.id] = isVoteComplete(voterState.votes[String(entry.id)]?.scores, active);
+    }
+    setCollapsed({ voter: voterName, map });
+  }
+
+  function setCardCollapsed(entryId: number, value: boolean) {
+    setCollapsed((previous) =>
+      previous === null ? previous : { ...previous, map: { ...previous.map, [entryId]: value } },
+    );
+  }
+
+  function setAllCollapsed(value: boolean) {
+    setCollapsed((previous) =>
+      previous === null
+        ? previous
+        : {
+            ...previous,
+            map: Object.fromEntries(entries.map((entry) => [entry.id, value])),
+          },
+    );
+  }
 
   const progress = useMemo(() => {
     let rated = 0;
@@ -98,29 +144,38 @@ export function VotePage() {
     );
   }
 
+  const allCollapsed =
+    entries.length > 0 && entries.every((entry) => collapsed?.map[entry.id] ?? false);
+
   const visibleCategories = categories.filter(
     (category) => categoryFilter === null || categoryFilter === category.id,
   );
 
   function visibleEntries(categoryId: string): Entry[] {
     const inCategory = entries.filter((entry) => entry.categoryId === categoryId);
-    if (filter === 'all') return inCategory;
+    if (!onlyRemaining) return inCategory;
     const active = activeCriteriaFor(criteria, categoryId);
     return inCategory.filter((entry) =>
-      matchesEntryFilter(filter, session.state.votes[String(entry.id)], active),
+      needsAttention(session.state.votes[String(entry.id)], active),
     );
   }
 
   const anyVisible = visibleCategories.some((category) => visibleEntries(category.id).length > 0);
+  const anyInCategory = visibleCategories.some((category) =>
+    entries.some((entry) => entry.categoryId === category.id),
+  );
+  // Nothing showing means either the toggle hid it all or the category is simply empty.
+  const emptyMessage = onlyRemaining && anyInCategory ? NOTHING_REMAINING : NOTHING_HERE;
 
   return (
     <div className="space-y-4">
       <HelpPanel id="vote" title="How voting works">
         <ul>
-          <li>Tap “Mark as tasted” on a card once you have tried it.</li>
+          <li>Tap the tasted box on a card once you have tried it.</li>
           <li>Tap stars to rate. Rating a dish marks it tasted for you too.</li>
           <li>Rate every criterion on a card for it to count toward the ranking.</li>
-          <li>Use the Show filter to find what you have not tasted yet.</li>
+          <li>Finished cards fold away — tap Edit to open one back up.</li>
+          <li>Turn on “Only what’s left” to see just the dishes you still owe.</li>
         </ul>
       </HelpPanel>
 
@@ -139,6 +194,11 @@ export function VotePage() {
           </span>
         ) : null}
         <div className="ml-auto flex gap-2">
+          {entries.length > 0 ? (
+            <Button size="sm" variant="ghost" onClick={() => setAllCollapsed(!allCollapsed)}>
+              {allCollapsed ? 'Expand all' : 'Collapse all'}
+            </Button>
+          ) : null}
           <Button size="sm" variant="ghost" onClick={() => session.signOut()}>
             <LogOut className="size-4" aria-hidden="true" />
             Switch voter
@@ -152,39 +212,33 @@ export function VotePage() {
         </p>
       ) : null}
 
+      {/* One row. "Only what's left" leads so it stays on screen at any width;
+          the categories are what scroll. */}
       <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
-        <span id="entry-filter-label" className="shrink-0 text-sm font-semibold text-ink-muted">
-          Show
-        </span>
-        <div className="flex gap-2" role="group" aria-labelledby="entry-filter-label">
-          {ENTRY_FILTERS.map((option) => (
-            <FilterChip
-              key={option.id}
-              active={filter === option.id}
-              onClick={() => setFilter(option.id)}
-            >
-              {option.label}
-            </FilterChip>
-          ))}
-        </div>
+        <FilterChip active={onlyRemaining} onClick={() => setOnlyRemaining(!onlyRemaining)}>
+          <ListChecks className="size-4" aria-hidden="true" />
+          Only what’s left
+        </FilterChip>
+        {categories.length > 1 ? (
+          <>
+            <span className="w-px shrink-0 self-stretch bg-black/10" aria-hidden="true" />
+            <div className="flex gap-2" role="group" aria-label="Category">
+              <FilterChip active={categoryFilter === null} onClick={() => setCategoryFilter(null)}>
+                All
+              </FilterChip>
+              {categories.map((category) => (
+                <FilterChip
+                  key={category.id}
+                  active={categoryFilter === category.id}
+                  onClick={() => setCategoryFilter(category.id)}
+                >
+                  <span aria-hidden="true">{category.emoji}</span> {category.name}
+                </FilterChip>
+              ))}
+            </div>
+          </>
+        ) : null}
       </div>
-
-      {categories.length > 1 ? (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          <FilterChip active={categoryFilter === null} onClick={() => setCategoryFilter(null)}>
-            All
-          </FilterChip>
-          {categories.map((category) => (
-            <FilterChip
-              key={category.id}
-              active={categoryFilter === category.id}
-              onClick={() => setCategoryFilter(category.id)}
-            >
-              <span aria-hidden="true">{category.emoji}</span> {category.name}
-            </FilterChip>
-          ))}
-        </div>
-      ) : null}
 
       {entries.length === 0 ? (
         <Card className="p-8 text-center">
@@ -198,8 +252,8 @@ export function VotePage() {
           <p className="text-2xl" aria-hidden="true">
             🎉
           </p>
-          <p className="mt-1 text-lg font-semibold">{emptyFilterMessage(filter).title}</p>
-          <p className="mt-1 text-ink-muted">{emptyFilterMessage(filter).body}</p>
+          <p className="mt-1 text-lg font-semibold">{emptyMessage.title}</p>
+          <p className="mt-1 text-ink-muted">{emptyMessage.body}</p>
         </Card>
       ) : (
         visibleCategories.map((category) => {
@@ -223,6 +277,8 @@ export function VotePage() {
                     criteria={active}
                     vote={session.state.votes[String(entry.id)]}
                     disabled={!votingOpen}
+                    collapsed={collapsed?.map[entry.id] ?? false}
+                    onCollapsedChange={(value) => setCardCollapsed(entry.id, value)}
                     onScoreChange={(criterionId: number, rating: Rating | null) => {
                       session.setScore(entry.id, criterionId, rating).catch((error: unknown) => {
                         toast.error(errorMessage(error, 'Could not save that rating.'));
@@ -293,7 +349,7 @@ function FilterChip({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`tap-target shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold ${
+      className={`tap-target inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${
         active ? 'border-brand-600 bg-brand-600 text-white' : 'border-black/15 bg-white text-ink'
       }`}
     >

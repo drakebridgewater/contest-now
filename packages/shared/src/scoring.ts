@@ -50,6 +50,30 @@ export function ratedCriteriaCount(
   return criteria.filter((c) => scores[scoreKey(c.id)] !== undefined).length;
 }
 
+/**
+ * The weighted mean of one voter's own stars for an entry, on the 1-5 scale.
+ * Null until every active criterion has a star, so the number a guest sees on
+ * their own card is computed on the same bar, and by the same formula, as the
+ * ranking in summarizeEntry.
+ */
+export function voterScore(
+  scores: Scores | undefined,
+  criteria: readonly Criterion[],
+): number | null {
+  if (!scores) return null;
+  let weighted = 0;
+  let totalWeight = 0;
+  for (const criterion of criteria) {
+    const rating = scores[scoreKey(criterion.id)];
+    if (rating === undefined) return null;
+    weighted += criterion.weight * rating;
+    totalWeight += criterion.weight;
+  }
+  // Weights are schema-guaranteed positive, so this only trips on no criteria at all.
+  if (totalWeight === 0) return null;
+  return round(weighted / totalWeight, 1);
+}
+
 export function emptyDistribution(): Distribution {
   return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 }
