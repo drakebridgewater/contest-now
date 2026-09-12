@@ -132,6 +132,12 @@ export function useVoterSession() {
     signOut: () => setVoterName(''),
     state: query.data ?? EMPTY,
     isLoading: query.isLoading,
+    /**
+     * The votes have actually arrived. `state` alone cannot say so: it falls back
+     * to EMPTY, and `isLoading` is false for the disabled query of a signed-out
+     * voter, so callers deriving anything from the votes must wait on this.
+     */
+    isReady: query.isSuccess,
     setScore,
     setComment,
     setTasted,

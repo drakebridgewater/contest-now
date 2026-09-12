@@ -8,6 +8,7 @@ import {
   rankEntries,
   summarizeEntry,
   tallyBallots,
+  voterScore,
 } from './scoring.ts';
 import type { VoterVote } from './votes.ts';
 
@@ -149,5 +150,41 @@ describe('tallyBallots', () => {
     ]);
     expect(tallyBallots([{ entryId: 2 }, { entryId: 1 }]).winnerEntryIds).toEqual([1, 2]);
     expect(tallyBallots([]).winnerEntryIds).toEqual([]);
+  });
+});
+
+describe('voterScore', () => {
+  const criteria = [criterion(1), criterion(2)];
+
+  it('is null until every active criterion has a star', () => {
+    expect(voterScore(undefined, criteria)).toBeNull();
+    expect(voterScore({}, criteria)).toBeNull();
+    expect(voterScore({ '1': 4 }, criteria)).toBeNull();
+  });
+
+  it('averages equal-weight criteria', () => {
+    expect(voterScore({ '1': 4, '2': 5 }, criteria)).toBe(4.5);
+  });
+
+  it('weights criteria the way the ranking does', () => {
+    const weighted = [criterion(1, { weight: 3 }), criterion(2, { weight: 1 })];
+    // (3*2 + 1*5) / 4 = 2.75, rounded to one decimal for display.
+    expect(voterScore({ '1': 2, '2': 5 }, weighted)).toBe(2.8);
+  });
+
+  it('agrees with summarizeEntry when that entry has a single complete vote', () => {
+    const weighted = [criterion(1, { weight: 3 }), criterion(2, { weight: 1 })];
+    const scores = { '1': 2, '2': 5 } as const;
+    expect(voterScore(scores, weighted)).toBe(
+      Math.round(summarizeEntry(weighted, [vote({ ...scores })]).overall * 10) / 10,
+    );
+  });
+
+  it('ignores stars left over from a deactivated criterion', () => {
+    expect(voterScore({ '1': 4, '2': 5, '99': 1 }, criteria)).toBe(4.5);
+  });
+
+  it('has no score for a category with no criteria at all', () => {
+    expect(voterScore({ '1': 4 }, [])).toBeNull();
   });
 });

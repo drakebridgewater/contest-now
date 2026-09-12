@@ -1,6 +1,6 @@
 import type { Criterion, VoterVote } from '@contest/shared';
 import { describe, expect, it } from 'vitest';
-import { ENTRY_FILTERS, matchesEntryFilter, type EntryFilter } from './entryFilter.ts';
+import { needsAttention } from './entryFilter.ts';
 
 const criterion = (id: number): Criterion => ({
   id,
@@ -30,37 +30,33 @@ const cases: [string, VoterVote | undefined][] = [
   ['rated but marked untasted', vote({ '1': 4, '2': 5 }, false)],
 ];
 
-function shown(filter: EntryFilter): string[] {
-  return cases
-    .filter(([, vote]) => matchesEntryFilter(filter, vote, criteria))
-    .map(([name]) => name);
+function remaining(list: readonly Criterion[] = criteria): string[] {
+  return cases.filter(([, vote]) => needsAttention(vote, list)).map(([name]) => name);
 }
 
-describe('matchesEntryFilter', () => {
-  it('shows everything under "all"', () => {
-    expect(shown('all')).toHaveLength(cases.length);
+describe('needsAttention', () => {
+  it('keeps anything not yet tasted, however it was rated', () => {
+    expect(remaining()).toContain('untouched');
+    expect(remaining()).toContain('rated but marked untasted');
   });
 
-  it('"untasted" covers entries never touched and ones explicitly un-marked', () => {
-    expect(shown('untasted')).toEqual(['untouched', 'rated but marked untasted']);
+  it('keeps a tasted entry until every active criterion has a star', () => {
+    expect(remaining()).toContain('tasted only');
+    expect(remaining()).toContain('tasted and part-rated');
   });
 
-  it('"tasted" is the exact complement of "untasted"', () => {
-    expect(shown('tasted')).toEqual([
+  it('drops only the entries that are finished', () => {
+    expect(remaining()).toEqual([
+      'untouched',
       'tasted only',
       'tasted and part-rated',
-      'tasted and fully rated',
+      'rated but marked untasted',
     ]);
-    expect([...shown('tasted'), ...shown('untasted')].sort()).toEqual(
-      cases.map(([name]) => name).sort(),
-    );
   });
 
-  it('"unrated" needs every active criterion rated, so a partial rating still counts', () => {
-    expect(shown('unrated')).toEqual(['untouched', 'tasted only', 'tasted and part-rated']);
-  });
-
-  it('offers the four filters in a fixed order, starting with all', () => {
-    expect(ENTRY_FILTERS.map((f) => f.id)).toEqual(['all', 'untasted', 'tasted', 'unrated']);
+  it('asks only for a tasting mark when the category has no criteria to rate', () => {
+    // isVoteComplete is false for an empty criteria list, so without the special
+    // case here "Only what's left" could never empty for such a category.
+    expect(remaining([])).toEqual(['untouched', 'rated but marked untasted']);
   });
 });

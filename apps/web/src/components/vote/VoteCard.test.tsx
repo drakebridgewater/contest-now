@@ -93,7 +93,8 @@ describe('VoteCard', () => {
         onTastedChange={vi.fn()}
       />,
     );
-    expect(screen.getByText('Rated')).toBeInTheDocument();
+    // Three weight-1 criteria at 4, 5 and 3: the voter's own weighted mean.
+    expect(screen.getByText('4.0')).toBeInTheDocument();
   });
 
   it('sends the rating when a star is tapped', async () => {
@@ -113,6 +114,7 @@ describe('VoteCard', () => {
   it('flushes the comment on blur rather than on every keystroke', async () => {
     const user = userEvent.setup();
     const { onCommentChange, onCommentFlush } = renderCard();
+    await user.click(screen.getByRole('button', { name: /^Add a comment/ }));
     const box = screen.getByLabelText(/Comment/);
     await user.click(box);
     await user.keyboard('Yum');
@@ -164,5 +166,74 @@ describe('VoteCard', () => {
   it('disables the tasted toggle when voting is closed', () => {
     renderCard({ disabled: true });
     expect(screen.getByRole('button', { name: 'Mark as tasted' })).toBeDisabled();
+  });
+
+  it('keeps a comment that was already written visible, with nothing to tap', () => {
+    renderCard({ vote: voted({}, 'Too much nutmeg') });
+    expect(screen.getByLabelText(/Comment/)).toHaveValue('Too much nutmeg');
+    expect(screen.queryByRole('button', { name: /^Add a comment/ })).not.toBeInTheDocument();
+  });
+
+  it('leaves the comment box in place once opened, even when emptied again', async () => {
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByRole('button', { name: /^Add a comment/ }));
+    await user.type(screen.getByLabelText(/Comment/), 'Yum');
+    await user.clear(screen.getByLabelText(/Comment/));
+    expect(screen.getByLabelText(/Comment/)).toBeInTheDocument();
+  });
+
+  it('collapses to a photo, a title, the score and a way back in', () => {
+    renderCard({ vote: voted({ '1': 4, '2': 5, '3': 3 }), collapsed: true });
+
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Bourbon Pecan Pie');
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/uploads/pie.webp');
+    expect(screen.getByText('4.0')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Edit/ })).toBeInTheDocument();
+
+    // The expensive half of the card is not mounted at all.
+    expect(screen.queryByRole('group', { name: 'Appearance' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Comment/)).not.toBeInTheDocument();
+  });
+
+  it('names the collapse and expand controls after the entry', async () => {
+    const user = userEvent.setup();
+    const onCollapsedChange = vi.fn();
+    const { rerender } = render(
+      <VoteCard
+        entry={entry}
+        criteria={criteria}
+        vote={voted({ '1': 4, '2': 5, '3': 3 })}
+        collapsed={true}
+        onCollapsedChange={onCollapsedChange}
+        onScoreChange={vi.fn()}
+        onCommentChange={vi.fn()}
+        onCommentFlush={vi.fn()}
+        onTastedChange={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Edit Bourbon Pecan Pie' }));
+    expect(onCollapsedChange).toHaveBeenCalledWith(false);
+
+    rerender(
+      <VoteCard
+        entry={entry}
+        criteria={criteria}
+        vote={voted({ '1': 4, '2': 5, '3': 3 })}
+        collapsed={false}
+        onCollapsedChange={onCollapsedChange}
+        onScoreChange={vi.fn()}
+        onCommentChange={vi.fn()}
+        onCommentFlush={vi.fn()}
+        onTastedChange={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Collapse Bourbon Pecan Pie' }));
+    expect(onCollapsedChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it('still reports the tasted state from the collapsed row', () => {
+    renderCard({ vote: voted({}, '', true), collapsed: true });
+    expect(screen.getByRole('button', { name: 'Tasted' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
