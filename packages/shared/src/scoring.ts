@@ -74,6 +74,20 @@ export function voterScore(
   return round(weighted / totalWeight, 1);
 }
 
+/**
+ * Below this many counted votes a mean is still mostly noise, so the results view
+ * says so rather than presenting the number like a settled score.
+ */
+export const CONFIDENT_VOTE_COUNT = 5;
+
+/**
+ * A score exists but rests on too few votes to trust. No votes at all is not this:
+ * that is the absence of a score, which the results view shows differently.
+ */
+export function hasLowVotes(voteCount: number): boolean {
+  return voteCount > 0 && voteCount < CONFIDENT_VOTE_COUNT;
+}
+
 export function emptyDistribution(): Distribution {
   return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 }
