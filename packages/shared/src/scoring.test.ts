@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Criterion } from './contest.ts';
 import {
   activeCriteriaFor,
+  CONFIDENT_VOTE_COUNT,
+  hasLowVotes,
   impliesTasted,
   isEntryInAwardScope,
   isVoteComplete,
@@ -186,5 +188,21 @@ describe('voterScore', () => {
 
   it('has no score for a category with no criteria at all', () => {
     expect(voterScore({ '1': 4 }, [])).toBeNull();
+  });
+});
+
+describe('hasLowVotes', () => {
+  it('is false with no votes at all: that is no score, not a weak one', () => {
+    expect(hasLowVotes(0)).toBe(false);
+  });
+
+  it('flags everything from one vote up to the confidence threshold', () => {
+    expect(hasLowVotes(1)).toBe(true);
+    expect(hasLowVotes(CONFIDENT_VOTE_COUNT - 1)).toBe(true);
+  });
+
+  it('stops flagging once the threshold is reached', () => {
+    expect(hasLowVotes(CONFIDENT_VOTE_COUNT)).toBe(false);
+    expect(hasLowVotes(CONFIDENT_VOTE_COUNT + 1)).toBe(false);
   });
 });
