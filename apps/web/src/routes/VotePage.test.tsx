@@ -254,6 +254,31 @@ describe('VotePage', () => {
     }
   });
 
+  it('shows a signed-in voter only the countdown until voting opens', async () => {
+    contest.settings.votingOpensAt = new Date(Date.now() + 42 * 60 * 1000).toISOString();
+    try {
+      renderPage();
+      await waitFor(() => expect(screen.getByText(/Voting opens at/)).toBeInTheDocument());
+      expect(screen.getByText('Ada')).toBeInTheDocument();
+      expect(screen.queryAllByRole('article')).toHaveLength(0);
+      expect(screen.queryByRole('button', { name: /Only what/ })).not.toBeInTheDocument();
+      expect(screen.queryByText('Special awards')).not.toBeInTheDocument();
+    } finally {
+      contest.settings.votingOpensAt = null;
+    }
+  });
+
+  it('hides the cards once voting is closed', async () => {
+    contest.settings.votingOpen = false;
+    try {
+      renderPage();
+      await waitFor(() => expect(screen.getByText(/Voting is closed/)).toBeInTheDocument());
+      expect(screen.queryAllByRole('article')).toHaveLength(0);
+    } finally {
+      contest.settings.votingOpen = true;
+    }
+  });
+
   it('narrows to what the voter still owes', async () => {
     const user = userEvent.setup();
     renderPage();

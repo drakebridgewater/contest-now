@@ -48,8 +48,8 @@ export function SubmitPage() {
   const settings = contest.data?.settings;
   const scheduled = settings ? submissionsStatus(settings) === 'scheduled' : false;
   const now = useNow(scheduled);
-  const status = settings ? submissionsStatus(settings, now) : 'open';
-  const submissionsOpen = status === 'open';
+  // Null until the contest has loaded, so the form never flashes up before the countdown.
+  const status = settings ? submissionsStatus(settings, now) : null;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -82,6 +82,10 @@ export function SubmitPage() {
     if (!photo) next.photo = 'A photo is required';
     setErrors(next);
     return Object.keys(next).length === 0;
+  }
+
+  if (status === null) {
+    return <p className="text-ink-muted">Loading…</p>;
   }
 
   if (submitted) {
@@ -123,85 +127,87 @@ export function SubmitPage() {
         closedText="Submissions are closed for now. Ask the host to reopen them."
       />
 
-      <Card className="space-y-5 p-4 sm:p-6">
-        <GuestNameField
-          guests={guestNames.data ?? []}
-          value={name}
-          error={errors.contestantName}
-          onChange={(next, match) => {
-            setContestantName(next);
-            setGuest(match);
-          }}
-        />
+      {/* The form only exists while entries are open; the notice says when. */}
+      {status === 'open' ? (
+        <Card className="space-y-5 p-4 sm:p-6">
+          <GuestNameField
+            guests={guestNames.data ?? []}
+            value={name}
+            error={errors.contestantName}
+            onChange={(next, match) => {
+              setContestantName(next);
+              setGuest(match);
+            }}
+          />
 
-        <TextField
-          label="Entry name"
-          help="Something memorable, like “Grandma's Bourbon Pecan Pie”."
-          value={entryName}
-          onChange={(event) => setEntryName(event.target.value)}
-          maxLength={ENTRY_NAME_MAX}
-          counter={`${entryName.length}/${ENTRY_NAME_MAX}`}
-          error={errors.entryName}
-        />
+          <TextField
+            label="Entry name"
+            help="Something memorable, like “Grandma's Bourbon Pecan Pie”."
+            value={entryName}
+            onChange={(event) => setEntryName(event.target.value)}
+            maxLength={ENTRY_NAME_MAX}
+            counter={`${entryName.length}/${ENTRY_NAME_MAX}`}
+            error={errors.entryName}
+          />
 
-        <fieldset>
-          <legend className="text-sm font-semibold">Category</legend>
-          <p className="mt-0.5 text-sm text-ink-muted">
-            Each category is judged on its own criteria.
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {categories.map((category) => {
-              const selected = categoryId === category.id;
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setCategoryId(category.id)}
-                  className={`rounded-xl border-2 p-3 text-left transition-colors ${
-                    selected
-                      ? 'border-brand-600 bg-brand-50'
-                      : 'border-black/10 bg-white hover:border-brand-200'
-                  }`}
-                >
-                  <span className="text-2xl" aria-hidden="true">
-                    {category.emoji}
-                  </span>
-                  <span className="mt-1 block font-semibold">{category.name}</span>
-                  {category.description ? (
-                    <span className="block text-xs text-ink-muted">{category.description}</span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-          {errors.categoryId ? (
-            <p className="mt-1 text-xs font-medium text-red-700">{errors.categoryId}</p>
-          ) : null}
-          {categories.length === 0 && contest.isSuccess ? (
-            <p className="mt-2 text-sm text-ink-muted">
-              No categories yet. The host can add them under Results → Setup.
+          <fieldset>
+            <legend className="text-sm font-semibold">Category</legend>
+            <p className="mt-0.5 text-sm text-ink-muted">
+              Each category is judged on its own criteria.
             </p>
-          ) : null}
-        </fieldset>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {categories.map((category) => {
+                const selected = categoryId === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setCategoryId(category.id)}
+                    className={`rounded-xl border-2 p-3 text-left transition-colors ${
+                      selected
+                        ? 'border-brand-600 bg-brand-50'
+                        : 'border-black/10 bg-white hover:border-brand-200'
+                    }`}
+                  >
+                    <span className="text-2xl" aria-hidden="true">
+                      {category.emoji}
+                    </span>
+                    <span className="mt-1 block font-semibold">{category.name}</span>
+                    {category.description ? (
+                      <span className="block text-xs text-ink-muted">{category.description}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            {errors.categoryId ? (
+              <p className="mt-1 text-xs font-medium text-red-700">{errors.categoryId}</p>
+            ) : null}
+            {categories.length === 0 && contest.isSuccess ? (
+              <p className="mt-2 text-sm text-ink-muted">
+                No categories yet. The host can add them under Results → Setup.
+              </p>
+            ) : null}
+          </fieldset>
 
-        <AllergenPicker selected={allergens} onChange={setAllergens} />
+          <AllergenPicker selected={allergens} onChange={setAllergens} />
 
-        <PhotoPicker onChange={setPhoto} error={errors.photo} />
+          <PhotoPicker onChange={setPhoto} error={errors.photo} />
 
-        <Button
-          size="lg"
-          className="w-full"
-          loading={mutation.isPending}
-          disabled={!submissionsOpen}
-          onClick={() => {
-            if (validate()) mutation.mutate();
-          }}
-        >
-          <CheckCircle2 className="size-5" aria-hidden="true" />
-          Submit entry
-        </Button>
-      </Card>
+          <Button
+            size="lg"
+            className="w-full"
+            loading={mutation.isPending}
+            onClick={() => {
+              if (validate()) mutation.mutate();
+            }}
+          >
+            <CheckCircle2 className="size-5" aria-hidden="true" />
+            Submit entry
+          </Button>
+        </Card>
+      ) : null}
     </div>
   );
 }
