@@ -11,6 +11,8 @@ import {
   type ContestResults,
   type Criterion,
   type CriterionInput,
+  type CustomEmail,
+  type CustomEmailPreview,
   type Entry,
   type EventSettings,
   type GuestName,
@@ -177,6 +179,15 @@ export const api = {
       body: selector,
       admin: true,
     }),
+
+  previewEmail: (input: CustomEmailPreview) =>
+    request<{ subject: string; html: string }>('/admin/email/preview', {
+      method: 'POST',
+      body: input,
+      admin: true,
+    }),
+  sendCustomEmail: (input: CustomEmail) =>
+    request<SendInvitesResult>('/admin/email/send', { method: 'POST', body: input, admin: true }),
 
   updateSettings: (input: SettingsInput) =>
     request<EventSettings>('/admin/settings', { method: 'PUT', body: input, admin: true }),

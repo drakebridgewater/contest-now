@@ -3,6 +3,8 @@ import {
   AwardInputSchema,
   CategoryInputSchema,
   CriterionInputSchema,
+  CustomEmailPreviewSchema,
+  CustomEmailSchema,
   RenameVoterSchema,
   SendInvitesSchema,
   SettingsInputSchema,
@@ -24,6 +26,7 @@ import {
   updateCriterion,
   updateSettings,
 } from '../../services/contest.ts';
+import { previewCustomEmail, sendCustomEmail } from '../../services/customEmail.ts';
 import { deleteEntry, type PhotoStorage } from '../../services/entries.ts';
 import { computeResults } from '../../services/results.ts';
 import {
@@ -134,6 +137,15 @@ export function adminRoutes(
     const selector = parse(SendInvitesSchema, req.body);
     const { eventName } = await getSettings(db);
     res.json(await sendInvites(db, mail.mailer, mail.publicUrl, eventName, selector));
+  });
+  router.post('/email/preview', async (req, res) => {
+    const input = parse(CustomEmailPreviewSchema, req.body);
+    res.json(await previewCustomEmail(input, await getSettings(db), mail.publicUrl));
+  });
+  router.post('/email/send', async (req, res) => {
+    const input = parse(CustomEmailSchema, req.body);
+    const settings = await getSettings(db);
+    res.json(await sendCustomEmail(db, mail.mailer, mail.publicUrl, settings, input));
   });
   router.get('/mail-status', (_req, res) => {
     res.json({ configured: mail.mailer.configured });

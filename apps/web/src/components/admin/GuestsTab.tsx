@@ -13,6 +13,7 @@ import { Button } from '../ui/Button.tsx';
 import { Card } from '../ui/Card.tsx';
 import { TextAreaField } from '../ui/Field.tsx';
 import { Sheet } from '../ui/Sheet.tsx';
+import { GUEST_FILTERS, guestMatchesFilter, type GuestFilter } from './guestFilter.ts';
 
 const RSVP_LABEL: Record<RsvpStatus, string> = {
   yes: 'Coming',
@@ -35,7 +36,36 @@ const INVITE_LABEL: Record<AdminGuest['inviteStatus'], string> = {
   opened: 'Invite opened',
 };
 
-type Filter = RsvpStatus | 'all' | 'uninvited';
+export function FilterChips({
+  value,
+  onChange,
+  labels = {},
+}: {
+  value: GuestFilter;
+  onChange: (filter: GuestFilter) => void;
+  labels?: Partial<Record<GuestFilter, string>>;
+}) {
+  return (
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filter">
+      {GUEST_FILTERS.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={value === id}
+          onClick={() => onChange(id)}
+          className={clsx(
+            'tap-target shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold',
+            value === id
+              ? 'border-brand-600 bg-brand-600 text-white'
+              : 'border-black/15 bg-white text-ink',
+          )}
+        >
+          {labels[id] ?? label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** Headcount and "might enter" numbers; on the Guests tab and above the results. */
 export function RsvpSummaryCard({
@@ -96,33 +126,17 @@ export function GuestsTab({
   mailConfigured: boolean;
   actions: GuestActions;
 }) {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<GuestFilter>('all');
   const [adding, setAdding] = useState(false);
   const [link, setLink] = useState<{ guest: AdminGuest; url: string } | null>(null);
 
   const shown = useMemo(
-    () =>
-      guests.filter((guest) =>
-        filter === 'all'
-          ? true
-          : filter === 'uninvited'
-            ? guest.inviteStatus === 'none' && guest.email !== ''
-            : guest.rsvpStatus === filter,
-      ),
+    () => guests.filter((guest) => guestMatchesFilter(guest, filter)),
     [guests, filter],
   );
   const uninvitedWithEmail = guests.filter(
     (g) => g.email !== '' && (g.inviteStatus === 'none' || g.inviteStatus === 'created'),
   ).length;
-
-  const filters: [Filter, string][] = [
-    ['all', `All ${guests.length}`],
-    ['yes', 'Coming'],
-    ['maybe', 'Maybe'],
-    ['pending', 'No reply'],
-    ['no', 'Not coming'],
-    ['uninvited', 'Not invited'],
-  ];
 
   return (
     <div className="space-y-4">
@@ -157,24 +171,7 @@ export function GuestsTab({
         ) : null}
       </div>
 
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filter">
-        {filters.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={filter === id}
-            onClick={() => setFilter(id)}
-            className={clsx(
-              'tap-target shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold',
-              filter === id
-                ? 'border-brand-600 bg-brand-600 text-white'
-                : 'border-black/15 bg-white text-ink',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <FilterChips value={filter} onChange={setFilter} labels={{ all: `All ${guests.length}` }} />
 
       {guests.length === 0 ? (
         <p className="text-ink-muted">

@@ -66,6 +66,17 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
+const BUTTON_STYLE =
+  'background:#b91c1c;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600';
+
+/** The page every email is wrapped in. `inner` must already be safe HTML. */
+export function emailShell(inner: string): string {
+  return `<!doctype html>
+<html><body style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.5;color:#1f2937;max-width:32rem;margin:0 auto;padding:24px">
+${inner}
+</body></html>`;
+}
+
 /** One short email with one button. Plain text first: some guests read mail that way. */
 export function linkEmail(options: {
   to: string;
@@ -78,13 +89,10 @@ export function linkEmail(options: {
 }): MailMessage {
   const { to, subject, greeting, body, buttonLabel, url, footer } = options;
   const text = `${greeting}\n\n${body}\n\n${buttonLabel}: ${url}\n\n${footer}\n`;
-  const html = `<!doctype html>
-<html><body style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.5;color:#1f2937;max-width:32rem;margin:0 auto;padding:24px">
-<p>${escapeHtml(greeting)}</p>
+  const html = emailShell(`<p>${escapeHtml(greeting)}</p>
 <p>${escapeHtml(body)}</p>
-<p style="margin:28px 0"><a href="${escapeHtml(url)}" style="background:#b91c1c;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600">${escapeHtml(buttonLabel)}</a></p>
+<p style="margin:28px 0"><a href="${escapeHtml(url)}" style="${BUTTON_STYLE}">${escapeHtml(buttonLabel)}</a></p>
 <p style="font-size:13px;color:#6b7280">Or paste this link into your browser:<br>${escapeHtml(url)}</p>
-<p style="font-size:13px;color:#6b7280">${escapeHtml(footer)}</p>
-</body></html>`;
+<p style="font-size:13px;color:#6b7280">${escapeHtml(footer)}</p>`);
   return { to, subject, text, html };
 }
