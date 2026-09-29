@@ -66,7 +66,9 @@ export function VotePage() {
   // Tick every second only while waiting for the opening time, to flip on the dot.
   const scheduled = settings ? votingStatus(settings) === 'scheduled' : false;
   const now = useNow(scheduled);
-  const status = settings ? votingStatus(settings, now) : 'open';
+  // Null until the contest has loaded: assuming "open" would flash the cards
+  // up before the countdown replaces them.
+  const status = settings ? votingStatus(settings, now) : null;
   const votingOpen = status === 'open';
   const entries = useMemo(() => entriesQuery.data ?? [], [entriesQuery.data]);
   const categoryNames = useMemo(
@@ -118,7 +120,7 @@ export function VotePage() {
     };
   }, [entries, criteria, session.state]);
 
-  if (!session.sessionKnown) {
+  if (!session.sessionKnown || status === null) {
     return <p className="text-ink-muted">Loading…</p>;
   }
 
@@ -200,37 +202,41 @@ export function VotePage() {
           <UserRound className="size-4" aria-hidden="true" />
           {session.voterName}
         </span>
-        <span className="text-sm text-ink-muted">
-          {progress.tasted} of {progress.total} tasted · {progress.rated} rated
-          {awards.length > 0 ? ` · ${progress.ballots} of ${awards.length} awards` : ''}
-        </span>
+        {votingOpen ? (
+          <span className="text-sm text-ink-muted">
+            {progress.tasted} of {progress.total} tasted · {progress.rated} rated
+            {awards.length > 0 ? ` · ${progress.ballots} of ${awards.length} awards` : ''}
+          </span>
+        ) : null}
         {secondsRemaining !== null && secondsRemaining <= 20 ? (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-900">
             Signing out in {secondsRemaining}s
           </span>
         ) : null}
         <div className="ml-auto flex gap-2">
-          <div
-            role="group"
-            aria-label="Card size"
-            className="flex rounded-lg border border-black/10"
-          >
-            <LayoutButton
-              active={layout === 'large'}
-              label="Large cards"
-              onClick={() => setLayout('large')}
+          {votingOpen ? (
+            <div
+              role="group"
+              aria-label="Card size"
+              className="flex rounded-lg border border-black/10"
             >
-              <LayoutGrid className="size-4" aria-hidden="true" />
-            </LayoutButton>
-            <LayoutButton
-              active={layout === 'medium'}
-              label="Medium cards"
-              onClick={() => setLayout('medium')}
-            >
-              <Rows3 className="size-4" aria-hidden="true" />
-            </LayoutButton>
-          </div>
-          {entries.length > 0 ? (
+              <LayoutButton
+                active={layout === 'large'}
+                label="Large cards"
+                onClick={() => setLayout('large')}
+              >
+                <LayoutGrid className="size-4" aria-hidden="true" />
+              </LayoutButton>
+              <LayoutButton
+                active={layout === 'medium'}
+                label="Medium cards"
+                onClick={() => setLayout('medium')}
+              >
+                <Rows3 className="size-4" aria-hidden="true" />
+              </LayoutButton>
+            </div>
+          ) : null}
+          {votingOpen && entries.length > 0 ? (
             <Button
               size="sm"
               variant="ghost"
@@ -257,144 +263,153 @@ export function VotePage() {
         opensAt={settings?.votingOpensAt ?? null}
         now={now}
         scheduledTitle="Voting opens"
-        closedText="Voting is closed. You can look, but ratings can no longer change."
+        closedText="Voting is closed. Thanks for voting!"
       />
 
-      {/* One row. "Only what's left" leads so it stays on screen at any width;
+      {/* Nothing to rate until voting opens, and nothing once it closes: the
+          notice above is the whole page then. */}
+      {votingOpen ? (
+        <>
+          {/* One row. "Only what's left" leads so it stays on screen at any width;
           the categories are what scroll. */}
-      <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
-        <FilterChip active={onlyRemaining} onClick={() => setOnlyRemaining(!onlyRemaining)}>
-          <ListChecks className="size-4" aria-hidden="true" />
-          Only what’s left
-        </FilterChip>
-        {hiddenForAllergies > 0 || showAllergens ? (
-          <FilterChip active={showAllergens} onClick={() => setShowAllergens(!showAllergens)}>
-            <TriangleAlert className="size-4" aria-hidden="true" />
-            {showAllergens
-              ? 'Hide your allergens'
-              : `Show ${hiddenForAllergies} with your allergens`}
-          </FilterChip>
-        ) : null}
-        {categories.length > 1 ? (
-          <>
-            <span className="w-px shrink-0 self-stretch bg-black/10" aria-hidden="true" />
-            <div className="flex gap-2" role="group" aria-label="Category">
-              <FilterChip active={categoryFilter === null} onClick={() => setCategoryFilter(null)}>
-                All
+          <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
+            <FilterChip active={onlyRemaining} onClick={() => setOnlyRemaining(!onlyRemaining)}>
+              <ListChecks className="size-4" aria-hidden="true" />
+              Only what’s left
+            </FilterChip>
+            {hiddenForAllergies > 0 || showAllergens ? (
+              <FilterChip active={showAllergens} onClick={() => setShowAllergens(!showAllergens)}>
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                {showAllergens
+                  ? 'Hide your allergens'
+                  : `Show ${hiddenForAllergies} with your allergens`}
               </FilterChip>
-              {categories.map((category) => (
-                <FilterChip
-                  key={category.id}
-                  active={categoryFilter === category.id}
-                  onClick={() => setCategoryFilter(category.id)}
-                >
-                  <span aria-hidden="true">{category.emoji}</span> {category.name}
-                </FilterChip>
-              ))}
-            </div>
-          </>
-        ) : null}
-      </div>
+            ) : null}
+            {categories.length > 1 ? (
+              <>
+                <span className="w-px shrink-0 self-stretch bg-black/10" aria-hidden="true" />
+                <div className="flex gap-2" role="group" aria-label="Category">
+                  <FilterChip
+                    active={categoryFilter === null}
+                    onClick={() => setCategoryFilter(null)}
+                  >
+                    All
+                  </FilterChip>
+                  {categories.map((category) => (
+                    <FilterChip
+                      key={category.id}
+                      active={categoryFilter === category.id}
+                      onClick={() => setCategoryFilter(category.id)}
+                    >
+                      <span aria-hidden="true">{category.emoji}</span> {category.name}
+                    </FilterChip>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
 
-      {!session.isReady ? (
-        <p className="text-ink-muted">Loading your votes…</p>
-      ) : entries.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-lg font-semibold">No entries yet</p>
-          <p className="mt-1 text-ink-muted">
-            As soon as someone submits a dish it appears here. This page refreshes itself.
-          </p>
-        </Card>
-      ) : !anyVisible ? (
-        <Card className="p-8 text-center">
-          <p className="text-2xl" aria-hidden="true">
-            🎉
-          </p>
-          <p className="mt-1 text-lg font-semibold">{emptyMessage.title}</p>
-          <p className="mt-1 text-ink-muted">{emptyMessage.body}</p>
-        </Card>
-      ) : (
-        visibleCategories.map((category) => {
-          const list = visibleEntries(category.id);
-          if (list.length === 0) return null;
-          const active = activeCriteriaFor(criteria, category.id);
-          return (
-            <section key={category.id} className="space-y-3">
-              <h2 className="flex items-center gap-2 text-xl font-bold">
-                <span aria-hidden="true">{category.emoji}</span>
-                {category.name}
-                <span className="text-sm font-normal text-ink-muted">
-                  {list.length} {list.length === 1 ? 'entry' : 'entries'}
-                </span>
-              </h2>
-              {/* Medium cards put photo and scores side by side, so they need the full
+          {!session.isReady ? (
+            <p className="text-ink-muted">Loading your votes…</p>
+          ) : entries.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-lg font-semibold">No entries yet</p>
+              <p className="mt-1 text-ink-muted">
+                As soon as someone submits a dish it appears here. This page refreshes itself.
+              </p>
+            </Card>
+          ) : !anyVisible ? (
+            <Card className="p-8 text-center">
+              <p className="text-2xl" aria-hidden="true">
+                🎉
+              </p>
+              <p className="mt-1 text-lg font-semibold">{emptyMessage.title}</p>
+              <p className="mt-1 text-ink-muted">{emptyMessage.body}</p>
+            </Card>
+          ) : (
+            visibleCategories.map((category) => {
+              const list = visibleEntries(category.id);
+              if (list.length === 0) return null;
+              const active = activeCriteriaFor(criteria, category.id);
+              return (
+                <section key={category.id} className="space-y-3">
+                  <h2 className="flex items-center gap-2 text-xl font-bold">
+                    <span aria-hidden="true">{category.emoji}</span>
+                    {category.name}
+                    <span className="text-sm font-normal text-ink-muted">
+                      {list.length} {list.length === 1 ? 'entry' : 'entries'}
+                    </span>
+                  </h2>
+                  {/* Medium cards put photo and scores side by side, so they need the full
                   width; two to a row would squeeze the criteria names to nothing. */}
-              <div
-                className={`grid gap-4 ${layout === 'medium' ? 'lg:grid-cols-2' : 'sm:grid-cols-2'}`}
-              >
-                {list.map((entry) => (
-                  <VoteCard
-                    key={entry.id}
-                    entry={entry}
-                    criteria={active}
-                    vote={session.state.votes[String(entry.id)]}
-                    disabled={!votingOpen}
-                    layout={layout}
-                    conflicts={conflictsById.get(entry.id) ?? []}
-                    expanded={openIds.has(entry.id)}
-                    onExpandedChange={(value) => setCardExpanded(entry.id, value)}
-                    onScoreChange={(criterionId: number, rating: Rating | null) => {
-                      session.setScore(entry.id, criterionId, rating).catch((error: unknown) => {
-                        toast.error(errorMessage(error, 'Could not save that rating.'));
+                  <div
+                    className={`grid gap-4 ${layout === 'medium' ? 'lg:grid-cols-2' : 'sm:grid-cols-2'}`}
+                  >
+                    {list.map((entry) => (
+                      <VoteCard
+                        key={entry.id}
+                        entry={entry}
+                        criteria={active}
+                        vote={session.state.votes[String(entry.id)]}
+                        layout={layout}
+                        conflicts={conflictsById.get(entry.id) ?? []}
+                        expanded={openIds.has(entry.id)}
+                        onExpandedChange={(value) => setCardExpanded(entry.id, value)}
+                        onScoreChange={(criterionId: number, rating: Rating | null) => {
+                          session
+                            .setScore(entry.id, criterionId, rating)
+                            .catch((error: unknown) => {
+                              toast.error(errorMessage(error, 'Could not save that rating.'));
+                            });
+                        }}
+                        onCommentChange={(comment) => saveComment.call(entry.id, comment)}
+                        onCommentFlush={saveComment.flush}
+                        onTastedChange={(tasted) => {
+                          session.setTasted(entry.id, tasted).catch((error: unknown) => {
+                            toast.error(errorMessage(error, 'Could not save that.'));
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })
+          )}
+
+          {awards.length > 0 ? (
+            <section className="space-y-3 pt-2">
+              <div>
+                <h2 className="text-xl font-bold">Special awards</h2>
+                <p className="text-sm text-ink-muted">
+                  Nominate one entry per award. This is separate from the star ratings.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {awards.map((award) => (
+                  <AwardPicker
+                    key={award.id}
+                    award={award}
+                    entries={entries}
+                    categoryNames={categoryNames}
+                    pickedEntryId={session.state.ballots[award.id]}
+                    conflictIds={conflictIds}
+                    onPick={(entryId) => {
+                      session.pickAward(award.id, entryId).catch((error: unknown) => {
+                        toast.error(errorMessage(error, 'Could not save your nomination.'));
                       });
                     }}
-                    onCommentChange={(comment) => saveComment.call(entry.id, comment)}
-                    onCommentFlush={saveComment.flush}
-                    onTastedChange={(tasted) => {
-                      session.setTasted(entry.id, tasted).catch((error: unknown) => {
-                        toast.error(errorMessage(error, 'Could not save that.'));
+                    onClear={() => {
+                      session.clearAward(award.id).catch((error: unknown) => {
+                        toast.error(errorMessage(error, 'Could not clear your nomination.'));
                       });
                     }}
                   />
                 ))}
               </div>
             </section>
-          );
-        })
-      )}
-
-      {awards.length > 0 ? (
-        <section className="space-y-3 pt-2">
-          <div>
-            <h2 className="text-xl font-bold">Special awards</h2>
-            <p className="text-sm text-ink-muted">
-              Nominate one entry per award. This is separate from the star ratings.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {awards.map((award) => (
-              <AwardPicker
-                key={award.id}
-                award={award}
-                entries={entries}
-                categoryNames={categoryNames}
-                pickedEntryId={session.state.ballots[award.id]}
-                disabled={!votingOpen}
-                conflictIds={conflictIds}
-                onPick={(entryId) => {
-                  session.pickAward(award.id, entryId).catch((error: unknown) => {
-                    toast.error(errorMessage(error, 'Could not save your nomination.'));
-                  });
-                }}
-                onClear={() => {
-                  session.clearAward(award.id).catch((error: unknown) => {
-                    toast.error(errorMessage(error, 'Could not clear your nomination.'));
-                  });
-                }}
-              />
-            ))}
-          </div>
-        </section>
+          ) : null}
+        </>
       ) : null}
     </div>
   );
