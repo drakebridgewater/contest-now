@@ -15,6 +15,7 @@ export function AwardPicker({
   categoryNames,
   pickedEntryId,
   disabled = false,
+  conflictIds,
   onPick,
   onClear,
 }: {
@@ -23,6 +24,8 @@ export function AwardPicker({
   categoryNames: Map<string, string>;
   pickedEntryId: number | undefined;
   disabled?: boolean;
+  /** Entries containing something on the voter's allergy list; still pickable, but marked. */
+  conflictIds?: ReadonlySet<number>;
   onPick: (entryId: number) => void;
   onClear: () => void;
 }) {
@@ -123,6 +126,11 @@ export function AwardPicker({
                     <span className="block truncate text-xs text-ink-muted">
                       {categoryNames.get(entry.categoryId) ?? entry.categoryId}
                     </span>
+                    {conflictIds?.has(entry.id) ? (
+                      <span className="block text-xs font-semibold text-red-700">
+                        ⚠ Your allergens
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               </li>

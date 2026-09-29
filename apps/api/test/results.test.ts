@@ -18,9 +18,7 @@ async function vote(
   ratings.forEach((r, i) => {
     scores[String(ids[i])] = r;
   });
-  const res = await ctx.api
-    .put(`/api/votes/${entryId}`)
-    .send({ voterName: voter, scores, comment });
+  const res = await (await ctx.voter(voter)).put(`/api/votes/${entryId}`).send({ scores, comment });
   expect(res.status).toBe(200);
 }
 
@@ -34,15 +32,19 @@ beforeAll(async () => {
     .filter((c: { categoryId: string }) => c.categoryId === 'dessert')
     .map((c: { id: number }) => c.id);
 
-  await vote('ann', pie, [5, 5, 5], 'Best pie: ever');
+  await vote('Ann Lee', pie, [5, 5, 5], 'Best pie: ever');
   await vote('ben', pie, [3, 3, 3]);
-  await vote('ann', cake, [4, 4, 4]);
+  await vote('ann lee', cake, [4, 4, 4]);
   await vote('ben', cake, [4, 4, 4]);
   await vote('cal', cake, [4]); // partial, must not count
-  await vote('ann', fudge, [4, 4, 4]);
+  await vote('ANN LEE', fudge, [4, 4, 4]);
 
-  await ctx.api.put('/api/award-ballots/best-presented').send({ voterName: 'ann', entryId: pie });
-  await ctx.api.put('/api/award-ballots/best-presented').send({ voterName: 'ben', entryId: cake });
+  await (
+    await ctx.voter('ann lee')
+  )
+    .put('/api/award-ballots/best-presented')
+    .send({ entryId: pie });
+  await (await ctx.voter('ben')).put('/api/award-ballots/best-presented').send({ entryId: cake });
 });
 afterAll(async () => {
   await ctx.close();
@@ -68,10 +70,11 @@ describe('GET /api/admin/results', () => {
     expect(byName.Pie?.rank).toBe(1);
     expect(byName.Cake?.rank).toBe(1);
     expect(byName.Fudge?.rank).toBe(3);
-    expect(byName.Pie?.comments).toEqual([{ voterName: 'ann', comment: 'Best pie: ever' }]);
+    // The guest's name as first typed, however they typed it later.
+    expect(byName.Pie?.comments).toEqual([{ voterName: 'Ann Lee', comment: 'Best pie: ever' }]);
     // Rating an entry marks it tasted, so every rater shows up as a taster.
     expect(byName.Pie?.tastedCount).toBe(2);
-    expect(byName.Pie?.tasters).toEqual(['ann', 'ben']);
+    expect(byName.Pie?.tasters).toEqual(['Ann Lee', 'ben']);
     expect(byName.Cake?.tastedCount).toBe(3); // includes cal's partial rating
     expect(byName.Pie?.criteria[0]?.distribution).toEqual({ 1: 0, 2: 0, 3: 1, 4: 0, 5: 1 });
 

@@ -1,12 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { PHOTO_STORED_EXTENSION, type CreateEntryFields, type Entry } from '@contest/shared';
+import {
+  PHOTO_STORED_EXTENSION,
+  submissionsStatus,
+  type CreateEntryFields,
+  type Entry,
+} from '@contest/shared';
 import { desc, eq } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
-import { categories, entries } from '../db/schema.ts';
+import { categories, entries, guests } from '../db/schema.ts';
 import { badRequest, conflict, notFound } from '../http/errors.ts';
 import { getSettings } from './contest.ts';
+import { findOrCreateGuestByName } from './guests.ts';
 import { toStoredPhoto } from './photos.ts';
 
 export interface PhotoStorage {
@@ -61,7 +67,11 @@ export async function createEntry(
   storage: PhotoStorage,
 ): Promise<Entry> {
   const settings = await getSettings(db);
-  if (!settings.votingOpen) throw conflict('Submissions are closed');
+  const status = submissionsStatus(settings);
+  if (status === 'closed') throw conflict('Submissions are closed');
+  if (status === 'scheduled') {
+    throw conflict('Submissions have not opened yet', { opensAt: settings.submissionsOpenAt });
+  }
   const category = await db
     .select()
     .from(categories)
@@ -69,15 +79,28 @@ export async function createEntry(
     .then((r) => r[0]);
   if (!category || !category.isActive) throw badRequest(`Unknown category "${fields.categoryId}"`);
 
+  // The name field autocompletes from the guest list. Picking a guest files the
+  // entry under them without signing anyone in; a name nobody has used yet
+  // becomes a new guest, so the host sees every cook on the guest list.
+  const guest = fields.guestId
+    ? await db
+        .select({ id: guests.id, name: guests.name })
+        .from(guests)
+        .where(eq(guests.id, fields.guestId))
+        .then((r) => r[0])
+    : await findOrCreateGuestByName(db, fields.contestantName);
+  if (!guest) throw badRequest('That guest is no longer on the list. Type your name again.');
+
   const photoPath = await storePhoto(photo, storage);
   try {
     const row = await db
       .insert(entries)
       .values({
         entryName: fields.entryName,
-        contestantName: fields.contestantName,
+        contestantName: fields.guestId ? guest.name : fields.contestantName,
         categoryId: fields.categoryId,
         allergens: fields.allergens,
+        guestId: guest.id,
         photoPath,
       })
       .returning()

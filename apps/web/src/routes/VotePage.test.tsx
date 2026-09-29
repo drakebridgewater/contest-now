@@ -1,4 +1,11 @@
-import type { ContestConfig, Entry, UpsertVote, VoterState, VoterVote } from '@contest/shared';
+import type {
+  ContestConfig,
+  Entry,
+  SessionGuest,
+  UpsertVote,
+  VoterState,
+  VoterVote,
+} from '@contest/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -23,6 +30,9 @@ const contest: ContestConfig = {
     tagline: '',
     photoShareUrl: '',
     votingOpen: true,
+    votingOpensAt: null,
+    submissionsOpen: true,
+    submissionsOpenAt: null,
   },
   categories: [
     { id: 'dessert', name: 'Desserts', emoji: '🍰', description: '', sortOrder: 1, isActive: true },
@@ -77,8 +87,11 @@ function mergeVote(entryId: number, input: UpsertVote): VoterVote {
   };
 }
 
+let me: SessionGuest | null;
+
 vi.mock('../lib/api.ts', () => ({
   api: {
+    me: () => Promise.resolve(me),
     getContest: () => Promise.resolve(contest),
     getEntries: () => Promise.resolve(entries),
     getVoterState: () => Promise.resolve(voterState),
@@ -99,25 +112,34 @@ function renderPage() {
   );
 }
 
-/** The entry names currently rendered as cards. */
-function visibleEntryNames(): string[] {
-  return screen
-    .getAllByRole('article')
-    .map((card) => within(card).getByRole('heading', { level: 3 }).textContent ?? '');
+/** A card's entry name: the article is labelled by it. */
+function nameOf(card: HTMLElement): string {
+  return document.getElementById(card.getAttribute('aria-labelledby') ?? '')?.textContent ?? '';
 }
 
-/** Entries that are shown collapsed rather than open for rating. */
-function collapsedEntryNames(): string[] {
+/** The entry names currently rendered as cards. */
+function visibleEntryNames(): string[] {
+  return screen.queryAllByRole('article').map(nameOf);
+}
+
+/** Entries whose card is open for rating. */
+function openEntryNames(): string[] {
   return screen
     .getAllByRole('article')
-    .filter((card) => within(card).queryByRole('button', { name: /^Edit/ }) !== null)
-    .map((card) => within(card).getByRole('heading', { level: 3 }).textContent ?? '');
+    .filter(
+      (card) => within(card).getAllByRole('button')[0]!.getAttribute('aria-expanded') === 'true',
+    )
+    .map(nameOf);
+}
+
+function card(name: string): HTMLElement {
+  return screen.getAllByRole('article').find((c) => nameOf(c) === name)!;
 }
 
 beforeEach(() => {
   // The toggle is persisted now, so a stale key would leak into the next test.
   localStorage.clear();
-  localStorage.setItem('contest.voterName', JSON.stringify('Ada'));
+  me = { id: 'g-ada', name: 'Ada', scope: 'vote', allergies: [] };
   resetVoterState();
   saveVote.mockReset();
   saveVote.mockImplementation((entryId, input) => Promise.resolve(mergeVote(entryId, input)));
@@ -130,51 +152,106 @@ describe('VotePage', () => {
     expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']);
   });
 
-  it('starts a fully rated entry collapsed and everything else open', async () => {
+  it('starts every card collapsed, finished or not', async () => {
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
-
-    // Ada has rated every criterion on Trifle and nothing else.
-    expect(collapsedEntryNames()).toEqual(['Trifle']);
-    // Only the two open cards mount their stars.
-    expect(screen.getAllByRole('group', { name: 'Appearance' })).toHaveLength(2);
+    expect(openEntryNames()).toEqual([]);
+    // Closed cards do not mount their stars.
+    expect(screen.queryAllByRole('group', { name: 'Appearance' })).toHaveLength(0);
+    // Each closed row still says where the voter stands.
+    expect(within(card('Trifle')).getByText(/Scored: 4\.5/)).toBeInTheDocument();
+    expect(within(card('Pavlova')).getByText('Tasted')).toBeInTheDocument();
+    expect(within(card('Brownies')).getByText('Not tasted')).toBeInTheDocument();
   });
 
-  it('reopens a collapsed entry for editing', async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await waitFor(() => expect(collapsedEntryNames()).toEqual(['Trifle']));
-
-    await user.click(screen.getByRole('button', { name: 'Edit Trifle' }));
-    await waitFor(() => expect(collapsedEntryNames()).toEqual([]));
-  });
-
-  it('does not collapse a card the moment its last criterion is rated', async () => {
+  it('opens and closes a card by tapping its header', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
 
+    await user.click(within(card('Trifle')).getAllByRole('button')[0]!);
+    await waitFor(() => expect(openEntryNames()).toEqual(['Trifle']));
+    await user.click(within(card('Trifle')).getAllByRole('button')[0]!);
+    await waitFor(() => expect(openEntryNames()).toEqual([]));
+  });
+
+  it('does not close a card the moment its last criterion is rated', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
+
+    await user.click(within(card('Pavlova')).getAllByRole('button')[0]!);
     // Pavlova is tasted with no stars; rating both criteria completes it.
-    const pavlova = screen
-      .getAllByRole('article')
-      .find((card) => within(card).getByRole('heading', { level: 3 }).textContent === 'Pavlova')!;
-    await user.click(within(pavlova).getByRole('group', { name: 'Appearance' }).children[3]!);
-    await user.click(within(pavlova).getByRole('group', { name: 'Flavor' }).children[4]!);
+    await user.click(
+      within(card('Pavlova')).getByRole('group', { name: 'Appearance' }).children[3]!,
+    );
+    await user.click(within(card('Pavlova')).getByRole('group', { name: 'Flavor' }).children[4]!);
 
     await waitFor(() => expect(saveVote).toHaveBeenCalledTimes(2));
-    expect(collapsedEntryNames()).toEqual(['Trifle']);
+    expect(openEntryNames()).toEqual(['Pavlova']);
   });
 
-  it('collapses and expands every card at once', async () => {
+  it('expands and collapses every card at once', async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(collapsedEntryNames()).toEqual(['Trifle']));
-
-    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
-    await waitFor(() => expect(collapsedEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']));
+    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
 
     await user.click(screen.getByRole('button', { name: 'Expand all' }));
-    await waitFor(() => expect(collapsedEntryNames()).toEqual([]));
+    await waitFor(() => expect(openEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']));
+
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+    await waitFor(() => expect(openEntryNames()).toEqual([]));
+  });
+
+  it('switches open cards to the medium layout and remembers it', async () => {
+    const user = userEvent.setup();
+    const first = renderPage();
+    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
+    await user.click(screen.getByRole('button', { name: 'Medium cards' }));
+    await user.click(within(card('Brownies')).getAllByRole('button')[0]!);
+    expect(within(card('Brownies')).getByLabelText('Flavor').tagName).toBe('SELECT');
+    first.unmount();
+
+    renderPage();
+    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
+    expect(screen.getByRole('button', { name: 'Medium cards' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('hides entries with the voter’s allergens until asked, then warns on them', async () => {
+    const user = userEvent.setup();
+    me = { id: 'g-ada', name: 'Ada', scope: 'vote', allergies: ['peanuts'] };
+    entries[2] = { ...entries[2]!, allergens: ['peanuts', 'eggs'] };
+    try {
+      renderPage();
+      await waitFor(() => expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova']));
+      await user.click(screen.getByRole('button', { name: /Show 1 with your allergens/ }));
+      await waitFor(() => expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']));
+      expect(within(card('Brownies')).getByRole('note')).toHaveTextContent(
+        /Contains Peanuts — on your allergy list/,
+      );
+    } finally {
+      entries[2] = { ...entries[2]!, allergens: [] };
+    }
+  });
+
+  it('asks for a name when signed out, and shows a countdown before voting opens', async () => {
+    me = null;
+    const opensAt = new Date(Date.now() + 42 * 60 * 1000).toISOString();
+    contest.settings.votingOpensAt = opensAt;
+    try {
+      renderPage();
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: /What.s your name/ })).toBeInTheDocument(),
+      );
+      expect(screen.getByText(/Voting opens at/).closest('[role="status"]')).toHaveTextContent(
+        /in 42 min/,
+      );
+    } finally {
+      contest.settings.votingOpensAt = null;
+    }
   });
 
   it('narrows to what the voter still owes', async () => {
@@ -222,9 +299,9 @@ describe('VotePage', () => {
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
 
-    await user.click(screen.getByRole('button', { name: 'Mark as tasted' }));
+    await user.click(within(card('Brownies')).getByRole('button', { name: /Tap to mark tasted/ }));
     await waitFor(() => expect(saveVote).toHaveBeenCalledTimes(1));
-    expect(saveVote).toHaveBeenCalledWith(3, { voterName: 'Ada', tasted: true });
+    expect(saveVote).toHaveBeenCalledWith(3, { tasted: true });
   });
 
   it('counts tasted entries in the progress line', async () => {

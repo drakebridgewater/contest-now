@@ -26,13 +26,19 @@ function Chip({
   );
 }
 
-/** Allergen and dietary chips. Groups (nuts, seafood) expand to specific items. */
+/**
+ * Allergen and dietary chips. Groups (nuts, seafood) expand to specific items.
+ * `for="guest"` is the RSVP's "what do you avoid" list: allergens only, since a
+ * dietary label describes a dish, not a person.
+ */
 export function AllergenPicker({
   selected,
   onChange,
+  for: audience = 'entry',
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
+  for?: 'entry' | 'guest';
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
 
@@ -84,28 +90,34 @@ export function AllergenPicker({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold">Allergens</p>
+        <p className="text-sm font-semibold">
+          {audience === 'guest' ? 'Your allergies' : 'Allergens'}
+        </p>
         <p className="mt-0.5 text-sm text-ink-muted">
-          Tap everything your dish contains. Guests rely on this before they taste.
+          {audience === 'guest'
+            ? 'Tap anything you avoid. Dishes that contain it are hidden on the vote page, with a button to show them.'
+            : 'Tap everything your dish contains. Guests rely on this before they taste.'}
         </p>
         <div className="mt-2 flex flex-wrap items-start gap-2">{ALLERGENS.map(renderOption)}</div>
       </div>
 
-      <div>
-        <p className="text-sm font-semibold">Dietary labels</p>
-        <p className="mt-0.5 text-sm text-ink-muted">Optional. Only add what you are sure of.</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {DIETARY_LABELS.map((option) => (
-            <Chip
-              key={option.id}
-              selected={selected.includes(option.id)}
-              onClick={() => toggle(option.id)}
-            >
-              <span aria-hidden="true">{option.emoji}</span> {option.label}
-            </Chip>
-          ))}
+      {audience === 'entry' ? (
+        <div>
+          <p className="text-sm font-semibold">Dietary labels</p>
+          <p className="mt-0.5 text-sm text-ink-muted">Optional. Only add what you are sure of.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {DIETARY_LABELS.map((option) => (
+              <Chip
+                key={option.id}
+                selected={selected.includes(option.id)}
+                onClick={() => toggle(option.id)}
+              >
+                <span aria-hidden="true">{option.emoji}</span> {option.label}
+              </Chip>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

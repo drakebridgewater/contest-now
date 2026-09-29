@@ -1,8 +1,9 @@
-import { Camera, ClipboardList, Images, Trophy } from 'lucide-react';
+import { Camera, ClipboardList, Images, PartyPopper, Trophy } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
 import { useContest } from '../lib/queries.ts';
 
 const TABS = [
+  { to: '/register', label: 'RSVP', Icon: PartyPopper },
   { to: '/submit', label: 'Submit', Icon: Camera },
   { to: '/vote', label: 'Vote', Icon: ClipboardList },
   { to: '/admin', label: 'Results', Icon: Trophy },

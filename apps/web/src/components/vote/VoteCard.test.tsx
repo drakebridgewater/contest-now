@@ -80,7 +80,7 @@ describe('VoteCard', () => {
         onTastedChange={vi.fn()}
       />,
     );
-    expect(screen.getByText('1 of 3')).toBeInTheDocument();
+    expect(screen.getByText('Partially voted · 1/3')).toBeInTheDocument();
 
     rerender(
       <VoteCard
@@ -94,7 +94,9 @@ describe('VoteCard', () => {
       />,
     );
     // Three weight-1 criteria at 4, 5 and 3: the voter's own weighted mean.
-    expect(screen.getByText('4.0')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Scored 4\.0 stars/ })).toHaveTextContent(
+      'Scored: 4.0',
+    );
   });
 
   it('sends the rating when a star is tapped', async () => {
@@ -129,43 +131,35 @@ describe('VoteCard', () => {
     expect(screen.getAllByRole('button', { name: /^3 stars/ })[0]!).toBeDisabled();
   });
 
-  it('offers to mark an untasted entry, and reports one that is tasted', () => {
-    const { unmount } = render(
-      <VoteCard
-        entry={entry}
-        criteria={criteria}
-        vote={undefined}
-        onScoreChange={vi.fn()}
-        onCommentChange={vi.fn()}
-        onCommentFlush={vi.fn()}
-        onTastedChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole('button', { name: 'Mark as tasted' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+  it('says in words whether an untouched entry is tasted', () => {
+    const { unmount } = renderCard();
+    expect(
+      screen.getByRole('button', { name: /^Not tasted\. Tap to mark tasted/ }),
+    ).toHaveAttribute('aria-pressed', 'false');
     unmount();
 
     renderCard({ vote: voted({}, '', true) });
-    expect(screen.getByRole('button', { name: 'Tasted' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^Tasted\. Tap to unmark/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('toggles tasted both ways', async () => {
     const user = userEvent.setup();
     const { onTastedChange, unmount } = renderCard();
-    await user.click(screen.getByRole('button', { name: 'Mark as tasted' }));
+    await user.click(screen.getByRole('button', { name: /Tap to mark tasted/ }));
     expect(onTastedChange).toHaveBeenCalledWith(true);
     unmount();
 
     const second = renderCard({ vote: voted({}, '', true) });
-    await user.click(screen.getByRole('button', { name: 'Tasted' }));
+    await user.click(screen.getByRole('button', { name: /Tap to unmark tasted/ }));
     expect(second.onTastedChange).toHaveBeenCalledWith(false);
   });
 
   it('disables the tasted toggle when voting is closed', () => {
     renderCard({ disabled: true });
-    expect(screen.getByRole('button', { name: 'Mark as tasted' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Tap to mark tasted/ })).toBeDisabled();
   });
 
   it('keeps a comment that was already written visible, with nothing to tap', () => {
@@ -183,57 +177,93 @@ describe('VoteCard', () => {
     expect(screen.getByLabelText(/Comment/)).toBeInTheDocument();
   });
 
-  it('collapses to a photo, a title, the score and a way back in', () => {
-    renderCard({ vote: voted({ '1': 4, '2': 5, '3': 3 }), collapsed: true });
+  it('collapses to a photo, a title, allergens and the score', () => {
+    renderCard({ vote: voted({ '1': 4, '2': 5, '3': 3 }), expanded: false });
 
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Bourbon Pecan Pie');
-    expect(screen.getByRole('img')).toHaveAttribute('src', '/uploads/pie.webp');
-    expect(screen.getByText('4.0')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Edit/ })).toBeInTheDocument();
+    const header = screen.getByRole('button', { name: /^Bourbon Pecan Pie/ });
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('img', { name: /Tree nuts/ })).toBeInTheDocument();
+    expect(screen.getByText(/Scored: 4\.0/)).toBeInTheDocument();
+    // No separate edit button: the header is the way in.
+    expect(screen.queryByRole('button', { name: /^Edit/ })).not.toBeInTheDocument();
 
     // The expensive half of the card is not mounted at all.
     expect(screen.queryByRole('group', { name: 'Appearance' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Comment/)).not.toBeInTheDocument();
   });
 
-  it('names the collapse and expand controls after the entry', async () => {
+  it('opens and closes by tapping the header', async () => {
     const user = userEvent.setup();
-    const onCollapsedChange = vi.fn();
-    const { rerender } = render(
-      <VoteCard
-        entry={entry}
-        criteria={criteria}
-        vote={voted({ '1': 4, '2': 5, '3': 3 })}
-        collapsed={true}
-        onCollapsedChange={onCollapsedChange}
-        onScoreChange={vi.fn()}
-        onCommentChange={vi.fn()}
-        onCommentFlush={vi.fn()}
-        onTastedChange={vi.fn()}
-      />,
-    );
-    await user.click(screen.getByRole('button', { name: 'Edit Bourbon Pecan Pie' }));
-    expect(onCollapsedChange).toHaveBeenCalledWith(false);
+    const onExpandedChange = vi.fn();
+    const { rerender } = renderCard({ expanded: false, onExpandedChange });
+    await user.click(screen.getByRole('button', { name: /^Bourbon Pecan Pie/ }));
+    expect(onExpandedChange).toHaveBeenCalledWith(true);
 
     rerender(
       <VoteCard
         entry={entry}
         criteria={criteria}
-        vote={voted({ '1': 4, '2': 5, '3': 3 })}
-        collapsed={false}
-        onCollapsedChange={onCollapsedChange}
+        vote={undefined}
+        expanded={true}
+        onExpandedChange={onExpandedChange}
         onScoreChange={vi.fn()}
         onCommentChange={vi.fn()}
         onCommentFlush={vi.fn()}
         onTastedChange={vi.fn()}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Collapse Bourbon Pecan Pie' }));
-    expect(onCollapsedChange).toHaveBeenLastCalledWith(true);
+    const header = screen.getByRole('button', { name: /^Bourbon Pecan Pie/ });
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+    await user.click(header);
+    expect(onExpandedChange).toHaveBeenLastCalledWith(false);
   });
 
-  it('still reports the tasted state from the collapsed row', () => {
-    renderCard({ vote: voted({}, '', true), collapsed: true });
-    expect(screen.getByRole('button', { name: 'Tasted' })).toHaveAttribute('aria-pressed', 'true');
+  it('shortens the progress wording on the collapsed row', () => {
+    renderCard({ vote: voted({ '1': 4 }), expanded: false });
+    expect(screen.getByText('Partial 1/3')).toBeInTheDocument();
+  });
+
+  it('still toggles tasted from the collapsed row', () => {
+    renderCard({ vote: voted({}, '', true), expanded: false });
+    expect(screen.getByRole('button', { name: /^Tasted\./ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it("warns about the voter's own allergens, even when collapsed", () => {
+    renderCard({ expanded: false, conflicts: ['tree-nuts'] });
+    expect(screen.getByRole('note')).toHaveTextContent(/Contains Tree nuts.*on your allergy list/);
+  });
+
+  describe('medium layout', () => {
+    const many = [...criteria, criterion(4, 'Balance')];
+
+    it('rates from a drop-down per criterion', async () => {
+      const user = userEvent.setup();
+      const { onScoreChange } = renderCard({ layout: 'medium', criteria: many });
+      await user.selectOptions(screen.getByLabelText('Flavor'), '5');
+      expect(onScoreChange).toHaveBeenCalledWith(3, 5);
+      await user.selectOptions(screen.getByLabelText('Flavor'), '');
+      expect(onScoreChange).toHaveBeenLastCalledWith(3, null);
+    });
+
+    it('keeps help text behind an info button', async () => {
+      const user = userEvent.setup();
+      renderCard({ layout: 'medium' });
+      expect(screen.queryByText('Texture help')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'What “Texture” means' }));
+      expect(screen.getByText('Texture help')).toBeInTheDocument();
+    });
+
+    it('puts every criterion in one fixed-height scrolling column', () => {
+      renderCard({ layout: 'medium', criteria: many, vote: voted({ '2': 3 }) });
+      const column = screen.getByTestId('criteria-scroll');
+      expect(column.className).toContain('overflow-y-auto');
+      expect(column.parentElement?.className).toContain('h-48');
+      expect(screen.getByLabelText('Texture')).toHaveValue('3');
+      // No star buttons in this layout.
+      expect(screen.queryByRole('group', { name: 'Appearance' })).not.toBeInTheDocument();
+    });
   });
 });

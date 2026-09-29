@@ -5,16 +5,17 @@ import {
   PHOTO_MAX_BYTES,
   UpsertBallotSchema,
   UpsertVoteSchema,
-  VoterName,
 } from '@contest/shared';
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
+import type { Auth } from '../../auth.ts';
 import type { Db } from '../../db/client.ts';
 import { getContestConfig } from '../../services/contest.ts';
 import { createEntry, listEntries, type PhotoStorage } from '../../services/entries.ts';
 import { deleteBallot, getVoterState, upsertBallot, upsertVote } from '../../services/votes.ts';
 import { badRequest, parse, unsupportedMedia } from '../errors.ts';
+import { guestOf, requireGuest } from '../middleware/guestAuth.ts';
 
 const EntryId = z.coerce.number().int().positive();
 const AwardId = z.string().min(1);
@@ -36,7 +37,7 @@ function normalizeAllergens(raw: unknown): unknown {
   return raw;
 }
 
-export function publicRoutes(db: Db, storage: PhotoStorage): Router {
+export function publicRoutes(db: Db, auth: Auth, storage: PhotoStorage): Router {
   const router = Router();
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -65,32 +66,31 @@ export function publicRoutes(db: Db, storage: PhotoStorage): Router {
     const fields = parse(CreateEntryFieldsSchema, {
       ...body,
       allergens: normalizeAllergens(body.allergens),
+      guestId: body.guestId === '' ? undefined : body.guestId,
     });
     const entry = await createEntry(db, fields, req.file.buffer, storage);
     res.status(201).json(entry);
   });
 
-  router.get('/voters/:voterName', async (req, res) => {
-    const voterName = parse(VoterName, req.params.voterName, 'voter name');
-    res.json(await getVoterState(db, voterName));
+  router.get('/me/state', requireGuest(auth, 'vote'), async (_req, res) => {
+    res.json(await getVoterState(db, guestOf(res).id));
   });
 
-  router.put('/votes/:entryId', async (req, res) => {
+  router.put('/votes/:entryId', requireGuest(auth, 'vote'), async (req, res) => {
     const entryId = parse(EntryId, req.params.entryId, 'entry id');
     const input = parse(UpsertVoteSchema, req.body);
-    res.json(await upsertVote(db, entryId, input));
+    res.json(await upsertVote(db, entryId, guestOf(res).id, input));
   });
 
-  router.put('/award-ballots/:awardId', async (req, res) => {
+  router.put('/award-ballots/:awardId', requireGuest(auth, 'vote'), async (req, res) => {
     const awardId = parse(AwardId, req.params.awardId, 'award id');
     const input = parse(UpsertBallotSchema, req.body);
-    res.json(await upsertBallot(db, awardId, input));
+    res.json(await upsertBallot(db, awardId, guestOf(res).id, input));
   });
 
-  router.delete('/award-ballots/:awardId/:voterName', async (req, res) => {
+  router.delete('/award-ballots/:awardId', requireGuest(auth, 'vote'), async (req, res) => {
     const awardId = parse(AwardId, req.params.awardId, 'award id');
-    const voterName = parse(VoterName, req.params.voterName, 'voter name');
-    await deleteBallot(db, awardId, voterName);
+    await deleteBallot(db, awardId, guestOf(res).id);
     res.status(204).end();
   });
 

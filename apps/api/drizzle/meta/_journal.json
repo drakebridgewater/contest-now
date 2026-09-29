@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1788354739084,
-      "tag": "0000_contest_v2",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1789243200000,
-      "tag": "0001_tasted",
+      "when": 1790687430831,
+      "tag": "0000_initial",
       "breakpoints": true
     }
   ]

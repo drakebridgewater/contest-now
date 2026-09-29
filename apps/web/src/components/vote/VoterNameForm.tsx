@@ -2,6 +2,7 @@ import { VOTER_NAME_MIN } from '@contest/shared';
 import { LogIn } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../ui/Button.tsx';
+import { errorMessage } from '../../lib/errorMessage.ts';
 import { Card } from '../ui/Card.tsx';
 import { TextField, Toggle } from '../ui/Field.tsx';
 
@@ -10,20 +11,21 @@ export function VoterNameForm({
   sharedDevice,
   onSharedDeviceChange,
 }: {
-  onSubmit: (name: string) => void;
+  onSubmit: (name: string) => Promise<void>;
   sharedDevice: boolean;
   onSharedDeviceChange: (value: boolean) => void;
 }) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
 
   return (
     <Card className="space-y-5 p-4 sm:p-6">
       <div>
         <h2 className="text-xl font-bold">What&apos;s your name?</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Your ratings are saved under this name, so you can come back and change them all evening.
-          Use the same name each time.
+          No password. Your ratings are saved under this name, so you can come back and change them
+          all evening, from any phone or the party tablet. Use the same name each time.
         </p>
       </div>
 
@@ -50,7 +52,7 @@ export function VoterNameForm({
         onChange={onSharedDeviceChange}
       />
 
-      <Button size="lg" className="w-full" onClick={submit}>
+      <Button size="lg" className="w-full" loading={busy} onClick={submit}>
         <LogIn className="size-5" aria-hidden="true" />
         Start voting
       </Button>
@@ -62,6 +64,9 @@ export function VoterNameForm({
       setError(`Enter at least ${VOTER_NAME_MIN} characters`);
       return;
     }
-    onSubmit(name);
+    setBusy(true);
+    onSubmit(name)
+      .catch((err: unknown) => setError(errorMessage(err, 'Could not sign in. Try again.')))
+      .finally(() => setBusy(false));
   }
 }

@@ -39,6 +39,9 @@ beforeAll(async () => {
       trustProxy: false,
       // Anything but 'test' so request logging is actually installed.
       nodeEnv: 'development',
+      authSecret: 'test-secret-that-is-at-least-32-characters-long',
+      publicUrl: 'http://party.test',
+      smtp: null,
     },
   });
   api = request(app);

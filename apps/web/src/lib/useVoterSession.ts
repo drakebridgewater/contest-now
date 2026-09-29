@@ -2,23 +2,24 @@ import { impliesTasted, type Rating, type VoterState, type VoterVote } from '@co
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { api } from './api.ts';
-import { queryKeys, useVoterState } from './queries.ts';
-import { useLocalStorage } from './useLocalStorage.ts';
+import { queryKeys, useMe, useVoterState } from './queries.ts';
 
 const EMPTY: VoterState = { votes: {}, ballots: {} };
 const EMPTY_VOTE: VoterVote = { scores: {}, comment: '', tasted: false };
 
 /**
- * The voter's name (remembered on this device) plus their server-side votes and
- * ballots. Writes are optimistic so a tap feels instant on party wifi, and the
- * server response replaces the optimistic value.
+ * The signed-in guest plus their server-side votes and ballots. The session is
+ * a cookie, so "signing in" on the vote page is just typing a name. Writes are
+ * optimistic so a tap feels instant on party wifi, and the server response
+ * replaces the optimistic value.
  */
 export function useVoterSession() {
-  const [voterName, setVoterName] = useLocalStorage<string>('contest.voterName', '');
-  const active = voterName.trim().length >= 2 ? voterName.trim() : null;
-  const query = useVoterState(active);
+  const me = useMe();
+  const guest = me.data ?? null;
+  const guestId = guest?.id ?? null;
+  const query = useVoterState(guestId);
   const queryClient = useQueryClient();
-  const stateKey = queryKeys.voter(active ?? '');
+  const stateKey = queryKeys.voter(guestId ?? '');
 
   const patchState = useCallback(
     (patch: (current: VoterState) => VoterState) => {
@@ -40,7 +41,6 @@ export function useVoterSession() {
       tasted?: boolean;
     }) =>
       api.saveVote(entryId, {
-        voterName: active!,
         ...(scores ? { scores } : {}),
         ...(comment !== undefined ? { comment } : {}),
         ...(tasted !== undefined ? { tasted } : {}),
@@ -55,7 +55,7 @@ export function useVoterSession() {
 
   const ballotMutation = useMutation({
     mutationFn: ({ awardId, entryId }: { awardId: string; entryId: number }) =>
-      api.saveBallot(awardId, active!, entryId),
+      api.saveBallot(awardId, entryId),
     onSuccess: (_result, variables) => {
       patchState((current) => ({
         ...current,
@@ -65,7 +65,7 @@ export function useVoterSession() {
   });
 
   const clearBallotMutation = useMutation({
-    mutationFn: ({ awardId }: { awardId: string }) => api.clearBallot(awardId, active!),
+    mutationFn: ({ awardId }: { awardId: string }) => api.clearBallot(awardId),
     onSuccess: (_result, variables) => {
       patchState((current) => {
         const ballots = { ...current.ballots };
@@ -125,11 +125,32 @@ export function useVoterSession() {
     [patchState, voteMutation],
   );
 
+  const signIn = useCallback(
+    async (name: string) => {
+      await api.voteSignIn(name.trim());
+      await queryClient.invalidateQueries({ queryKey: queryKeys.me });
+    },
+    [queryClient],
+  );
+
+  const signOut = useCallback(async () => {
+    try {
+      await api.signOut();
+    } finally {
+      // Whatever the server said, this device forgets who it was.
+      queryClient.setQueryData(queryKeys.me, null);
+      queryClient.removeQueries({ queryKey: ['voter'] });
+      queryClient.removeQueries({ queryKey: queryKeys.profile });
+    }
+  }, [queryClient]);
+
   return {
-    voterName: active,
-    rawVoterName: voterName,
-    signIn: (name: string) => setVoterName(name.trim()),
-    signOut: () => setVoterName(''),
+    guest,
+    voterName: guest?.name ?? null,
+    /** The `me` query has answered, so a null guest really means signed out. */
+    sessionKnown: me.isSuccess,
+    signIn,
+    signOut,
     state: query.data ?? EMPTY,
     isLoading: query.isLoading,
     /**

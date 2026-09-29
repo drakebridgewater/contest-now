@@ -1,11 +1,19 @@
 import type { ContestConfig } from '@contest/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { SetupTab, type SetupActions } from './SetupTab.tsx';
 
 const config: ContestConfig = {
-  settings: { eventName: 'PDXmas', tagline: 'Food & drink', photoShareUrl: '', votingOpen: true },
+  settings: {
+    eventName: 'PDXmas',
+    tagline: 'Food & drink',
+    photoShareUrl: '',
+    votingOpen: true,
+    votingOpensAt: null,
+    submissionsOpen: true,
+    submissionsOpenAt: null,
+  },
   categories: [
     {
       id: 'dessert',
@@ -132,6 +140,27 @@ describe('SetupTab', () => {
     expect(actions.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ eventName: 'PDXmas 2026' }),
     );
+  });
+
+  describe('schedule', () => {
+    it('saves an opening time as an ISO instant from the local time typed', async () => {
+      const user = userEvent.setup();
+      const actions = renderSetup();
+      const input = screen.getByLabelText('Voting open at');
+      await user.type(input, '2026-12-20T19:30');
+      const section = input.closest('section')!;
+      await user.click(within(section).getByRole('button', { name: 'Save time' }));
+      expect(actions.saveSettings).toHaveBeenCalledWith({
+        votingOpensAt: new Date('2026-12-20T19:30').toISOString(),
+      });
+    });
+
+    it('has its own switch for entries, separate from voting', async () => {
+      const user = userEvent.setup();
+      const actions = renderSetup();
+      await user.click(screen.getByRole('switch', { name: /Accepting entries/ }));
+      expect(actions.saveSettings).toHaveBeenCalledWith({ submissionsOpen: false });
+    });
   });
 });
 

@@ -4,7 +4,9 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { AppLayout } from './components/AppLayout.tsx';
 import { ToastProvider } from './components/ui/Toast.tsx';
+import { useMe } from './lib/queries.ts';
 import { AdminPage } from './routes/AdminPage.tsx';
+import { RegisterPage } from './routes/RegisterPage.tsx';
 import { SubmitPage } from './routes/SubmitPage.tsx';
 import { VotePage } from './routes/VotePage.tsx';
 
@@ -20,15 +22,24 @@ const router = createBrowserRouter([
     path: '/',
     Component: AppLayout,
     children: [
-      { index: true, element: <Navigate to="/submit" replace /> },
+      { index: true, Component: Home },
+      { path: 'register', Component: RegisterPage },
+      { path: 'rsvp', element: <Navigate to="/register" replace /> },
       { path: 'submit', Component: SubmitPage },
       { path: 'vote', Component: VotePage },
       { path: 'admin', Component: AdminPage },
       { path: 'results', element: <Navigate to="/admin" replace /> },
-      { path: '*', element: <Navigate to="/submit" replace /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ]);
+
+/** Guests who are signed in land on voting; everyone else on the RSVP. */
+function Home() {
+  const me = useMe();
+  if (me.isLoading) return null;
+  return <Navigate to={me.data ? '/vote' : '/register'} replace />;
+}
 
 export function App() {
   return (
