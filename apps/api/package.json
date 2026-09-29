@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@contest/shared": "*",
+    "better-auth": "^1.7.6",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.45.0",
     "express": "^5.1.0",
@@ -23,6 +24,7 @@
     "heic-convert": "^2.1.0",
     "helmet": "^8.1.0",
     "multer": "^2.0.0",
+    "nodemailer": "^10.0.12",
     "pino": "^10.0.0",
     "pino-http": "^11.0.0",
     "postgres": "^3.4.7",
@@ -35,6 +37,7 @@
     "@types/express": "^5.0.3",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.18.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^6.0.3",
     "pino-pretty": "^13.1.0",
     "supertest": "^7.1.4",

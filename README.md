@@ -90,6 +90,37 @@ Adding a format means teaching `apps/api/src/services/photos.ts` to decode it
 and listing it in `PHOTO_INPUT_FORMATS` in `packages/shared/src/photos.ts`,
 which also drives the file picker's `accept` attribute.
 
+## Guests, RSVPs and signing in
+
+Everyone is a guest in one list (the Better Auth `guests` table), however they
+arrived. There are no passwords anywhere:
+
+| Where              | How you identify                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Vote page          | Type your name. This gives a `vote` session: rate, nominate, and hide dishes with your allergens. Made for the party tablet. |
+| Submit page        | No sign-in. The name field autocompletes from the guest list and files the entry under whoever is picked.                    |
+| RSVP (`/register`) | An emailed one-time link (Better Auth magic link), or the personal invite link the host sends. Gives a `full` session.       |
+
+A `vote` session cannot read or change an RSVP, so a shared tablet never
+exposes anyone's contact details or plus-one. Anyone at the tablet can still
+vote under any name. That is the price of zero friction, and the host can delete
+a bogus voter from the Guests tab.
+
+Someone who voted or brought a dish by name and RSVPs later with the same name
+is the same guest: their email is attached and their votes and entries follow.
+A name that already belongs to a different email is refused.
+
+**Host side.** The Guests tab under Results lists RSVP status, plus-ones,
+allergies and pre-registrations with totals. Paste a guest list ("Name, email"
+per line), email invites to everyone not yet invited, or copy a guest's personal
+link to send yourself. Making a new link revokes the old one. Setup has a
+schedule: voting and entries each have an "opens at" time, plus a switch to
+close them by hand.
+
+**Email** goes over any SMTP server (`SMTP_*` in `.env`). Without `SMTP_HOST`,
+links are written to the API log instead, which is how you follow them in
+development.
+
 ## Changing the contest
 
 Everything below is done in the app, under **Results → Setup**, and takes effect

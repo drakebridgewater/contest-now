@@ -135,10 +135,58 @@ describe('entries', () => {
     expect((await submitEntry(ctx, { allergens: ['plutonium'] })).status).toBe(400);
   });
 
-  it('refuses submissions when voting is closed', async () => {
-    await ctx.api.put('/api/admin/settings').set(ctx.admin).send({ votingOpen: false });
+  it('refuses submissions while they are closed, whatever voting is doing', async () => {
+    await ctx.api.put('/api/admin/settings').set(ctx.admin).send({ submissionsOpen: false });
     expect((await submitEntry(ctx)).status).toBe(409);
+    await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ submissionsOpen: true, votingOpen: false });
+    expect((await submitEntry(ctx)).status).toBe(201);
     await ctx.api.put('/api/admin/settings').set(ctx.admin).send({ votingOpen: true });
+  });
+
+  it('refuses submissions until the scheduled time, then accepts them', async () => {
+    const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const set = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ submissionsOpenAt: soon });
+    expect(set.body.submissionsOpenAt).toBe(soon);
+    const early = await submitEntry(ctx);
+    expect(early.status).toBe(409);
+    expect(early.body.details).toEqual({ opensAt: soon });
+
+    const past = new Date(Date.now() - 1000).toISOString();
+    await ctx.api.put('/api/admin/settings').set(ctx.admin).send({ submissionsOpenAt: past });
+    expect((await submitEntry(ctx)).status).toBe(201);
+    await ctx.api.put('/api/admin/settings').set(ctx.admin).send({ submissionsOpenAt: null });
+  });
+
+  it('files each entry under a guest: the one picked, or one made from the name', async () => {
+    const typed = await submitEntry(ctx, { contestantName: '  Gran  Smith ' });
+    expect(typed.status).toBe(201);
+    const names = await ctx.api.get('/api/guests/names');
+    const gran = (names.body as { id: string; name: string }[]).find(
+      (g) => g.name === 'Gran Smith',
+    );
+    expect(gran).toBeDefined();
+    // No email ever leaves this endpoint.
+    expect(Object.keys(names.body[0]).sort()).toEqual(['id', 'name']);
+
+    const picked = await submitEntry(ctx, {
+      contestantName: 'whatever the box said',
+      guestId: gran!.id,
+    });
+    expect(picked.status).toBe(201);
+    expect(picked.body.contestantName).toBe('Gran Smith');
+    const guests = await ctx.api.get('/api/admin/guests').set(ctx.admin);
+    const row = (guests.body as { name: string; entryCount: number }[]).find(
+      (g) => g.name === 'Gran Smith',
+    );
+    expect(row?.entryCount).toBe(2);
+
+    expect((await submitEntry(ctx, { guestId: 'gone' })).status).toBe(400);
   });
 
   it('admin can delete an entry, which removes the photo file', async () => {

@@ -33,9 +33,8 @@ export const VoterVoteSchema = z.object({
 });
 export type VoterVote = z.infer<typeof VoterVoteSchema>;
 
-/** Merge semantics: only the keys present are changed; null removes a star. */
+/** Merge semantics: only the keys present are changed; null removes a star. The voter comes from the session. */
 export const UpsertVoteSchema = z.object({
-  voterName: VoterName,
   scores: z.record(z.string(), Rating.nullable()).optional(),
   comment: z.string().max(COMMENT_MAX).optional(),
   tasted: z.boolean().optional(),
@@ -51,7 +50,6 @@ export const VoterStateSchema = z.object({
 export type VoterState = z.infer<typeof VoterStateSchema>;
 
 export const UpsertBallotSchema = z.object({
-  voterName: VoterName,
   entryId: z.number().int().positive(),
 });
 export type UpsertBallot = z.infer<typeof UpsertBallotSchema>;

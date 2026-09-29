@@ -1,10 +1,11 @@
 import {
+  AddGuestsSchema,
   AwardInputSchema,
   CategoryInputSchema,
   CriterionInputSchema,
   RenameVoterSchema,
+  SendInvitesSchema,
   SettingsInputSchema,
-  VoterName,
 } from '@contest/shared';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -17,6 +18,7 @@ import {
   deleteCategory,
   deleteCriterion,
   getContestConfig,
+  getSettings,
   updateAward,
   updateCategory,
   updateCriterion,
@@ -24,14 +26,27 @@ import {
 } from '../../services/contest.ts';
 import { deleteEntry, type PhotoStorage } from '../../services/entries.ts';
 import { computeResults } from '../../services/results.ts';
-import { deleteVoter, listVoters, renameVoter } from '../../services/votes.ts';
+import {
+  addGuests,
+  createInviteLink,
+  deleteGuest,
+  listGuests,
+  renameGuest,
+  sendInvites,
+} from '../../services/guests.ts';
+import type { Mailer } from '../../services/mailer.ts';
 import { parse } from '../errors.ts';
 
 const IntId = z.coerce.number().int().positive();
 const SlugParam = z.string().min(1).max(40);
+const GuestId = z.string().min(1).max(64);
 
 /** Everything under /api/admin. The password check is applied by the caller. */
-export function adminRoutes(db: Db, storage: PhotoStorage): Router {
+export function adminRoutes(
+  db: Db,
+  storage: PhotoStorage,
+  mail: { mailer: Mailer; publicUrl: string },
+): Router {
   const router = Router();
 
   router.post('/login', (_req, res) => {
@@ -95,18 +110,33 @@ export function adminRoutes(db: Db, storage: PhotoStorage): Router {
     res.status(204).end();
   });
 
-  // voters
-  router.get('/voters', async (_req, res) => {
-    res.json(await listVoters(db));
+  // guests & RSVPs
+  router.get('/guests', async (_req, res) => {
+    res.json(await listGuests(db));
   });
-  router.put('/voters/:voterName', async (req, res) => {
-    const voterName = parse(VoterName, req.params.voterName, 'voter name');
+  router.post('/guests', async (req, res) => {
+    res.status(201).json(await addGuests(db, parse(AddGuestsSchema, req.body).guests));
+  });
+  router.put('/guests/:id', async (req, res) => {
+    const id = parse(GuestId, req.params.id, 'guest id');
     const { newName } = parse(RenameVoterSchema, req.body);
-    res.json(await renameVoter(db, voterName, newName));
+    await renameGuest(db, id, newName);
+    res.status(204).end();
   });
-  router.delete('/voters/:voterName', async (req, res) => {
-    const voterName = parse(VoterName, req.params.voterName, 'voter name');
-    res.json(await deleteVoter(db, voterName));
+  router.delete('/guests/:id', async (req, res) => {
+    res.json(await deleteGuest(db, parse(GuestId, req.params.id, 'guest id')));
+  });
+  router.post('/guests/:id/invite-link', async (req, res) => {
+    const id = parse(GuestId, req.params.id, 'guest id');
+    res.json(await createInviteLink(db, mail.publicUrl, id));
+  });
+  router.post('/guests/invite', async (req, res) => {
+    const selector = parse(SendInvitesSchema, req.body);
+    const { eventName } = await getSettings(db);
+    res.json(await sendInvites(db, mail.mailer, mail.publicUrl, eventName, selector));
+  });
+  router.get('/mail-status', (_req, res) => {
+    res.json({ configured: mail.mailer.configured });
   });
 
   return router;

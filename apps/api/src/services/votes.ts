@@ -12,8 +12,9 @@ import {
   type VoterInfo,
   type VoterState,
   type VoterVote,
+  votingStatus,
 } from '@contest/shared';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
 import {
   awardBallots,
@@ -74,7 +75,11 @@ function scoresFor(voteId: number, rows: (typeof voteScores.$inferSelect)[]): Sc
 
 async function assertVotingOpen(db: Db): Promise<void> {
   const settings = await getSettings(db);
-  if (!settings.votingOpen) throw conflict('Voting is closed');
+  const status = votingStatus(settings);
+  if (status === 'closed') throw conflict('Voting is closed');
+  if (status === 'scheduled') {
+    throw conflict('Voting has not opened yet', { opensAt: settings.votingOpensAt });
+  }
 }
 
 /**
@@ -83,9 +88,14 @@ async function assertVotingOpen(db: Db): Promise<void> {
  * Rating anything implies the voter tried it, so a rating also marks it tasted;
  * an explicit `tasted` in the input still wins, which is how it gets cleared.
  */
-export async function upsertVote(db: Db, entryId: number, input: UpsertVote): Promise<VoterVote> {
+export async function upsertVote(
+  db: Db,
+  entryId: number,
+  rawVoterName: string,
+  input: UpsertVote,
+): Promise<VoterVote> {
   await assertVotingOpen(db);
-  const voterName = normalizeVoterName(input.voterName);
+  const voterName = normalizeVoterName(rawVoterName);
   const entry = await db
     .select()
     .from(entries)
@@ -160,10 +170,11 @@ export async function upsertVote(db: Db, entryId: number, input: UpsertVote): Pr
 export async function upsertBallot(
   db: Db,
   awardId: string,
+  rawVoterName: string,
   input: UpsertBallot,
 ): Promise<{ awardId: string; entryId: number }> {
   await assertVotingOpen(db);
-  const voterName = normalizeVoterName(input.voterName);
+  const voterName = normalizeVoterName(rawVoterName);
   const award = await db
     .select()
     .from(awards)
@@ -262,63 +273,4 @@ export async function listVoters(db: Db): Promise<VoterInfo[]> {
     info.ballotCount += 1;
   }
   return [...byVoter.values()].sort((a, b) => a.voterName.localeCompare(b.voterName));
-}
-
-export async function renameVoter(
-  db: Db,
-  rawOld: string,
-  rawNew: string,
-): Promise<{ votes: number; ballots: number }> {
-  const oldName = normalizeVoterName(rawOld);
-  const newName = normalizeVoterName(rawNew);
-  if (oldName === newName) throw badRequest('That is already the voter’s name');
-  return db.transaction(async (tx) => {
-    const [oldVotes, newVotes, oldBallots, newBallots] = await Promise.all([
-      countWhere(tx, votes, eq(votes.voterName, oldName)),
-      countWhere(tx, votes, eq(votes.voterName, newName)),
-      countWhere(tx, awardBallots, eq(awardBallots.voterName, oldName)),
-      countWhere(tx, awardBallots, eq(awardBallots.voterName, newName)),
-    ]);
-    if (oldVotes + oldBallots === 0) throw notFound(`Voter "${oldName}" not found`);
-    if (newVotes + newBallots > 0) throw conflict(`A voter named "${newName}" already exists`);
-    await tx.update(votes).set({ voterName: newName }).where(eq(votes.voterName, oldName));
-    await tx
-      .update(awardBallots)
-      .set({ voterName: newName })
-      .where(eq(awardBallots.voterName, oldName));
-    return { votes: oldVotes, ballots: oldBallots };
-  });
-}
-
-export async function deleteVoter(
-  db: Db,
-  rawName: string,
-): Promise<{ votes: number; ballots: number }> {
-  const voterName = normalizeVoterName(rawName);
-  return db.transaction(async (tx) => {
-    const deletedVotes = await tx
-      .delete(votes)
-      .where(eq(votes.voterName, voterName))
-      .returning({ id: votes.id });
-    const deletedBallots = await tx
-      .delete(awardBallots)
-      .where(eq(awardBallots.voterName, voterName))
-      .returning({ id: awardBallots.id });
-    if (deletedVotes.length + deletedBallots.length === 0)
-      throw notFound(`Voter "${voterName}" not found`);
-    return { votes: deletedVotes.length, ballots: deletedBallots.length };
-  });
-}
-
-async function countWhere(
-  db: Db,
-  table: typeof votes | typeof awardBallots,
-  where: ReturnType<typeof eq>,
-): Promise<number> {
-  const row = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(table)
-    .where(where)
-    .then((r) => r[0]);
-  return row?.count ?? 0;
 }

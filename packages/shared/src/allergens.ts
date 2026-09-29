@@ -111,3 +111,34 @@ export function splitLabels(ids: readonly string[]): { allergens: string[]; diet
 export const AllergenOrDietaryId = z
   .string()
   .refine((id) => isAllergenId(id) || isDietaryId(id), 'Unknown allergen or dietary label');
+
+const parentOf = new Map(
+  ALLERGENS.flatMap((group) =>
+    (group.children ?? []).map((child) => [child.id, group.id] as const),
+  ),
+);
+
+/**
+ * The entry's allergen ids that clash with a guest's allergies. A group covers
+ * its members both ways: a guest avoiding "Seafood" is warned about shellfish,
+ * and a peanut-allergic guest is warned about an entry tagged only "Nuts & Seeds"
+ * because the cook did not say which nut. Dietary labels never clash.
+ */
+export function allergenConflicts(
+  guestAllergies: readonly string[],
+  entryAllergens: readonly string[],
+): string[] {
+  if (guestAllergies.length === 0) return [];
+  const avoided = new Set(guestAllergies);
+  return entryAllergens.filter((id) => {
+    if (!isAllergenId(id)) return false;
+    if (avoided.has(id)) return true;
+    const parent = parentOf.get(id);
+    if (parent !== undefined && avoided.has(parent)) return true;
+    // `id` is a group the guest avoids a member of.
+    return guestAllergies.some((guestId) => parentOf.get(guestId) === id);
+  });
+}
+
+/** Allergen ids only; dietary labels are claims about a dish, not about a person. */
+export const AllergenId = z.string().refine(isAllergenId, 'Unknown allergen');

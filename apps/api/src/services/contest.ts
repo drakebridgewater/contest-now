@@ -45,9 +45,15 @@ export async function getSettings(db: Db): Promise<EventSettings> {
 
 export async function updateSettings(db: Db, input: SettingsInput): Promise<EventSettings> {
   await getSettings(db);
+  const { votingOpensAt, submissionsOpenAt, ...rest } = input;
   const row = await db
     .update(eventSettings)
-    .set({ ...input, updatedAt: new Date() })
+    .set({
+      ...rest,
+      ...(votingOpensAt !== undefined ? { votingOpensAt: toDate(votingOpensAt) } : {}),
+      ...(submissionsOpenAt !== undefined ? { submissionsOpenAt: toDate(submissionsOpenAt) } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(eventSettings.id, 1))
     .returning()
     .then((r) => r[0]);
@@ -61,7 +67,14 @@ function toSettings(row: typeof eventSettings.$inferSelect): EventSettings {
     tagline: row.tagline,
     photoShareUrl: row.photoShareUrl,
     votingOpen: row.votingOpen,
+    votingOpensAt: row.votingOpensAt?.toISOString() ?? null,
+    submissionsOpen: row.submissionsOpen,
+    submissionsOpenAt: row.submissionsOpenAt?.toISOString() ?? null,
   };
+}
+
+function toDate(iso: string | null): Date | null {
+  return iso === null ? null : new Date(iso);
 }
 
 // ---- config aggregate ---------------------------------------------------------

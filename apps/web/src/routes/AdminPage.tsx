@@ -1,18 +1,18 @@
 import type {
+  AdminGuest,
   Award,
   Category,
   Criterion,
   EntryResult,
   EventSettings,
-  VoterInfo,
 } from '@contest/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, LockOpen } from 'lucide-react';
 import { useState } from 'react';
 import { AwardsTab } from '../components/admin/AwardsTab.tsx';
+import { GuestsTab, RsvpSummaryCard, type GuestActions } from '../components/admin/GuestsTab.tsx';
 import { ResultsTab } from '../components/admin/ResultsTab.tsx';
 import { SetupTab, type SetupActions } from '../components/admin/SetupTab.tsx';
-import { VotersTab } from '../components/admin/VotersTab.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { Card } from '../components/ui/Card.tsx';
 import { TextField } from '../components/ui/Field.tsx';
@@ -22,12 +22,12 @@ import { api, getAdminPassword, setAdminPassword } from '../lib/api.ts';
 import { errorMessage } from '../lib/errorMessage.ts';
 import { queryKeys } from '../lib/queries.ts';
 
-type Tab = 'results' | 'awards' | 'voters' | 'setup';
+type Tab = 'results' | 'guests' | 'awards' | 'setup';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'results', label: 'Results' },
+  { id: 'guests', label: 'Guests' },
   { id: 'awards', label: 'Awards' },
-  { id: 'voters', label: 'Voters' },
   { id: 'setup', label: 'Setup' },
 ];
 
@@ -48,16 +48,22 @@ export function AdminPage() {
     queryFn: api.adminConfig,
     enabled: unlocked,
   });
-  const voters = useQuery({
-    queryKey: queryKeys.adminVoters,
-    queryFn: api.adminVoters,
+  const guests = useQuery({
+    queryKey: queryKeys.adminGuests,
+    queryFn: api.adminGuests,
+    enabled: unlocked,
+    refetchInterval: 30_000,
+  });
+  const mailStatus = useQuery({
+    queryKey: queryKeys.adminMailStatus,
+    queryFn: api.adminMailStatus,
     enabled: unlocked,
   });
 
   function refreshAll() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.adminResults });
     void queryClient.invalidateQueries({ queryKey: queryKeys.adminConfig });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.adminVoters });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.adminGuests });
     void queryClient.invalidateQueries({ queryKey: queryKeys.contest });
     void queryClient.invalidateQueries({ queryKey: queryKeys.entries });
   }
@@ -110,6 +116,50 @@ export function AdminPage() {
     deleteAward: (award: Award) => act(() => api.deleteAward(award.id), `Deleted ${award.name}`),
   };
 
+  const categoryNames = new Map(
+    (config.data?.categories ?? []).map((category) => [category.id, category.name] as const),
+  );
+
+  const guestActions: GuestActions = {
+    add: (list) =>
+      act(
+        async () => {
+          const result = await api.addGuests(list);
+          if (result.skipped.length > 0) {
+            toast.error(
+              `Skipped ${result.skipped.length}: ${result.skipped.map((s) => s.name).join(', ')}`,
+            );
+          }
+          return result;
+        },
+        `Added ${list.length === 1 ? list[0]!.name : `${list.length} guests`}`,
+      ),
+    inviteLink: async (guest: AdminGuest) => {
+      try {
+        const { url } = await api.inviteLink(guest.id);
+        refreshAll();
+        return url;
+      } catch (error) {
+        toast.error(errorMessage(error));
+        throw error;
+      }
+    },
+    sendInvites: (selector) =>
+      act(async () => {
+        const result = await api.sendInvites(selector);
+        if (result.failed.length > 0) {
+          toast.error(`Could not email ${result.failed.map((f) => f.name).join(', ')}`);
+        }
+        return result;
+      }, 'Invites sent'),
+    rename: (guest, newName) =>
+      act(() => api.renameGuest(guest.id, newName), `Renamed to ${newName}`),
+    remove: (guest) => {
+      if (!confirm(`Delete ${guest.name} and all of their ratings and nominations?`)) return;
+      act(() => api.deleteGuest(guest.id), `Deleted ${guest.name}`);
+    },
+  };
+
   return (
     <div className="space-y-4">
       <HelpPanel id="admin" title="What you can do here">
@@ -117,6 +167,10 @@ export function AdminPage() {
           <li>
             <strong>Results</strong> ranks each category from the star ratings. Only fully rated
             entries count.
+          </li>
+          <li>
+            <strong>Guests</strong> is the RSVP list: who is coming, plus-ones, allergies, and
+            invite links.
           </li>
           <li>
             <strong>Setup</strong> is where you add categories, criteria and awards. Guests see
@@ -164,6 +218,10 @@ export function AdminPage() {
         </p>
       ) : null}
 
+      {tab === 'results' && guests.data && guests.data.length > 0 ? (
+        <RsvpSummaryCard guests={guests.data} categoryNames={categoryNames} />
+      ) : null}
+
       {tab === 'results' ? (
         <ResultsTab
           results={results.data?.categories ?? []}
@@ -179,17 +237,12 @@ export function AdminPage() {
 
       {tab === 'awards' ? <AwardsTab awards={results.data?.awards ?? []} /> : null}
 
-      {tab === 'voters' ? (
-        <VotersTab
-          voters={voters.data ?? []}
-          onRename={(voterName, newName) =>
-            act(() => api.renameVoter(voterName, newName), `Renamed to ${newName}`)
-          }
-          onDelete={(voter: VoterInfo) => {
-            if (!confirm(`Delete ${voter.voterName} and all of their ratings and nominations?`))
-              return;
-            act(() => api.deleteVoter(voter.voterName), `Deleted ${voter.voterName}`);
-          }}
+      {tab === 'guests' ? (
+        <GuestsTab
+          guests={guests.data ?? []}
+          categoryNames={categoryNames}
+          mailConfigured={mailStatus.data?.configured ?? false}
+          actions={guestActions}
         />
       ) : null}
 

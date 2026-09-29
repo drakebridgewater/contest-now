@@ -1,14 +1,17 @@
 import {
   activeCriteriaFor,
   activeSorted,
+  allergenConflicts,
   isVoteComplete,
+  votingStatus,
   type Entry,
   type Rating,
 } from '@contest/shared';
-import { ListChecks, LogOut, UserRound } from 'lucide-react';
+import { LayoutGrid, ListChecks, LogOut, Rows3, TriangleAlert, UserRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { PhaseNotice } from '../components/PhaseNotice.tsx';
 import { AwardPicker } from '../components/vote/AwardPicker.tsx';
-import { VoteCard } from '../components/vote/VoteCard.tsx';
+import { VoteCard, type CardLayout } from '../components/vote/VoteCard.tsx';
 import { VoterNameForm } from '../components/vote/VoterNameForm.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { Card } from '../components/ui/Card.tsx';
@@ -19,15 +22,16 @@ import { useContest, useEntries } from '../lib/queries.ts';
 import { useAutoLogout } from '../lib/useAutoLogout.ts';
 import { useDebouncedCallback } from '../lib/useDebouncedCallback.ts';
 import { useLocalStorage } from '../lib/useLocalStorage.ts';
+import { useNow } from '../lib/useNow.ts';
 import { useVoterSession } from '../lib/useVoterSession.ts';
 import { needsAttention, NOTHING_HERE, NOTHING_REMAINING } from '../lib/entryFilter.ts';
 
 const AUTO_LOGOUT_SECONDS = 60;
 
-/** Cards the voter has explicitly opened or shut, plus the voter they belong to. */
-interface CollapseState {
+/** Cards the voter has opened, plus the voter they belong to. */
+interface ExpandedState {
   voter: string;
-  map: Record<number, boolean>;
+  ids: ReadonlySet<number>;
 }
 
 export function VotePage() {
@@ -38,13 +42,15 @@ export function VotePage() {
 
   const [sharedDevice, setSharedDevice] = useLocalStorage('contest.sharedDevice', false);
   const [onlyRemaining, setOnlyRemaining] = useLocalStorage('contest.vote.onlyRemaining', false);
+  const [layout, setLayout] = useLocalStorage<CardLayout>('contest.vote.layout', 'large');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<CollapseState | null>(null);
+  const [showAllergens, setShowAllergens] = useState(false);
+  const [expanded, setExpanded] = useState<ExpandedState | null>(null);
 
   const { secondsRemaining } = useAutoLogout({
     enabled: sharedDevice && session.voterName !== null,
     seconds: AUTO_LOGOUT_SECONDS,
-    onLogout: () => session.signOut(),
+    onLogout: () => void session.signOut(),
   });
 
   const saveComment = useDebouncedCallback((entryId: number, comment: string) => {
@@ -56,7 +62,12 @@ export function VotePage() {
   const categories = activeSorted(contest.data?.categories ?? []);
   const criteria = useMemo(() => contest.data?.criteria ?? [], [contest.data?.criteria]);
   const awards = activeSorted(contest.data?.awards ?? []);
-  const votingOpen = contest.data?.settings.votingOpen ?? true;
+  const settings = contest.data?.settings;
+  // Tick every second only while waiting for the opening time, to flip on the dot.
+  const scheduled = settings ? votingStatus(settings) === 'scheduled' : false;
+  const now = useNow(scheduled);
+  const status = settings ? votingStatus(settings, now) : 'open';
+  const votingOpen = status === 'open';
   const entries = useMemo(() => entriesQuery.data ?? [], [entriesQuery.data]);
   const categoryNames = useMemo(
     () => new Map(categories.map((category) => [category.id, category.name] as const)),
@@ -64,48 +75,31 @@ export function VotePage() {
   );
 
   const voterName = session.voterName;
-  const voterState = session.state;
-  const dataReady = contest.isSuccess && entriesQuery.isSuccess && session.isReady;
+  const allergies = useMemo(() => session.guest?.allergies ?? [], [session.guest]);
+  // Every card starts closed, and only the voter opens or shuts one: nothing
+  // snaps shut under a thumb when the last star goes in.
+  const openIds: ReadonlySet<number> =
+    expanded !== null && expanded.voter === voterName ? expanded.ids : new Set();
 
-  /**
-   * A card you have already finished starts shut, everything else starts open.
-   *
-   * This is a starting state, not a rule: it is seeded once per voter and then
-   * only the voter changes it, so rating the last criterion never snaps the card
-   * closed under your thumb. All three queries have to have landed first —
-   * `criteria` comes from the contest query and an empty one makes every entry
-   * look unrated, and `isReady` is what distinguishes "no votes" from "not loaded",
-   * which matters because this runs on the signed-out screen too.
-   *
-   * Adjusted during render rather than in an effect: React re-runs the component
-   * immediately without committing the discarded pass, so the first paint already
-   * has the right shape and there is no cascading render to suppress.
-   */
-  if (dataReady && voterName !== null && collapsed?.voter !== voterName) {
-    const map: Record<number, boolean> = {};
-    for (const entry of entries) {
-      const active = activeCriteriaFor(criteria, entry.categoryId);
-      map[entry.id] = isVoteComplete(voterState.votes[String(entry.id)]?.scores, active);
-    }
-    setCollapsed({ voter: voterName, map });
+  function setCardExpanded(entryId: number, value: boolean) {
+    const next = new Set(openIds);
+    if (value) next.add(entryId);
+    else next.delete(entryId);
+    setExpanded({ voter: voterName ?? '', ids: next });
   }
 
-  function setCardCollapsed(entryId: number, value: boolean) {
-    setCollapsed((previous) =>
-      previous === null ? previous : { ...previous, map: { ...previous.map, [entryId]: value } },
-    );
+  function setAllExpanded(value: boolean) {
+    setExpanded({
+      voter: voterName ?? '',
+      ids: value ? new Set(entries.map((entry) => entry.id)) : new Set(),
+    });
   }
 
-  function setAllCollapsed(value: boolean) {
-    setCollapsed((previous) =>
-      previous === null
-        ? previous
-        : {
-            ...previous,
-            map: Object.fromEntries(entries.map((entry) => [entry.id, value])),
-          },
-    );
-  }
+  const conflictsById = useMemo(
+    () =>
+      new Map(entries.map((entry) => [entry.id, allergenConflicts(allergies, entry.allergens)])),
+    [entries, allergies],
+  );
 
   const progress = useMemo(() => {
     let rated = 0;
@@ -124,6 +118,10 @@ export function VotePage() {
     };
   }, [entries, criteria, session.state]);
 
+  if (!session.sessionKnown) {
+    return <p className="text-ink-muted">Loading…</p>;
+  }
+
   if (!session.voterName) {
     return (
       <div className="space-y-4">
@@ -135,6 +133,13 @@ export function VotePage() {
           </ol>
           <p>You can change any rating until the host closes voting.</p>
         </HelpPanel>
+        <PhaseNotice
+          status={status}
+          opensAt={settings?.votingOpensAt ?? null}
+          now={now}
+          scheduledTitle="Voting opens"
+          closedText="Voting is closed."
+        />
         <VoterNameForm
           onSubmit={session.signIn}
           sharedDevice={sharedDevice}
@@ -144,15 +149,25 @@ export function VotePage() {
     );
   }
 
-  const allCollapsed =
-    entries.length > 0 && entries.every((entry) => collapsed?.map[entry.id] ?? false);
+  const allExpanded = entries.length > 0 && entries.every((entry) => openIds.has(entry.id));
 
   const visibleCategories = categories.filter(
     (category) => categoryFilter === null || categoryFilter === category.id,
   );
 
+  const conflictIds = new Set(
+    [...conflictsById].filter(([, ids]) => ids.length > 0).map(([id]) => id),
+  );
+  const hasConflict = (entry: Entry) => (conflictsById.get(entry.id)?.length ?? 0) > 0;
+  const hiddenForAllergies = entries.filter(
+    (entry) =>
+      hasConflict(entry) && visibleCategories.some((category) => category.id === entry.categoryId),
+  ).length;
+
   function visibleEntries(categoryId: string): Entry[] {
-    const inCategory = entries.filter((entry) => entry.categoryId === categoryId);
+    const inCategory = entries.filter(
+      (entry) => entry.categoryId === categoryId && (showAllergens || !hasConflict(entry)),
+    );
     if (!onlyRemaining) return inCategory;
     const active = activeCriteriaFor(criteria, categoryId);
     return inCategory.filter((entry) =>
@@ -174,7 +189,8 @@ export function VotePage() {
           <li>Tap the tasted box on a card once you have tried it.</li>
           <li>Tap stars to rate. Rating a dish marks it tasted for you too.</li>
           <li>Rate every criterion on a card for it to count toward the ranking.</li>
-          <li>Finished cards fold away — tap Edit to open one back up.</li>
+          <li>Tap a dish’s name to open or close its card.</li>
+          <li>Dishes with your allergens are hidden. Tap the warning chip to see them.</li>
           <li>Turn on “Only what’s left” to see just the dishes you still owe.</li>
         </ul>
       </HelpPanel>
@@ -194,23 +210,55 @@ export function VotePage() {
           </span>
         ) : null}
         <div className="ml-auto flex gap-2">
+          <div
+            role="group"
+            aria-label="Card size"
+            className="flex rounded-lg border border-black/10"
+          >
+            <LayoutButton
+              active={layout === 'large'}
+              label="Large cards"
+              onClick={() => setLayout('large')}
+            >
+              <LayoutGrid className="size-4" aria-hidden="true" />
+            </LayoutButton>
+            <LayoutButton
+              active={layout === 'medium'}
+              label="Medium cards"
+              onClick={() => setLayout('medium')}
+            >
+              <Rows3 className="size-4" aria-hidden="true" />
+            </LayoutButton>
+          </div>
           {entries.length > 0 ? (
-            <Button size="sm" variant="ghost" onClick={() => setAllCollapsed(!allCollapsed)}>
-              {allCollapsed ? 'Expand all' : 'Collapse all'}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="whitespace-nowrap"
+              onClick={() => setAllExpanded(!allExpanded)}
+            >
+              {allExpanded ? 'Collapse all' : 'Expand all'}
             </Button>
           ) : null}
-          <Button size="sm" variant="ghost" onClick={() => session.signOut()}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="whitespace-nowrap"
+            onClick={() => void session.signOut()}
+          >
             <LogOut className="size-4" aria-hidden="true" />
             Switch voter
           </Button>
         </div>
       </Card>
 
-      {!votingOpen ? (
-        <p className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 font-medium text-amber-900">
-          Voting is closed. You can look, but ratings can no longer change.
-        </p>
-      ) : null}
+      <PhaseNotice
+        status={status}
+        opensAt={settings?.votingOpensAt ?? null}
+        now={now}
+        scheduledTitle="Voting opens"
+        closedText="Voting is closed. You can look, but ratings can no longer change."
+      />
 
       {/* One row. "Only what's left" leads so it stays on screen at any width;
           the categories are what scroll. */}
@@ -219,6 +267,14 @@ export function VotePage() {
           <ListChecks className="size-4" aria-hidden="true" />
           Only what’s left
         </FilterChip>
+        {hiddenForAllergies > 0 || showAllergens ? (
+          <FilterChip active={showAllergens} onClick={() => setShowAllergens(!showAllergens)}>
+            <TriangleAlert className="size-4" aria-hidden="true" />
+            {showAllergens
+              ? 'Hide your allergens'
+              : `Show ${hiddenForAllergies} with your allergens`}
+          </FilterChip>
+        ) : null}
         {categories.length > 1 ? (
           <>
             <span className="w-px shrink-0 self-stretch bg-black/10" aria-hidden="true" />
@@ -240,7 +296,9 @@ export function VotePage() {
         ) : null}
       </div>
 
-      {entries.length === 0 ? (
+      {!session.isReady ? (
+        <p className="text-ink-muted">Loading your votes…</p>
+      ) : entries.length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-lg font-semibold">No entries yet</p>
           <p className="mt-1 text-ink-muted">
@@ -269,7 +327,11 @@ export function VotePage() {
                   {list.length} {list.length === 1 ? 'entry' : 'entries'}
                 </span>
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Medium cards put photo and scores side by side, so they need the full
+                  width; two to a row would squeeze the criteria names to nothing. */}
+              <div
+                className={`grid gap-4 ${layout === 'medium' ? 'lg:grid-cols-2' : 'sm:grid-cols-2'}`}
+              >
                 {list.map((entry) => (
                   <VoteCard
                     key={entry.id}
@@ -277,8 +339,10 @@ export function VotePage() {
                     criteria={active}
                     vote={session.state.votes[String(entry.id)]}
                     disabled={!votingOpen}
-                    collapsed={collapsed?.map[entry.id] ?? false}
-                    onCollapsedChange={(value) => setCardCollapsed(entry.id, value)}
+                    layout={layout}
+                    conflicts={conflictsById.get(entry.id) ?? []}
+                    expanded={openIds.has(entry.id)}
+                    onExpandedChange={(value) => setCardExpanded(entry.id, value)}
                     onScoreChange={(criterionId: number, rating: Rating | null) => {
                       session.setScore(entry.id, criterionId, rating).catch((error: unknown) => {
                         toast.error(errorMessage(error, 'Could not save that rating.'));
@@ -316,6 +380,7 @@ export function VotePage() {
                 categoryNames={categoryNames}
                 pickedEntryId={session.state.ballots[award.id]}
                 disabled={!votingOpen}
+                conflictIds={conflictIds}
                 onPick={(entryId) => {
                   session.pickAward(award.id, entryId).catch((error: unknown) => {
                     toast.error(errorMessage(error, 'Could not save your nomination.'));
@@ -351,6 +416,33 @@ function FilterChip({
       onClick={onClick}
       className={`tap-target inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${
         active ? 'border-brand-600 bg-brand-600 text-white' : 'border-black/15 bg-white text-ink'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function LayoutButton({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`grid min-h-9 w-10 place-items-center first:rounded-l-lg last:rounded-r-lg ${
+        active ? 'bg-brand-600 text-white' : 'text-ink-muted hover:bg-black/5'
       }`}
     >
       {children}

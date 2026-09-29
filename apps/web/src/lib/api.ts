@@ -1,5 +1,7 @@
 import {
   ADMIN_PASSWORD_HEADER,
+  type AddGuestsResult,
+  type AdminGuest,
   type ApiError,
   type Award,
   type AwardInput,
@@ -11,9 +13,16 @@ import {
   type CriterionInput,
   type Entry,
   type EventSettings,
+  type GuestName,
+  type GuestProfile,
+  type NewGuest,
+  type RsvpSummary,
+  type SendInvites,
+  type SendInvitesResult,
+  type SessionGuest,
   type SettingsInput,
+  type UpdateProfile,
   type UpsertVote,
-  type VoterInfo,
   type VoterState,
   type VoterVote,
 } from '@contest/shared';
@@ -73,6 +82,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   try {
     response = await fetch(`${BASE}${path}`, {
       method,
+      // The guest session is an httpOnly cookie set by the API's auth routes.
+      credentials: 'same-origin',
       headers,
       body: formData ?? (body === undefined ? undefined : JSON.stringify(body)),
     });
@@ -105,30 +116,67 @@ export const api = {
 
   createEntry: (form: FormData) => request<Entry>('/entries', { method: 'POST', formData: form }),
 
-  getVoterState: (voterName: string) =>
-    request<VoterState>(`/voters/${encodeURIComponent(voterName)}`),
+  // --- guest session ---
+  /** The signed-in guest, or null when this device is signed out. */
+  me: async (): Promise<SessionGuest | null> => {
+    try {
+      return await request<SessionGuest>('/me');
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) return null;
+      throw error;
+    }
+  },
+  voteSignIn: (name: string) =>
+    request<{ guestId: string }>('/auth/guest/vote', { method: 'POST', body: { name } }),
+  inviteSignIn: (token: string) =>
+    request<{ guestId: string }>('/auth/guest/invite', { method: 'POST', body: { token } }),
+  requestLink: (email: string, name?: string) =>
+    request<{ sent: true }>('/rsvp/request-link', {
+      method: 'POST',
+      body: name ? { email, name } : { email },
+    }),
+  signOut: () => request<unknown>('/auth/sign-out', { method: 'POST', body: {} }),
+
+  getProfile: () => request<GuestProfile>('/me/profile'),
+  updateProfile: (input: UpdateProfile) =>
+    request<GuestProfile>('/me/profile', { method: 'PUT', body: input }),
+  rsvpSummary: () => request<RsvpSummary>('/rsvp/summary'),
+  guestNames: () => request<GuestName[]>('/guests/names'),
+
+  getVoterState: () => request<VoterState>('/me/state'),
 
   saveVote: (entryId: number, input: UpsertVote) =>
     request<VoterVote>(`/votes/${entryId}`, { method: 'PUT', body: input }),
 
-  saveBallot: (awardId: string, voterName: string, entryId: number) =>
+  saveBallot: (awardId: string, entryId: number) =>
     request<{ awardId: string; entryId: number }>(`/award-ballots/${encodeURIComponent(awardId)}`, {
       method: 'PUT',
-      body: { voterName, entryId },
+      body: { entryId },
     }),
 
-  clearBallot: (awardId: string, voterName: string) =>
-    request<void>(
-      `/award-ballots/${encodeURIComponent(awardId)}/${encodeURIComponent(voterName)}`,
-      { method: 'DELETE' },
-    ),
+  clearBallot: (awardId: string) =>
+    request<void>(`/award-ballots/${encodeURIComponent(awardId)}`, { method: 'DELETE' }),
 
   // --- admin ---
   adminLogin: (password: string) =>
     request<void>('/admin/login', { method: 'POST', admin: true, password }),
   adminConfig: () => request<ContestConfig>('/admin/config', { admin: true }),
   adminResults: () => request<ContestResults>('/admin/results', { admin: true }),
-  adminVoters: () => request<VoterInfo[]>('/admin/voters', { admin: true }),
+  adminGuests: () => request<AdminGuest[]>('/admin/guests', { admin: true }),
+  adminMailStatus: () => request<{ configured: boolean }>('/admin/mail-status', { admin: true }),
+  addGuests: (guests: NewGuest[]) =>
+    request<AddGuestsResult>('/admin/guests', { method: 'POST', body: { guests }, admin: true }),
+  inviteLink: (guestId: string) =>
+    request<{ url: string }>(`/admin/guests/${encodeURIComponent(guestId)}/invite-link`, {
+      method: 'POST',
+      admin: true,
+    }),
+  sendInvites: (selector: SendInvites) =>
+    request<SendInvitesResult>('/admin/guests/invite', {
+      method: 'POST',
+      body: selector,
+      admin: true,
+    }),
 
   updateSettings: (input: SettingsInput) =>
     request<EventSettings>('/admin/settings', { method: 'PUT', body: input, admin: true }),
@@ -165,14 +213,14 @@ export const api = {
   deleteEntry: (id: number) =>
     request<void>(`/admin/entries/${id}`, { method: 'DELETE', admin: true }),
 
-  renameVoter: (voterName: string, newName: string) =>
-    request<{ votes: number; ballots: number }>(`/admin/voters/${encodeURIComponent(voterName)}`, {
+  renameGuest: (guestId: string, newName: string) =>
+    request<void>(`/admin/guests/${encodeURIComponent(guestId)}`, {
       method: 'PUT',
       body: { newName },
       admin: true,
     }),
-  deleteVoter: (voterName: string) =>
-    request<{ votes: number; ballots: number }>(`/admin/voters/${encodeURIComponent(voterName)}`, {
+  deleteGuest: (guestId: string) =>
+    request<{ votes: number; ballots: number }>(`/admin/guests/${encodeURIComponent(guestId)}`, {
       method: 'DELETE',
       admin: true,
     }),

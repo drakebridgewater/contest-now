@@ -23,5 +23,7 @@ export const CreateEntryFieldsSchema = z.object({
   contestantName: z.string().trim().min(1, 'Tell us who made it').max(CONTESTANT_NAME_MAX),
   categoryId: Slug,
   allergens: z.array(AllergenOrDietaryId).max(40).default([]),
+  /** The guest picked from the name autocomplete. Without it the name is matched or a guest created. */
+  guestId: z.string().min(1).max(64).optional(),
 });
 export type CreateEntryFields = z.infer<typeof CreateEntryFieldsSchema>;

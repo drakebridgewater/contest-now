@@ -18,9 +18,7 @@ async function vote(
   ratings.forEach((r, i) => {
     scores[String(ids[i])] = r;
   });
-  const res = await ctx.api
-    .put(`/api/votes/${entryId}`)
-    .send({ voterName: voter, scores, comment });
+  const res = await (await ctx.voter(voter)).put(`/api/votes/${entryId}`).send({ scores, comment });
   expect(res.status).toBe(200);
 }
 
@@ -41,8 +39,8 @@ beforeAll(async () => {
   await vote('cal', cake, [4]); // partial, must not count
   await vote('ann', fudge, [4, 4, 4]);
 
-  await ctx.api.put('/api/award-ballots/best-presented').send({ voterName: 'ann', entryId: pie });
-  await ctx.api.put('/api/award-ballots/best-presented').send({ voterName: 'ben', entryId: cake });
+  await (await ctx.voter('ann')).put('/api/award-ballots/best-presented').send({ entryId: pie });
+  await (await ctx.voter('ben')).put('/api/award-ballots/best-presented').send({ entryId: cake });
 });
 afterAll(async () => {
   await ctx.close();

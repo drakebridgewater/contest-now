@@ -1,4 +1,5 @@
 import {
+  phaseStatus,
   type Award,
   type Category,
   type ContestConfig,
@@ -7,6 +8,8 @@ import {
 } from '@contest/shared';
 import { ChevronDown, ChevronUp, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { useNow } from '../../lib/useNow.ts';
+import { opensAtText, toLocalInput, untilText } from '../../lib/time.ts';
 import { Button } from '../ui/Button.tsx';
 import { Card, CardHeader } from '../ui/Card.tsx';
 import { TextField, Toggle } from '../ui/Field.tsx';
@@ -35,10 +38,133 @@ export function SetupTab({
 }) {
   return (
     <div className="space-y-6">
+      <ScheduleSection settings={config.settings} onSave={actions.saveSettings} />
       <SettingsSection settings={config.settings} onSave={actions.saveSettings} />
       <CategoriesSection config={config} hasRatings={hasRatings} actions={actions} />
       <AwardsSection config={config} actions={actions} />
     </div>
+  );
+}
+
+function ScheduleSection({
+  settings,
+  onSave,
+}: {
+  settings: EventSettings;
+  onSave: (input: Partial<EventSettings>) => void;
+}) {
+  const now = useNow(true, 30_000);
+  return (
+    <Card>
+      <CardHeader
+        title="Schedule"
+        subtitle="Guests see a countdown until each opens. The switch closes it by hand at any time."
+      />
+      <div className="space-y-5 p-4">
+        <PhaseSchedule
+          title="Entries"
+          switchLabel="Accepting entries"
+          switchHelp="Turn off to stop new dishes being submitted."
+          open={settings.submissionsOpen}
+          opensAt={settings.submissionsOpenAt}
+          now={now}
+          onOpenChange={(submissionsOpen) => onSave({ submissionsOpen })}
+          onOpensAtChange={(submissionsOpenAt) => onSave({ submissionsOpenAt })}
+        />
+        <PhaseSchedule
+          title="Voting"
+          switchLabel="Voting is open"
+          switchHelp="Turn off after the awards to freeze ratings and nominations."
+          open={settings.votingOpen}
+          opensAt={settings.votingOpensAt}
+          now={now}
+          onOpenChange={(votingOpen) => onSave({ votingOpen })}
+          onOpensAtChange={(votingOpensAt) => onSave({ votingOpensAt })}
+        />
+      </div>
+    </Card>
+  );
+}
+
+function PhaseSchedule({
+  title,
+  switchLabel,
+  switchHelp,
+  open,
+  opensAt,
+  now,
+  onOpenChange,
+  onOpensAtChange,
+}: {
+  title: string;
+  switchLabel: string;
+  switchHelp: string;
+  open: boolean;
+  opensAt: string | null;
+  now: Date;
+  onOpenChange: (open: boolean) => void;
+  onOpensAtChange: (opensAt: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(toLocalInput(opensAt));
+  const status = phaseStatus(open, opensAt, now);
+  const saved = toLocalInput(opensAt);
+  const statusText =
+    status === 'open'
+      ? 'Open now'
+      : status === 'closed'
+        ? 'Closed'
+        : `Opens ${opensAtText(new Date(opensAt!), now)} (${untilText(new Date(opensAt!), now)})`;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-bold">{title}</h3>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            status === 'open'
+              ? 'bg-accent-100 text-accent-700'
+              : status === 'scheduled'
+                ? 'bg-amber-50 text-amber-900'
+                : 'bg-surface-muted text-ink-muted'
+          }`}
+        >
+          {statusText}
+        </span>
+      </div>
+      <Toggle label={switchLabel} help={switchHelp} checked={open} onChange={onOpenChange} />
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <TextField
+            label={`${title} open at`}
+            help="Leave empty to open as soon as the switch is on."
+            type="datetime-local"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </div>
+        <Button
+          size="sm"
+          className="mb-6"
+          disabled={draft === saved || draft === ''}
+          onClick={() => onOpensAtChange(new Date(draft).toISOString())}
+        >
+          Save time
+        </Button>
+        {opensAt ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mb-6"
+            onClick={() => {
+              setDraft('');
+              onOpensAtChange(null);
+            }}
+          >
+            Clear
+          </Button>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -80,12 +206,6 @@ function SettingsSection({
           inputMode="url"
           value={photoShareUrl}
           onChange={(event) => setPhotoShareUrl(event.target.value)}
-        />
-        <Toggle
-          label="Voting is open"
-          help="Turn off after the awards to freeze entries, ratings and nominations."
-          checked={settings.votingOpen}
-          onChange={(votingOpen) => onSave({ votingOpen })}
         />
         <Button disabled={!dirty} onClick={() => onSave({ eventName, tagline, photoShareUrl })}>
           Save event details

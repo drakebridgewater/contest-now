@@ -15,6 +15,13 @@
       "when": 1789243200000,
       "tag": "0001_tasted",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790683605937,
+      "tag": "0002_guests",
+      "breakpoints": true
     }
   ]
 }

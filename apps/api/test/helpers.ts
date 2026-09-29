@@ -13,14 +13,25 @@ import type { Db } from '../src/db/client.ts';
 import { schema } from '../src/db/schema.ts';
 import { seedDefaults } from '../src/db/seed.ts';
 import { createApp, type AppState } from '../src/http/app.ts';
+import { createMemoryMailer } from '../src/services/mailer.ts';
 
 export const ADMIN_PASSWORD = 'test-admin-password';
 
 const migrationsFolder = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
+export const PUBLIC_URL = 'http://party.test';
+
+export type Agent = ReturnType<typeof request.agent>;
+
 export interface TestContext {
   db: Db;
   api: ReturnType<typeof request>;
+  /** A fresh cookie jar, i.e. another device. */
+  device(): Agent;
+  /** A device signed in on the vote page as `name` (a `vote`-scope session). */
+  voter(name: string): Promise<Agent>;
+  /** Every email the app tried to send. */
+  mail: ReturnType<typeof createMemoryMailer>;
   uploadsDir: string;
   admin: Record<string, string>;
   close(): Promise<void>;
@@ -37,7 +48,9 @@ export async function createTestContext(): Promise<TestContext> {
 
   const uploadsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'contest-uploads-'));
   const state: AppState = { ready: true, dbStatus: 'ready', version: 'test' };
+  const mail = createMemoryMailer();
   const app = createApp({
+    mailer: mail,
     db,
     config: {
       adminPassword: ADMIN_PASSWORD,
@@ -46,6 +59,9 @@ export async function createTestContext(): Promise<TestContext> {
       uploadsPublicPath: '/uploads',
       trustProxy: false,
       nodeEnv: 'test',
+      authSecret: 'test-secret-that-is-at-least-32-characters-long',
+      publicUrl: PUBLIC_URL,
+      smtp: null,
     },
     logger: pino({ level: 'silent' }),
     state,
@@ -54,6 +70,17 @@ export async function createTestContext(): Promise<TestContext> {
   return {
     db,
     api: request(app),
+    // A browser sends Origin on every POST; Better Auth refuses cookie-bearing ones without it.
+    device: () => request.agent(app).set('Origin', PUBLIC_URL),
+    voter: async (name: string) => {
+      const agent = request.agent(app).set('Origin', PUBLIC_URL);
+      const response = await agent.post('/api/auth/guest/vote').send({ name });
+      if (response.status !== 200) {
+        throw new Error(`vote sign-in failed: ${response.status} ${JSON.stringify(response.body)}`);
+      }
+      return agent;
+    },
+    mail,
     uploadsDir,
     admin: { [ADMIN_PASSWORD_HEADER]: ADMIN_PASSWORD },
     close: async () => {
@@ -61,6 +88,15 @@ export async function createTestContext(): Promise<TestContext> {
       await fs.rm(uploadsDir, { recursive: true, force: true });
     },
   };
+}
+
+/** The last link mailed to `to`, pulled out of the plain-text body. */
+export function lastLinkTo(ctx: TestContext, to: string): string {
+  const message = ctx.mail.sent.filter((m) => m.to === to).at(-1);
+  if (!message) throw new Error(`no email to ${to}`);
+  const match = /https?:\/\/\S+/.exec(message.text);
+  if (!match) throw new Error('no link in email');
+  return match[0];
 }
 
 /** A small valid PNG for upload tests. */
@@ -81,6 +117,7 @@ export async function submitEntry(
     photo: Buffer;
     filename: string;
     contentType: string;
+    guestId: string;
   }> = {},
 ) {
   const fields = {
@@ -98,6 +135,7 @@ export async function submitEntry(
     .field('contestantName', fields.contestantName)
     .field('categoryId', fields.categoryId);
   for (const allergen of fields.allergens) req = req.field('allergens', allergen);
+  if (overrides.guestId) req = req.field('guestId', overrides.guestId);
   return req.attach('photo', fields.photo ?? (await samplePhoto()), {
     filename: fields.filename,
     contentType: fields.contentType,

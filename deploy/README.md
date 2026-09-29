@@ -22,13 +22,16 @@ branch you deploy from (`main`).
 
 **3. Set the variables.** From `deploy/.env.example`, at minimum:
 
-| Variable            | Notes                                              |
-| ------------------- | -------------------------------------------------- |
-| `ADMIN_PASSWORD`    | Unlocks the host area at `/admin`                  |
-| `POSTGRES_PASSWORD` | Any long random string; only the containers see it |
-| `APPDATA_PATH`      | Defaults to `/mnt/user/appdata/contest-now`        |
-| `WEB_PORT`          | Defaults to `3099`                                 |
-| `GITHUB_OWNER`      | The account the images were published under        |
+| Variable              | Notes                                              |
+| --------------------- | -------------------------------------------------- |
+| `ADMIN_PASSWORD`      | Unlocks the host area at `/admin`                  |
+| `POSTGRES_PASSWORD`   | Any long random string; only the containers see it |
+| `BETTER_AUTH_SECRET`  | 32+ random characters; signs guest sign-in cookies |
+| `PUBLIC_URL`          | The address guests open; emailed links point here  |
+| `SMTP_*`, `MAIL_FROM` | Optional email for RSVP links and invites          |
+| `APPDATA_PATH`        | Defaults to `/mnt/user/appdata/contest-now`        |
+| `WEB_PORT`            | Defaults to `3099`                                 |
+| `GITHUB_OWNER`        | The account the images were published under        |
 
 > **Dockhand secrets caveat.** On Git stacks without a committed `.env`,
 > Dockhand versions before 1.0.14 could inject variables marked as _secret_ as

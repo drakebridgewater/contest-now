@@ -40,6 +40,18 @@ services:
       # Browsers reach the API through the web container, so same-origin is enough.
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Signs guest sign-in cookies. Any random string of 32+ characters.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+      # The address guests open; sign-in and invite links point here.
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL}
+      # Outgoing email for RSVP sign-in links and invites. Leave SMTP_HOST empty to
+      # skip email: the host can still copy invite links from the Guests tab.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     volumes:
       - ${APPDATA_PATH:-/mnt/user/appdata/contest-now}/uploads:/data/uploads
     networks: [contest]

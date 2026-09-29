@@ -1,9 +1,17 @@
-import { activeSorted, CONTESTANT_NAME_MAX, ENTRY_NAME_MAX, type Entry } from '@contest/shared';
+import {
+  activeSorted,
+  ENTRY_NAME_MAX,
+  submissionsStatus,
+  type Entry,
+  type GuestName,
+} from '@contest/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, PartyPopper } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { PhaseNotice } from '../components/PhaseNotice.tsx';
 import { AllergenPicker } from '../components/submit/AllergenPicker.tsx';
+import { GuestNameField } from '../components/submit/GuestNameField.tsx';
 import { PhotoPicker } from '../components/submit/PhotoPicker.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { Card } from '../components/ui/Card.tsx';
@@ -12,7 +20,8 @@ import { HelpPanel } from '../components/ui/HelpPanel.tsx';
 import { useToast } from '../components/ui/Toast.tsx';
 import { api } from '../lib/api.ts';
 import { errorMessage } from '../lib/errorMessage.ts';
-import { queryKeys, useContest } from '../lib/queries.ts';
+import { queryKeys, useContest, useGuestNames, useMe } from '../lib/queries.ts';
+import { useNow } from '../lib/useNow.ts';
 
 export function SubmitPage() {
   const contest = useContest();
@@ -21,7 +30,14 @@ export function SubmitPage() {
   const navigate = useNavigate();
 
   const [entryName, setEntryName] = useState('');
-  const [contestantName, setContestantName] = useState('');
+  const me = useMe();
+  const guestNames = useGuestNames();
+  const [contestantName, setContestantName] = useState<string | null>(null);
+  const [guest, setGuest] = useState<GuestName | undefined>();
+  // Signed-in guests start with their own name filled in and linked.
+  const signedIn = me.data ? { id: me.data.id, name: me.data.name } : undefined;
+  const name = contestantName ?? signedIn?.name ?? '';
+  const linkedGuest = contestantName === null ? signedIn : guest;
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [allergens, setAllergens] = useState<string[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -29,13 +45,18 @@ export function SubmitPage() {
   const [submitted, setSubmitted] = useState<Entry | null>(null);
 
   const categories = activeSorted(contest.data?.categories ?? []);
-  const votingOpen = contest.data?.settings.votingOpen ?? true;
+  const settings = contest.data?.settings;
+  const scheduled = settings ? submissionsStatus(settings) === 'scheduled' : false;
+  const now = useNow(scheduled);
+  const status = settings ? submissionsStatus(settings, now) : 'open';
+  const submissionsOpen = status === 'open';
 
   const mutation = useMutation({
     mutationFn: async () => {
       const form = new FormData();
       form.set('entryName', entryName.trim());
-      form.set('contestantName', contestantName.trim());
+      form.set('contestantName', name.trim());
+      if (linkedGuest) form.set('guestId', linkedGuest.id);
       form.set('categoryId', categoryId!);
       for (const id of allergens) form.append('allergens', id);
       form.set('photo', photo!);
@@ -43,6 +64,7 @@ export function SubmitPage() {
     },
     onSuccess: (entry) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.entries });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.guestNames });
       setSubmitted(entry);
       setEntryName('');
       setAllergens([]);
@@ -55,7 +77,7 @@ export function SubmitPage() {
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (entryName.trim().length === 0) next.entryName = 'Give your entry a name';
-    if (contestantName.trim().length === 0) next.contestantName = 'Tell us who made it';
+    if (name.trim().length === 0) next.contestantName = 'Tell us who made it';
     if (!categoryId) next.categoryId = 'Pick a category';
     if (!photo) next.photo = 'A photo is required';
     setErrors(next);
@@ -93,23 +115,23 @@ export function SubmitPage() {
         <p>You can submit as many entries as you like, in any category.</p>
       </HelpPanel>
 
-      {!votingOpen ? (
-        <p className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 font-medium text-amber-900">
-          Submissions are closed for now. Ask the host to reopen them.
-        </p>
-      ) : null}
+      <PhaseNotice
+        status={status}
+        opensAt={settings?.submissionsOpenAt ?? null}
+        now={now}
+        scheduledTitle="Entries open"
+        closedText="Submissions are closed for now. Ask the host to reopen them."
+      />
 
       <Card className="space-y-5 p-4 sm:p-6">
-        <TextField
-          label="Your name"
-          help="So we know who to hand the trophy to."
-          value={contestantName}
-          onChange={(event) => setContestantName(event.target.value)}
-          maxLength={CONTESTANT_NAME_MAX}
-          counter={`${contestantName.length}/${CONTESTANT_NAME_MAX}`}
+        <GuestNameField
+          guests={guestNames.data ?? []}
+          value={name}
           error={errors.contestantName}
-          autoComplete="name"
-          enterKeyHint="next"
+          onChange={(next, match) => {
+            setContestantName(next);
+            setGuest(match);
+          }}
         />
 
         <TextField
@@ -171,7 +193,7 @@ export function SubmitPage() {
           size="lg"
           className="w-full"
           loading={mutation.isPending}
-          disabled={!votingOpen}
+          disabled={!submissionsOpen}
           onClick={() => {
             if (validate()) mutation.mutate();
           }}

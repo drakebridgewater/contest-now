@@ -43,10 +43,40 @@ export const EventSettingsSchema = z.object({
   eventName: ShortText(80).min(1),
   tagline: ShortText(160),
   photoShareUrl: z.union([z.url(), z.literal('')]),
-  /** When false, voting and award ballots are read-only and new entries are refused. */
+  /** Manual switch: when false, votes and award ballots are read-only. */
   votingOpen: z.boolean(),
+  /** Voting stays shut until this moment (ISO). Null = no wait. */
+  votingOpensAt: z.iso.datetime({ offset: true }).nullable(),
+  /** Manual switch: when false, new entries are refused. */
+  submissionsOpen: z.boolean(),
+  /** Submissions stay shut until this moment (ISO). Null = no wait. */
+  submissionsOpenAt: z.iso.datetime({ offset: true }).nullable(),
 });
 export type EventSettings = z.infer<typeof EventSettingsSchema>;
+
+export type PhaseStatus = 'open' | 'scheduled' | 'closed';
+
+/**
+ * Whether voting or submissions are accepting input right now. The manual switch
+ * wins: a host who closes early stays closed whatever the schedule says.
+ */
+export function phaseStatus(
+  open: boolean,
+  opensAt: string | null,
+  now: Date = new Date(),
+): PhaseStatus {
+  if (!open) return 'closed';
+  if (opensAt !== null && new Date(opensAt).getTime() > now.getTime()) return 'scheduled';
+  return 'open';
+}
+
+export function votingStatus(settings: EventSettings, now?: Date): PhaseStatus {
+  return phaseStatus(settings.votingOpen, settings.votingOpensAt, now);
+}
+
+export function submissionsStatus(settings: EventSettings, now?: Date): PhaseStatus {
+  return phaseStatus(settings.submissionsOpen, settings.submissionsOpenAt, now);
+}
 
 export const ContestConfigSchema = z.object({
   settings: EventSettingsSchema,
