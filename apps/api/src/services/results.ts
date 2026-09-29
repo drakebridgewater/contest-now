@@ -20,6 +20,7 @@ import {
   categories,
   criteria,
   entries,
+  guests,
   voteScores,
   votes,
 } from '../db/schema.ts';
@@ -36,6 +37,7 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
     voteRows,
     scoreRows,
     ballotRows,
+    guestRows,
   ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.id)),
     db.select().from(criteria),
@@ -45,7 +47,9 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
     db.select().from(votes),
     db.select().from(voteScores),
     db.select().from(awardBallots),
+    db.select({ id: guests.id, name: guests.name }).from(guests),
   ]);
+  const guestNames = new Map(guestRows.map((g) => [g.id, g.name] as const));
 
   const allCriteria = criterionRows.map(toCriterion);
   const allEntries = entryRows.map((row) => toEntry(row, storage));
@@ -65,7 +69,7 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
   for (const row of voteRows) {
     const list = votesByEntry.get(row.entryId) ?? [];
     list.push({
-      voterName: row.voterName,
+      voterName: guestNames.get(row.guestId) ?? 'Unknown guest',
       vote: {
         scores: scoresByVote.get(row.id) ?? {},
         comment: row.comment,
@@ -125,21 +129,21 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
     };
   });
 
-  const voterNames = new Set<string>();
+  const voterIds = new Set<string>();
   for (const row of voteRows) {
     const entry = entryById.get(row.entryId);
     const active = entry ? activeCriteriaFor(allCriteria, entry.categoryId) : [];
     if (isVoteComplete(scoresByVote.get(row.id), active) || row.comment !== '')
-      voterNames.add(row.voterName);
-    else if (scoresByVote.has(row.id) || row.tasted) voterNames.add(row.voterName);
+      voterIds.add(row.guestId);
+    else if (scoresByVote.has(row.id) || row.tasted) voterIds.add(row.guestId);
   }
-  for (const row of ballotRows) voterNames.add(row.voterName);
+  for (const row of ballotRows) voterIds.add(row.guestId);
 
   return {
     categories: categoryResults,
     awards: awardResults,
     summary: {
-      voterCount: voterNames.size,
+      voterCount: voterIds.size,
       entryCount: allEntries.length,
       completeVoteCount,
       tastedCount,

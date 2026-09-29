@@ -3,7 +3,6 @@ import {
   impliesTasted,
   isEntryInAwardScope,
   isVoteComplete,
-  normalizeVoterName,
   scoreKey,
   type Rating,
   type Scores,
@@ -14,7 +13,7 @@ import {
   type VoterVote,
   votingStatus,
 } from '@contest/shared';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
 import {
   awardBallots,
@@ -30,11 +29,10 @@ import { getSettings, toCriterion } from './contest.ts';
 
 // ---- reads --------------------------------------------------------------------
 
-export async function getVoterState(db: Db, rawVoterName: string): Promise<VoterState> {
-  const voterName = normalizeVoterName(rawVoterName);
+export async function getVoterState(db: Db, guestId: string): Promise<VoterState> {
   const [voteRows, ballotRows] = await Promise.all([
-    db.select().from(votes).where(eq(votes.voterName, voterName)),
-    db.select().from(awardBallots).where(eq(awardBallots.voterName, voterName)),
+    db.select().from(votes).where(eq(votes.guestId, guestId)),
+    db.select().from(awardBallots).where(eq(awardBallots.guestId, guestId)),
   ]);
   const scoreRows =
     voteRows.length === 0
@@ -91,11 +89,10 @@ async function assertVotingOpen(db: Db): Promise<void> {
 export async function upsertVote(
   db: Db,
   entryId: number,
-  rawVoterName: string,
+  guestId: string,
   input: UpsertVote,
 ): Promise<VoterVote> {
   await assertVotingOpen(db);
-  const voterName = normalizeVoterName(rawVoterName);
   const entry = await db
     .select()
     .from(entries)
@@ -125,7 +122,7 @@ export async function upsertVote(
     const inserted = await tx
       .insert(votes)
       .values({
-        voterName,
+        guestId,
         entryId,
         comment: input.comment ?? '',
         tasted: tasted ?? false,
@@ -133,7 +130,7 @@ export async function upsertVote(
         updatedAt: now,
       })
       .onConflictDoUpdate({
-        target: [votes.voterName, votes.entryId],
+        target: [votes.guestId, votes.entryId],
         set: {
           updatedAt: now,
           ...(input.comment !== undefined ? { comment: input.comment } : {}),
@@ -170,11 +167,10 @@ export async function upsertVote(
 export async function upsertBallot(
   db: Db,
   awardId: string,
-  rawVoterName: string,
+  guestId: string,
   input: UpsertBallot,
 ): Promise<{ awardId: string; entryId: number }> {
   await assertVotingOpen(db);
-  const voterName = normalizeVoterName(rawVoterName);
   const award = await db
     .select()
     .from(awards)
@@ -197,27 +193,27 @@ export async function upsertBallot(
   const now = new Date();
   await db
     .insert(awardBallots)
-    .values({ voterName, awardId, entryId: input.entryId, createdAt: now, updatedAt: now })
+    .values({ guestId, awardId, entryId: input.entryId, createdAt: now, updatedAt: now })
     .onConflictDoUpdate({
-      target: [awardBallots.voterName, awardBallots.awardId],
+      target: [awardBallots.guestId, awardBallots.awardId],
       set: { entryId: input.entryId, updatedAt: now },
     });
   return { awardId, entryId: input.entryId };
 }
 
-export async function deleteBallot(db: Db, awardId: string, rawVoterName: string): Promise<void> {
+export async function deleteBallot(db: Db, awardId: string, guestId: string): Promise<void> {
   await assertVotingOpen(db);
-  const voterName = normalizeVoterName(rawVoterName);
   await db
     .delete(awardBallots)
-    .where(and(eq(awardBallots.awardId, awardId), eq(awardBallots.voterName, voterName)));
+    .where(and(eq(awardBallots.awardId, awardId), eq(awardBallots.guestId, guestId)));
 }
 
 // ---- admin: voters ------------------------------------------------------------
 
+/** Voting activity per guest, for the admin Guests tab. */
 export async function listVoters(db: Db): Promise<VoterInfo[]> {
   const [voteRows, scoreRows, ballotRows, criterionRows, entryRows] = await Promise.all([
-    db.select().from(votes).orderBy(asc(votes.voterName)),
+    db.select().from(votes),
     db.select().from(voteScores),
     db.select().from(awardBallots),
     db
@@ -238,11 +234,11 @@ export async function listVoters(db: Db): Promise<VoterInfo[]> {
   };
 
   const byVoter = new Map<string, VoterInfo>();
-  const touch = (name: string, at: Date) => {
-    let info = byVoter.get(name);
+  const touch = (guestId: string, at: Date) => {
+    let info = byVoter.get(guestId);
     if (!info) {
       info = {
-        voterName: name,
+        guestId,
         voteCount: 0,
         completeVoteCount: 0,
         tastedCount: 0,
@@ -250,7 +246,7 @@ export async function listVoters(db: Db): Promise<VoterInfo[]> {
         firstActivity: at.toISOString(),
         lastActivity: at.toISOString(),
       };
-      byVoter.set(name, info);
+      byVoter.set(guestId, info);
     }
     if (at.toISOString() < info.firstActivity) info.firstActivity = at.toISOString();
     if (at.toISOString() > info.lastActivity) info.lastActivity = at.toISOString();
@@ -258,8 +254,8 @@ export async function listVoters(db: Db): Promise<VoterInfo[]> {
   };
 
   for (const vote of voteRows) {
-    const info = touch(vote.voterName, vote.createdAt);
-    touch(vote.voterName, vote.updatedAt);
+    const info = touch(vote.guestId, vote.createdAt);
+    touch(vote.guestId, vote.updatedAt);
     if (vote.tasted) info.tastedCount += 1;
     const scores = scoresFor(vote.id, scoreRows);
     if (Object.keys(scores).length === 0 && vote.comment === '') continue;
@@ -268,9 +264,9 @@ export async function listVoters(db: Db): Promise<VoterInfo[]> {
     if (categoryId && isVoteComplete(scores, activeFor(categoryId))) info.completeVoteCount += 1;
   }
   for (const ballot of ballotRows) {
-    const info = touch(ballot.voterName, ballot.createdAt);
-    touch(ballot.voterName, ballot.updatedAt);
+    const info = touch(ballot.guestId, ballot.createdAt);
+    touch(ballot.guestId, ballot.updatedAt);
     info.ballotCount += 1;
   }
-  return [...byVoter.values()].sort((a, b) => a.voterName.localeCompare(b.voterName));
+  return [...byVoter.values()];
 }

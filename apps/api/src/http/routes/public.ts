@@ -14,7 +14,6 @@ import type { Db } from '../../db/client.ts';
 import { getContestConfig } from '../../services/contest.ts';
 import { createEntry, listEntries, type PhotoStorage } from '../../services/entries.ts';
 import { deleteBallot, getVoterState, upsertBallot, upsertVote } from '../../services/votes.ts';
-import { getGuest } from '../../services/guests.ts';
 import { badRequest, parse, unsupportedMedia } from '../errors.ts';
 import { guestOf, requireGuest } from '../middleware/guestAuth.ts';
 
@@ -74,28 +73,24 @@ export function publicRoutes(db: Db, auth: Auth, storage: PhotoStorage): Router 
   });
 
   router.get('/me/state', requireGuest(auth, 'vote'), async (_req, res) => {
-    const guest = await getGuest(db, guestOf(res).id);
-    res.json(await getVoterState(db, guest.nameKey));
+    res.json(await getVoterState(db, guestOf(res).id));
   });
 
   router.put('/votes/:entryId', requireGuest(auth, 'vote'), async (req, res) => {
     const entryId = parse(EntryId, req.params.entryId, 'entry id');
     const input = parse(UpsertVoteSchema, req.body);
-    const guest = await getGuest(db, guestOf(res).id);
-    res.json(await upsertVote(db, entryId, guest.nameKey, input));
+    res.json(await upsertVote(db, entryId, guestOf(res).id, input));
   });
 
   router.put('/award-ballots/:awardId', requireGuest(auth, 'vote'), async (req, res) => {
     const awardId = parse(AwardId, req.params.awardId, 'award id');
     const input = parse(UpsertBallotSchema, req.body);
-    const guest = await getGuest(db, guestOf(res).id);
-    res.json(await upsertBallot(db, awardId, guest.nameKey, input));
+    res.json(await upsertBallot(db, awardId, guestOf(res).id, input));
   });
 
   router.delete('/award-ballots/:awardId', requireGuest(auth, 'vote'), async (req, res) => {
     const awardId = parse(AwardId, req.params.awardId, 'award id');
-    const guest = await getGuest(db, guestOf(res).id);
-    await deleteBallot(db, awardId, guest.nameKey);
+    await deleteBallot(db, awardId, guestOf(res).id);
     res.status(204).end();
   });
 

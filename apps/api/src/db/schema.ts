@@ -110,8 +110,9 @@ export const votes = pgTable(
   'votes',
   {
     id: serial().primaryKey(),
-    /** Normalized (trimmed, lowercased). */
-    voterName: text().notNull(),
+    guestId: text()
+      .notNull()
+      .references(() => guests.id, { onDelete: 'cascade' }),
     entryId: integer()
       .notNull()
       .references(() => entries.id, { onDelete: 'cascade' }),
@@ -122,8 +123,8 @@ export const votes = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    unique('votes_voter_entry').on(t.voterName, t.entryId),
-    index('votes_voter_idx').on(t.voterName),
+    unique('votes_guest_entry').on(t.guestId, t.entryId),
+    index('votes_guest_idx').on(t.guestId),
   ],
 );
 
@@ -148,7 +149,9 @@ export const awardBallots = pgTable(
   'award_ballots',
   {
     id: serial().primaryKey(),
-    voterName: text().notNull(),
+    guestId: text()
+      .notNull()
+      .references(() => guests.id, { onDelete: 'cascade' }),
     awardId: text()
       .notNull()
       .references(() => awards.id, { onDelete: 'cascade' }),
@@ -159,8 +162,8 @@ export const awardBallots = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    unique('award_ballots_voter_award').on(t.voterName, t.awardId),
-    index('award_ballots_voter_idx').on(t.voterName),
+    unique('award_ballots_guest_award').on(t.guestId, t.awardId),
+    index('award_ballots_guest_idx').on(t.guestId),
   ],
 );
 
@@ -181,7 +184,7 @@ export const guests = pgTable(
     image: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-    /** normalizeVoterName(name): the key votes and ballots are filed under. */
+    /** normalizeVoterName(name): how a name typed on the vote page finds its guest. */
     nameKey: text().notNull().unique(),
     phone: text().notNull().default(''),
     rsvpStatus: text().notNull().default('pending'),

@@ -60,6 +60,18 @@ curl -s http://<unraid-host>:3099/api/health
 `starting` while migrations run and `error` if the database never became
 reachable.
 
+## Starting over
+
+The migration history was squashed into a single `0000_initial` when guests and
+RSVPs arrived, so a database created by an earlier build will not upgrade. There
+was no data in it yet; wipe it once and let the API create a fresh one:
+
+1. Stop the stack in Dockhand.
+2. Delete `${APPDATA_PATH}/db` on the server (uploaded photos in `uploads/` can stay or go).
+3. Redeploy. The API applies the migration and seeds the default contest.
+
+The same steps reset the party for next year: back up first (below) if you want to keep the results.
+
 ## Backups
 
 Both the database and the photos matter. The photos are not in the database.

@@ -136,19 +136,6 @@ function toProfile(row: GuestRow, preregistrations: string[]): GuestProfile {
 
 // ---- profile writes -----------------------------------------------------------
 
-/**
- * Moves everything filed under one name key to another: votes and ballots are
- * keyed by name, not guest id, so renaming a guest has to carry them along.
- */
-async function moveVoterKey(tx: Db, oldKey: string, newKey: string): Promise<void> {
-  if (oldKey === newKey) return;
-  await tx.update(votes).set({ voterName: newKey }).where(eq(votes.voterName, oldKey));
-  await tx
-    .update(awardBallots)
-    .set({ voterName: newKey })
-    .where(eq(awardBallots.voterName, oldKey));
-}
-
 async function renameInTx(tx: Db, row: GuestRow, rawName: string): Promise<void> {
   const name = tidyName(rawName);
   const key = normalizeVoterName(name);
@@ -157,7 +144,6 @@ async function renameInTx(tx: Db, row: GuestRow, rawName: string): Promise<void>
     if (clash) {
       throw conflict(`“${name}” is already on the guest list. Add a surname to tell you apart.`);
     }
-    await moveVoterKey(tx, row.nameKey, key);
   }
   await tx
     .update(guests)
@@ -312,9 +298,9 @@ export async function listGuests(db: Db): Promise<AdminGuest[]> {
       .groupBy(entries.guestId),
     listVoters(db),
   ]);
-  const voterByKey = new Map(voters.map((v) => [v.voterName, v] as const));
+  const voterById = new Map(voters.map((v) => [v.guestId, v] as const));
   return rows.map((row) => {
-    const voter = voterByKey.get(row.nameKey);
+    const voter = voterById.get(row.id);
     return {
       ...toProfile(
         row,
@@ -370,20 +356,23 @@ export async function renameGuest(db: Db, guestId: string, newName: string): Pro
   });
 }
 
-/** Deletes the guest and their votes and ballots. Their entries stay, unlinked. */
+/**
+ * Deletes the guest. Their votes, ballots and sessions go with them (the foreign
+ * keys cascade); their entries stay, unlinked. The counts are for the toast.
+ */
 export async function deleteGuest(
   db: Db,
   guestId: string,
 ): Promise<{ votes: number; ballots: number }> {
   return db.transaction(async (tx) => {
-    const row = await getGuest(tx, guestId);
+    await getGuest(tx, guestId);
     const deletedVotes = await tx
       .delete(votes)
-      .where(eq(votes.voterName, row.nameKey))
+      .where(eq(votes.guestId, guestId))
       .returning({ id: votes.id });
     const deletedBallots = await tx
       .delete(awardBallots)
-      .where(eq(awardBallots.voterName, row.nameKey))
+      .where(eq(awardBallots.guestId, guestId))
       .returning({ id: awardBallots.id });
     await tx.delete(guests).where(eq(guests.id, guestId));
     return { votes: deletedVotes.length, ballots: deletedBallots.length };

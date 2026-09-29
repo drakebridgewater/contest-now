@@ -55,7 +55,7 @@ export const UpsertBallotSchema = z.object({
 export type UpsertBallot = z.infer<typeof UpsertBallotSchema>;
 
 export const VoterInfoSchema = z.object({
-  voterName: z.string(),
+  guestId: z.string(),
   voteCount: z.number().int(),
   completeVoteCount: z.number().int(),
   tastedCount: z.number().int(),
