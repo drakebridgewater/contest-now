@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { allergenConflicts, labelFor, splitLabels } from './allergens.ts';
 import { CategoryInputSchema, EventSettingsSchema, phaseStatus } from './contest.ts';
-import { parseGuestLines, UpdateProfileSchema } from './guests.ts';
+import {
+  CustomEmailSchema,
+  EMAIL_HTML_MAX,
+  parseGuestLines,
+  UpdateProfileSchema,
+} from './guests.ts';
 import { CreateEntryFieldsSchema } from './entries.ts';
 import { UpsertVoteSchema, normalizeVoterName } from './votes.ts';
 
@@ -119,6 +124,21 @@ describe('profile updates', () => {
     ).toBe(true);
     expect(
       UpdateProfileSchema.safeParse({ plusOneFirstName: 'Ike', plusOneLastName: '' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('CustomEmailSchema', () => {
+  const base = { subject: 'Hi', html: '<p>Hello</p>', guestIds: ['g1'] };
+  it('needs a subject, a body and at least one guest', () => {
+    expect(CustomEmailSchema.safeParse(base).success).toBe(true);
+    expect(CustomEmailSchema.safeParse({ ...base, subject: '  ' }).success).toBe(false);
+    expect(CustomEmailSchema.safeParse({ ...base, html: '' }).success).toBe(false);
+    expect(CustomEmailSchema.safeParse({ ...base, guestIds: [] }).success).toBe(false);
+  });
+  it('caps the size', () => {
+    expect(
+      CustomEmailSchema.safeParse({ ...base, html: 'x'.repeat(EMAIL_HTML_MAX + 1) }).success,
     ).toBe(false);
   });
 });

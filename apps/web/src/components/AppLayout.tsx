@@ -2,12 +2,13 @@ import { Camera, ClipboardList, Images, PartyPopper, Trophy } from 'lucide-react
 import { NavLink, Outlet } from 'react-router';
 import { useContest } from '../lib/queries.ts';
 
-const TABS = [
+const TABS: { to: string; label: string; shortLabel?: string; Icon: typeof Trophy }[] = [
   { to: '/register', label: 'RSVP', Icon: PartyPopper },
   { to: '/submit', label: 'Submit', Icon: Camera },
   { to: '/vote', label: 'Vote', Icon: ClipboardList },
-  { to: '/admin', label: 'Results', Icon: Trophy },
-] as const;
+  // Two lines on the phone tab bar, so it stays as narrow as its neighbours.
+  { to: '/admin', label: 'Manage Event', shortLabel: 'Manage\nEvent', Icon: Trophy },
+];
 
 export function AppLayout() {
   const contest = useContest();
@@ -35,7 +36,7 @@ export function AppLayout() {
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `tap-target inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                  `tap-target inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
                     isActive ? 'bg-white text-brand-700' : 'text-white/90 hover:bg-white/15'
                   }`
                 }
@@ -86,12 +87,12 @@ export function AppLayout() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="mx-auto flex max-w-lg">
-          {TABS.map(({ to, label, Icon }) => (
+          {TABS.map(({ to, label, shortLabel, Icon }) => (
             <li key={to} className="flex-1">
               <NavLink
                 to={to}
                 className={({ isActive }) =>
-                  `flex flex-col items-center gap-0.5 py-2 text-xs font-semibold ${
+                  `flex flex-col items-center gap-0.5 py-2 text-center text-xs leading-tight font-semibold ${
                     isActive ? 'text-brand-700' : 'text-ink-muted'
                   }`
                 }
@@ -102,7 +103,7 @@ export function AppLayout() {
                       className={isActive ? 'size-6' : 'size-6 opacity-70'}
                       aria-hidden="true"
                     />
-                    {label}
+                    <span className="whitespace-pre-line">{shortLabel ?? label}</span>
                   </>
                 )}
               </NavLink>

@@ -8,7 +8,7 @@ import type {
 } from '@contest/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, LockOpen } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { AwardsTab } from '../components/admin/AwardsTab.tsx';
 import { GuestsTab, RsvpSummaryCard, type GuestActions } from '../components/admin/GuestsTab.tsx';
 import { ResultsTab } from '../components/admin/ResultsTab.tsx';
@@ -22,11 +22,17 @@ import { api, getAdminPassword, setAdminPassword } from '../lib/api.ts';
 import { errorMessage } from '../lib/errorMessage.ts';
 import { queryKeys } from '../lib/queries.ts';
 
-type Tab = 'results' | 'guests' | 'awards' | 'setup';
+// The rich-text editor is only for the host, so guests' phones never download it.
+const EmailTab = lazy(() =>
+  import('../components/admin/EmailTab.tsx').then((module) => ({ default: module.EmailTab })),
+);
+
+type Tab = 'results' | 'guests' | 'email' | 'awards' | 'setup';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'results', label: 'Results' },
   { id: 'guests', label: 'Guests' },
+  { id: 'email', label: 'Email' },
   { id: 'awards', label: 'Awards' },
   { id: 'setup', label: 'Setup' },
 ];
@@ -173,6 +179,10 @@ export function AdminPage() {
             invite links.
           </li>
           <li>
+            <strong>Email</strong> sends your own message to the guests you pick, with their name
+            and personal RSVP link filled in.
+          </li>
+          <li>
             <strong>Setup</strong> is where you add categories, criteria and awards. Guests see
             changes within a minute.
           </li>
@@ -244,6 +254,29 @@ export function AdminPage() {
           mailConfigured={mailStatus.data?.configured ?? false}
           actions={guestActions}
         />
+      ) : null}
+
+      {tab === 'email' ? (
+        <Suspense fallback={<p className="text-ink-muted">Loading editor…</p>}>
+          <EmailTab
+            guests={guests.data ?? []}
+            mailConfigured={mailStatus.data?.configured ?? false}
+            hasPhotoAlbum={(config.data?.settings.photoShareUrl ?? '') !== ''}
+            sending={run.isPending}
+            onSend={(email) =>
+              act(
+                async () => {
+                  const result = await api.sendCustomEmail(email);
+                  if (result.failed.length > 0) {
+                    toast.error(`Could not email ${result.failed.map((f) => f.name).join(', ')}`);
+                  }
+                  return result;
+                },
+                `Email sent to ${email.guestIds.length === 1 ? '1 guest' : `${email.guestIds.length} guests`}`,
+              )
+            }
+          />
+        </Suspense>
       ) : null}
 
       {tab === 'setup' ? (

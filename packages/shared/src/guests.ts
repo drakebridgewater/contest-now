@@ -136,6 +136,31 @@ export const SendInvitesSchema = z.union([
 ]);
 export type SendInvites = z.infer<typeof SendInvitesSchema>;
 
+/**
+ * Merge tags a host can drop into a custom email, written `{{ tag }}`. The links
+ * are filled in per guest when the email is sent.
+ */
+export const EMAIL_MERGE_TAGS = {
+  guest_name: 'Guest name',
+  rsvp_link: 'Personal RSVP link',
+  photo_album_link: 'Photo album link',
+} as const;
+export type EmailMergeTag = keyof typeof EMAIL_MERGE_TAGS;
+
+export const EMAIL_SUBJECT_MAX = 200;
+export const EMAIL_HTML_MAX = 50_000;
+
+export const CustomEmailPreviewSchema = z.object({
+  subject: z.string().trim().min(1).max(EMAIL_SUBJECT_MAX),
+  html: z.string().trim().min(1).max(EMAIL_HTML_MAX),
+});
+export type CustomEmailPreview = z.infer<typeof CustomEmailPreviewSchema>;
+
+export const CustomEmailSchema = CustomEmailPreviewSchema.extend({
+  guestIds: z.array(z.string().min(1).max(64)).min(1).max(500),
+});
+export type CustomEmail = z.infer<typeof CustomEmailSchema>;
+
 export interface SendInvitesResult {
   sent: number;
   /** Guests with no email address to send to. */
