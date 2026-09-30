@@ -1,5 +1,5 @@
 import type { SessionScope } from '@contest/shared';
-import type { RequestHandler, Response } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Auth } from '../../auth.ts';
 import { HttpError, unauthorized } from '../errors.ts';
@@ -22,7 +22,7 @@ export function requireGuest(auth: Auth, needed: SessionScope): RequestHandler {
         next(unauthorized('Sign in first'));
         return;
       }
-      const scope: SessionScope = session.session.scope === 'vote' ? 'vote' : 'full';
+      const scope = scopeOf(session.session);
       if (needed === 'full' && scope !== 'full') {
         next(new HttpError(403, 'Open the link from your email to see your RSVP'));
         return;
@@ -33,6 +33,16 @@ export function requireGuest(auth: Auth, needed: SessionScope): RequestHandler {
       next(error);
     }
   };
+}
+
+/** The request's session scope, or null when signed out. For routes open to everyone. */
+export async function sessionScope(auth: Auth, req: Request): Promise<SessionScope | null> {
+  const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+  return session ? scopeOf(session.session) : null;
+}
+
+function scopeOf(session: { scope?: unknown }): SessionScope {
+  return session.scope === 'vote' ? 'vote' : 'full';
 }
 
 export function guestOf(res: Response): GuestIdentity {

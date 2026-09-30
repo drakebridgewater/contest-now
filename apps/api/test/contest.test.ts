@@ -73,8 +73,9 @@ describe('admin setup', () => {
       .set(ctx.admin)
       .send({ location: '123 Elm St', startsAt: '2026-12-19T18:00:00.000-08:00', faqs });
     expect(res.status).toBe(200);
-    const pub = await ctx.api.get('/api/contest');
-    expect(pub.body.settings).toMatchObject({
+    // Admin view: the public one hides the address from signed-out visitors.
+    const saved = await ctx.api.get('/api/admin/config').set(ctx.admin);
+    expect(saved.body.settings).toMatchObject({
       location: '123 Elm St',
       startsAt: '2026-12-20T02:00:00.000Z',
       faqs,

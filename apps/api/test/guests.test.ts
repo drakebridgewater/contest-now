@@ -223,6 +223,24 @@ describe('host invites', () => {
   });
 });
 
+describe('event location', () => {
+  it('is shown only to guests signed in from their email, never to the tablet', async () => {
+    await ctx.api.put('/api/admin/settings').set(ctx.admin).send({ location: '123 Elm St' });
+    const location = async (agent: Agent) =>
+      (await agent.get('/api/contest')).body.settings.location as string;
+
+    expect(await location(ctx.device())).toBe('');
+    expect(await location(await ctx.voter('Tablet Tess'))).toBe('');
+    await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'lena@example.com', name: 'Lena Ruiz' });
+    expect(await location(await openMagicLink('lena@example.com'))).toBe('123 Elm St');
+    // The host still sees it on the manage page.
+    const admin = await ctx.api.get('/api/admin/config').set(ctx.admin);
+    expect(admin.body.settings.location).toBe('123 Elm St');
+  });
+});
+
 describe('RSVP summary', () => {
   it('counts statuses, plus-ones and pre-registrations, never declined guests', async () => {
     const summary = (await ctx.api.get('/api/rsvp/summary')).body as RsvpSummary;

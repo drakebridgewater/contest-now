@@ -1,9 +1,9 @@
-import type { ContestConfig, RsvpSummary } from '@contest/shared';
+import type { ContestConfig, RsvpSummary, SessionGuest } from '@contest/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ApiModule from '../lib/api.ts';
 import { DetailsPage } from './DetailsPage.tsx';
 import { FaqPage } from './FaqPage.tsx';
@@ -38,6 +38,8 @@ const summary: RsvpSummary = {
   allergies: ['fish', 'lentils'],
 };
 
+let me: SessionGuest | null;
+
 vi.mock('../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiModule>();
   return {
@@ -46,6 +48,7 @@ vi.mock('../lib/api.ts', async (importOriginal) => {
       ...actual.api,
       getContest: () => Promise.resolve(contest),
       rsvpSummary: () => Promise.resolve(summary),
+      me: () => Promise.resolve(me),
     },
   };
 });
@@ -65,6 +68,10 @@ function renderAt(path: string) {
 }
 
 describe('info pages', () => {
+  beforeEach(() => {
+    me = { id: 'g1', name: 'Nora Park', scope: 'full', allergies: [] };
+  });
+
   it('shows the location, start time and the host’s and guests’ allergies once each', async () => {
     renderAt('/details');
     expect(await screen.findByText('Matt & Mar’s Home')).toBeInTheDocument();
@@ -72,6 +79,13 @@ describe('info pages', () => {
     expect(await screen.findByText('Lentils')).toBeInTheDocument();
     expect(screen.getByText('Fish')).toBeInTheDocument();
     expect(screen.getByText('Cashews')).toBeInTheDocument();
+  });
+
+  it('asks guests who are not signed in from their email to RSVP for the address', async () => {
+    me = { id: 'g2', name: 'Tablet Tess', scope: 'vote', allergies: [] };
+    renderAt('/details');
+    expect(await screen.findByRole('link', { name: 'RSVP to see the address' })).toBeVisible();
+    expect(screen.queryByText('Matt & Mar’s Home')).not.toBeInTheDocument();
   });
 
   it('switches to the FAQ and reveals an answer', async () => {

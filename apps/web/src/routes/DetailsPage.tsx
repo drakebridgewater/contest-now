@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { InfoTabs } from '../components/InfoTabs.tsx';
 import { Card, CardHeader } from '../components/ui/Card.tsx';
-import { useContest, useRsvpSummary } from '../lib/queries.ts';
+import { useContest, useMe, useRsvpSummary } from '../lib/queries.ts';
 
 const startsAtFormat = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',
@@ -36,6 +36,7 @@ const APPETIZER_IDEAS = [
 
 export function DetailsPage() {
   const settings = useContest().data?.settings;
+  const me = useMe();
   const guestAllergies = useRsvpSummary().data?.allergies ?? [];
   // The host's list first, in their order, then anything only guests reported.
   const allergies = [...new Set([...(settings?.knownAllergies ?? []), ...guestAllergies])];
@@ -45,7 +46,18 @@ export function DetailsPage() {
       label: 'When',
       value: settings?.startsAt ? startsAtFormat.format(new Date(settings.startsAt)) : 'TBA',
     },
-    { label: 'Location', value: settings?.location || 'TBA' },
+    {
+      label: 'Location',
+      // The server only sends the address to guests signed in from their email.
+      value:
+        me.data?.scope === 'full' ? (
+          settings?.location || 'TBA'
+        ) : (
+          <Link to="/register" className="font-semibold text-brand-700 underline">
+            RSVP to see the address
+          </Link>
+        ),
+    },
     { label: 'Attire', value: 'Holiday attire' },
     { label: 'Drinks', value: 'Soda / seltzer' },
     {
