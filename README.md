@@ -95,11 +95,11 @@ which also drives the file picker's `accept` attribute.
 Everyone is a guest in one list (the Better Auth `guests` table), however they
 arrived. There are no passwords anywhere:
 
-| Where              | How you identify                                                                                                             |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Vote page          | Type your name. This gives a `vote` session: rate, nominate, and hide dishes with your allergens. Made for the party tablet. |
-| Submit page        | No sign-in. The name field autocompletes from the guest list and files the entry under whoever is picked.                    |
-| RSVP (`/event`)    | An emailed one-time link (Better Auth magic link), or the personal invite link the host sends. Gives a `full` session.       |
+| Where           | How you identify                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Vote page       | Type your name. This gives a `vote` session: rate, nominate, and hide dishes with your allergens. Made for the party tablet. |
+| Submit page     | No sign-in. The name field autocompletes from the guest list and files the entry under whoever is picked.                    |
+| RSVP (`/event`) | An emailed one-time link (Better Auth magic link), or the personal invite link the host sends. Gives a `full` session.       |
 
 A `vote` session cannot read or change an RSVP, so a shared tablet never
 exposes anyone's contact details or plus-one. Anyone at the tablet can still
