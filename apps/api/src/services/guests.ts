@@ -385,7 +385,7 @@ export async function deleteGuest(
 }
 
 export function inviteUrl(publicUrl: string, token: string): string {
-  return `${publicUrl}/register?invite=${encodeURIComponent(token)}`;
+  return `${publicUrl}/event?invite=${encodeURIComponent(token)}`;
 }
 
 /**

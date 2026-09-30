@@ -8,11 +8,11 @@ import type {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui/Toast.tsx';
 import type * as ApiModule from '../lib/api.ts';
-import { RegisterPage } from './RegisterPage.tsx';
+import { EventPage, ToEvent } from './EventPage.tsx';
 
 const contest: ContestConfig = {
   settings: {
@@ -77,7 +77,7 @@ vi.mock('../lib/api.ts', async (importOriginal) => {
   };
 });
 
-function renderPage(url = '/register') {
+function renderPage(url = '/event') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -85,7 +85,10 @@ function renderPage(url = '/register') {
     <QueryClientProvider client={client}>
       <ToastProvider>
         <MemoryRouter initialEntries={[url]}>
-          <RegisterPage />
+          <Routes>
+            <Route path="/event" element={<EventPage />} />
+            <Route path="/register" element={<ToEvent />} />
+          </Routes>
         </MemoryRouter>
       </ToastProvider>
     </QueryClientProvider>,
@@ -112,7 +115,7 @@ beforeEach(() => {
     .mockImplementation((input) => Promise.resolve({ ...profile, ...input } as GuestProfile));
 });
 
-describe('RegisterPage', () => {
+describe('Event page RSVP', () => {
   it('emails a sign-in link when signed out', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -123,7 +126,7 @@ describe('RegisterPage', () => {
     expect(await screen.findByText('Check your inbox')).toBeInTheDocument();
   });
 
-  it('trades an invite link for a session', async () => {
+  it('trades an invite link for a session, even from an old /register link', async () => {
     inviteSignIn.mockImplementation(() => {
       me = { id: 'g1', name: 'Nora Park', scope: 'full', allergies: [] };
       return Promise.resolve({ guestId: 'g1' });

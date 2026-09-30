@@ -60,7 +60,7 @@ const categoryNames = new Map([['dessert', 'Desserts']]);
 function renderTab(mailConfigured = true) {
   const actions: GuestActions = {
     add: vi.fn(),
-    inviteLink: vi.fn(() => Promise.resolve('http://party.test/register?invite=abc')),
+    inviteLink: vi.fn(() => Promise.resolve('http://party.test/event?invite=abc')),
     sendInvites: vi.fn(),
     rename: vi.fn(),
     remove: vi.fn(),
@@ -129,7 +129,7 @@ describe('GuestsTab', () => {
     await user.click(within(bo).getByRole('button', { name: /Link/ }));
     expect(actions.inviteLink).toHaveBeenCalledWith(guests[1]);
     expect(
-      await screen.findByDisplayValue('http://party.test/register?invite=abc'),
+      await screen.findByDisplayValue('http://party.test/event?invite=abc'),
     ).toBeInTheDocument();
   });
 

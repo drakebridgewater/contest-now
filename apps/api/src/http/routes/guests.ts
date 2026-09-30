@@ -43,8 +43,8 @@ export function guestRoutes(db: Db, auth: Auth): Router {
     await auth.api.signInMagicLink({
       body: {
         email: guest.email,
-        callbackURL: '/register',
-        errorCallbackURL: '/register',
+        callbackURL: '/event',
+        errorCallbackURL: '/event',
         metadata: { name: guest.name },
       },
       headers: fromNodeHeaders(req.headers),

@@ -9,16 +9,16 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { LogOut, MailCheck, Send } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { AllergenPicker } from '../components/submit/AllergenPicker.tsx';
-import { Button } from '../components/ui/Button.tsx';
-import { Card, CardHeader } from '../components/ui/Card.tsx';
-import { TextField } from '../components/ui/Field.tsx';
-import { useToast } from '../components/ui/Toast.tsx';
-import { api, ApiRequestError } from '../lib/api.ts';
-import { errorMessage } from '../lib/errorMessage.ts';
-import { queryKeys, useContest, useMe, useRsvpSummary } from '../lib/queries.ts';
+import { api, ApiRequestError } from '../../lib/api.ts';
+import { errorMessage } from '../../lib/errorMessage.ts';
+import { queryKeys, useContest, useMe, useRsvpSummary } from '../../lib/queries.ts';
+import { AllergenPicker } from '../submit/AllergenPicker.tsx';
+import { Button } from '../ui/Button.tsx';
+import { Card, CardHeader } from '../ui/Card.tsx';
+import { TextField } from '../ui/Field.tsx';
+import { useToast } from '../ui/Toast.tsx';
 
 const RSVP_CHOICES: Record<Exclude<RsvpStatus, 'pending'>, { label: string; emoji: string }> = {
   yes: { label: 'Coming', emoji: '🎉' },
@@ -30,37 +30,16 @@ const RSVP_CHOICES: Record<Exclude<RsvpStatus, 'pending'>, { label: string; emoj
  * The RSVP. Signing in here is by email only: a one-time link, or the personal
  * invite link the host sent. No passwords, so nothing to forget or reset.
  */
-export function RegisterPage() {
-  const queryClient = useQueryClient();
-  const [params, setParams] = useSearchParams();
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const invite = params.get('invite');
+export function RsvpSection({
+  inviteSettled,
+  inviteError,
+}: {
+  inviteSettled: boolean;
+  inviteError: string | null;
+}) {
+  const [params] = useSearchParams();
   const linkError = params.get('error');
-  const inviteTried = useRef(false);
-  // Who we are is only worth asking once an invite has been traded in; asking
-  // sooner races the exchange and can cache "signed out".
-  const [inviteSettled, setInviteSettled] = useState(invite === null);
   const me = useMe(inviteSettled);
-
-  // An invite link lands here as /register?invite=…; trade it for a session once.
-  useEffect(() => {
-    if (!invite || inviteTried.current) return;
-    inviteTried.current = true;
-    api
-      .inviteSignIn(invite)
-      .then(() => {
-        queryClient.removeQueries({ queryKey: queryKeys.me });
-        // Signed-in guests see more of the event, like its address.
-        void queryClient.invalidateQueries({ queryKey: queryKeys.contest });
-      })
-      .catch((error: unknown) =>
-        setInviteError(errorMessage(error, 'That invite link did not work.')),
-      )
-      .finally(() => {
-        setInviteSettled(true);
-        setParams({}, { replace: true });
-      });
-  }, [invite, queryClient, setParams]);
 
   if (!inviteSettled || me.isLoading) {
     return <p className="text-ink-muted">Opening your RSVP…</p>;
