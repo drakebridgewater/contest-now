@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AllergenId } from './allergens.ts';
 import { Slug } from './slug.ts';
 
 const ShortText = (max: number) => z.string().trim().max(max);
@@ -57,6 +58,8 @@ export const EventSettingsSchema = z.object({
   startsAt: z.iso.datetime({ offset: true }).nullable(),
   /** The FAQ page, in display order. */
   faqs: z.array(FaqSchema).max(FAQS_MAX),
+  /** Allergies the host lists on the details page, on top of what guests report. */
+  knownAllergies: z.array(AllergenId).max(40),
   /** Manual switch: when false, votes and award ballots are read-only. */
   votingOpen: z.boolean(),
   /** Voting stays shut until this moment (ISO). Null = no wait. */

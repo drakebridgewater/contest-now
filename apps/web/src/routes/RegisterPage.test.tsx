@@ -22,6 +22,7 @@ const contest: ContestConfig = {
     location: '',
     startsAt: null,
     faqs: [],
+    knownAllergies: [],
     votingOpen: true,
     votingOpensAt: null,
     submissionsOpen: true,

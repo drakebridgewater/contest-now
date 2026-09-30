@@ -65,6 +65,7 @@ describe('admin setup', () => {
     const before = await ctx.api.get('/api/contest');
     expect(before.body.settings).toMatchObject({ location: '', startsAt: null });
     expect(before.body.settings.faqs.length).toBeGreaterThan(0);
+    expect(before.body.settings.knownAllergies).toContain('lentils');
 
     const faqs = [{ question: 'Parking?', answer: 'On the street.' }];
     const res = await ctx.api
@@ -78,6 +79,17 @@ describe('admin setup', () => {
       startsAt: '2026-12-20T02:00:00.000Z',
       faqs,
     });
+
+    const allergies = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ knownAllergies: ['fish', 'soy', 'fish'] });
+    expect(allergies.body.knownAllergies).toEqual(['fish', 'soy']);
+    const unknown = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ knownAllergies: ['vegan'] });
+    expect(unknown.status).toBe(400);
 
     const blank = await ctx.api
       .put('/api/admin/settings')

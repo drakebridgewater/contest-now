@@ -5,6 +5,19 @@ import { awards, categories, criteria, eventSettings } from './schema.ts';
 
 export const DEFAULT_EVENT_NAME = 'Holiday Contest';
 
+/** Allergies a new event lists on its details page. Hosts edit them on the Manage Event page. */
+export const DEFAULT_KNOWN_ALLERGIES = [
+  'cashews',
+  'pistachios',
+  'fish',
+  'soy',
+  'sunflower-seeds',
+  'pumpkin-seeds',
+  'lentils',
+  'cranberries',
+  'gluten',
+];
+
 /** The FAQ a new event starts with. Hosts edit it on the Manage Event page. */
 export const DEFAULT_FAQS: Faq[] = [
   {
@@ -56,6 +69,7 @@ export async function seedDefaults(db: Db): Promise<{ seeded: boolean }> {
       eventName: DEFAULT_EVENT_NAME,
       tagline: 'Food & drink contest',
       faqs: DEFAULT_FAQS,
+      knownAllergies: DEFAULT_KNOWN_ALLERGIES,
     })
     .onConflictDoNothing();
 

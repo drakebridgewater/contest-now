@@ -29,6 +29,10 @@ export const eventSettings = pgTable(
     location: text().notNull().default(''),
     startsAt: timestamp({ withTimezone: true }),
     faqs: jsonb().$type<Faq[]>().notNull().default([]),
+    knownAllergies: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     votingOpen: boolean().notNull().default(true),
     votingOpensAt: timestamp({ withTimezone: true }),
     submissionsOpen: boolean().notNull().default(true),

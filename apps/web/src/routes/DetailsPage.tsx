@@ -36,7 +36,9 @@ const APPETIZER_IDEAS = [
 
 export function DetailsPage() {
   const settings = useContest().data?.settings;
-  const allergies = useRsvpSummary().data?.allergies ?? [];
+  const guestAllergies = useRsvpSummary().data?.allergies ?? [];
+  // The host's list first, in their order, then anything only guests reported.
+  const allergies = [...new Set([...(settings?.knownAllergies ?? []), ...guestAllergies])];
 
   const details: { label: string; value: ReactNode }[] = [
     {
@@ -90,8 +92,8 @@ export function DetailsPage() {
         <Card className="border-amber-300 bg-amber-50 px-4 py-4 text-amber-950">
           <h2 className="text-lg font-bold">Known allergies</h2>
           <p className="mt-1 text-sm">
-            Guests have told us about these. You can still use these ingredients, but please mention
-            them when you arrive so we can put up the right signage.
+            You can still use these ingredients, but please mention them when you arrive so we can
+            put up the right signage.
           </p>
           <ul className="mt-3 flex flex-wrap gap-2">
             {allergies.map((id) => {

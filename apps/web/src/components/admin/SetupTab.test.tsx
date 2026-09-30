@@ -12,6 +12,7 @@ const config: ContestConfig = {
     location: '',
     startsAt: null,
     faqs: [],
+    knownAllergies: [],
     votingOpen: true,
     votingOpensAt: null,
     submissionsOpen: true,
@@ -179,6 +180,16 @@ describe('SetupTab', () => {
           startsAt: new Date('2026-12-19T18:00').toISOString(),
         }),
       );
+    });
+
+    it('saves the host’s known allergies', async () => {
+      const user = userEvent.setup();
+      const actions = renderSetup();
+      const save = screen.getByRole('button', { name: 'Save allergies' });
+      expect(save).toBeDisabled();
+      await user.click(screen.getByRole('button', { name: 'Dairy' }));
+      await user.click(save);
+      expect(actions.saveSettings).toHaveBeenCalledWith({ knownAllergies: ['dairy'] });
     });
 
     it('adds a FAQ and saves it only once it has an answer', async () => {

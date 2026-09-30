@@ -12,6 +12,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2, TriangleAlert } from 'lucide-reac
 import { useState } from 'react';
 import { useNow } from '../../lib/useNow.ts';
 import { opensAtText, toLocalInput, untilText } from '../../lib/time.ts';
+import { AllergenPicker } from '../submit/AllergenPicker.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Card, CardHeader } from '../ui/Card.tsx';
 import { TextAreaField, TextField, Toggle } from '../ui/Field.tsx';
@@ -42,6 +43,10 @@ export function SetupTab({
     <div className="space-y-6">
       <ScheduleSection settings={config.settings} onSave={actions.saveSettings} />
       <SettingsSection settings={config.settings} onSave={actions.saveSettings} />
+      <KnownAllergiesSection
+        knownAllergies={config.settings.knownAllergies}
+        onSave={(knownAllergies) => actions.saveSettings({ knownAllergies })}
+      />
       <FaqSection faqs={config.settings.faqs} onSave={(faqs) => actions.saveSettings({ faqs })} />
       <CategoriesSection config={config} hasRatings={hasRatings} actions={actions} />
       <AwardsSection config={config} actions={actions} />
@@ -244,6 +249,32 @@ function SettingsSection({
           }
         >
           Save event details
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function KnownAllergiesSection({
+  knownAllergies,
+  onSave,
+}: {
+  knownAllergies: string[];
+  onSave: (knownAllergies: string[]) => void;
+}) {
+  const [selected, setSelected] = useState(knownAllergies);
+  const dirty = [...selected].sort().join() !== [...knownAllergies].sort().join();
+
+  return (
+    <Card>
+      <CardHeader
+        title="Known allergies"
+        subtitle="Listed on the Info page. Allergies guests add to their RSVP are shown too."
+      />
+      <div className="space-y-4 p-4">
+        <AllergenPicker for="guest" selected={selected} onChange={setSelected} />
+        <Button disabled={!dirty} onClick={() => onSave(selected)}>
+          Save allergies
         </Button>
       </div>
     </Card>

@@ -16,6 +16,7 @@ const contest: ContestConfig = {
     location: 'Matt & Mar’s Home',
     startsAt: '2026-12-19T18:00:00.000Z',
     faqs: [{ question: 'When are the winners announced?', answer: 'Around 8–9 pm.' }],
+    knownAllergies: ['cashews', 'fish'],
     votingOpen: true,
     votingOpensAt: null,
     submissionsOpen: true,
@@ -64,12 +65,13 @@ function renderAt(path: string) {
 }
 
 describe('info pages', () => {
-  it('shows the location, start time and guests’ allergies from the server', async () => {
+  it('shows the location, start time and the host’s and guests’ allergies once each', async () => {
     renderAt('/details');
     expect(await screen.findByText('Matt & Mar’s Home')).toBeInTheDocument();
     expect(screen.getByText(/December 19/)).toBeInTheDocument();
     expect(await screen.findByText('Lentils')).toBeInTheDocument();
     expect(screen.getByText('Fish')).toBeInTheDocument();
+    expect(screen.getByText('Cashews')).toBeInTheDocument();
   });
 
   it('switches to the FAQ and reveals an answer', async () => {
