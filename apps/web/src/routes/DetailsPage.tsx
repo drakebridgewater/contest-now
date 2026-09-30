@@ -1,27 +1,19 @@
+import { labelFor } from '@contest/shared';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { InfoTabs } from '../components/InfoTabs.tsx';
 import { Card, CardHeader } from '../components/ui/Card.tsx';
+import { useContest, useRsvpSummary } from '../lib/queries.ts';
 
-// Static copy: edit here for next year's party.
-const DETAILS: { label: string; value: string }[] = [
-  { label: 'Location', value: 'Matt & Mar’s Home' },
-  { label: 'Attire', value: 'Holiday attire' },
-  { label: 'Drinks', value: 'Soda / seltzer' },
-  { label: 'RSVP', value: 'Required; okay to bring a +1' },
-];
+const startsAtFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
 
-const KNOWN_ALLERGIES = [
-  'Cashews',
-  'Pistachios',
-  'Fin fish (shellfish okay)',
-  'Soy protein, sauce, grits & flour',
-  'Sunflower seeds',
-  'Pumpkin seeds',
-  'Lentils',
-  'Cranberry',
-  'Gluten',
-];
-
+// The rest of the page is static copy: edit here for next year's party.
 const CHALLENGES = [
   { emoji: '🥟', name: 'Appetizer Challenge' },
   { emoji: '🍰', name: 'Holiday Dessert Challenge' },
@@ -43,6 +35,27 @@ const APPETIZER_IDEAS = [
 ];
 
 export function DetailsPage() {
+  const settings = useContest().data?.settings;
+  const allergies = useRsvpSummary().data?.allergies ?? [];
+
+  const details: { label: string; value: ReactNode }[] = [
+    {
+      label: 'When',
+      value: settings?.startsAt ? startsAtFormat.format(new Date(settings.startsAt)) : 'TBA',
+    },
+    { label: 'Location', value: settings?.location || 'TBA' },
+    { label: 'Attire', value: 'Holiday attire' },
+    { label: 'Drinks', value: 'Soda / seltzer' },
+    {
+      label: 'RSVP',
+      value: (
+        <Link to="/register" className="font-semibold text-brand-700 underline">
+          Required; okay to bring a +1
+        </Link>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <InfoTabs />
@@ -64,40 +77,37 @@ export function DetailsPage() {
       <Card>
         <CardHeader title="Details" />
         <dl className="divide-y divide-black/5">
-          {DETAILS.map(({ label, value }) => (
+          {details.map(({ label, value }) => (
             <div key={label} className="flex gap-3 px-4 py-3">
               <dt className="w-24 shrink-0 font-semibold text-ink-muted">{label}</dt>
-              <dd>
-                {label === 'RSVP' ? (
-                  <Link to="/register" className="font-semibold text-brand-700 underline">
-                    {value}
-                  </Link>
-                ) : (
-                  value
-                )}
-              </dd>
+              <dd className="whitespace-pre-line">{value}</dd>
             </div>
           ))}
         </dl>
       </Card>
 
-      <Card className="border-amber-300 bg-amber-50 px-4 py-4 text-amber-950">
-        <h2 className="text-lg font-bold">Known allergies</h2>
-        <p className="mt-1 text-sm">
-          You can still use these ingredients, but please mention them when you arrive so we can put
-          up the right signage.
-        </p>
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {KNOWN_ALLERGIES.map((item) => (
-            <li
-              key={item}
-              className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm font-medium"
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
-      </Card>
+      {allergies.length > 0 ? (
+        <Card className="border-amber-300 bg-amber-50 px-4 py-4 text-amber-950">
+          <h2 className="text-lg font-bold">Known allergies</h2>
+          <p className="mt-1 text-sm">
+            Guests have told us about these. You can still use these ingredients, but please mention
+            them when you arrive so we can put up the right signage.
+          </p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {allergies.map((id) => {
+              const { label, emoji } = labelFor(id);
+              return (
+                <li
+                  key={id}
+                  className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm font-medium"
+                >
+                  <span aria-hidden="true">{emoji}</span> <span>{label}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader

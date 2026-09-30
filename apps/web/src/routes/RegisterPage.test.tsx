@@ -19,6 +19,9 @@ const contest: ContestConfig = {
     eventName: 'Party',
     tagline: '',
     photoShareUrl: '',
+    location: '',
+    startsAt: null,
+    faqs: [],
     votingOpen: true,
     votingOpensAt: null,
     submissionsOpen: true,
@@ -47,6 +50,7 @@ const summary: RsvpSummary = {
   plusOnes: 0,
   headcount: 3,
   preregistered: { dessert: 3 },
+  allergies: [],
 };
 
 let me: SessionGuest | null;

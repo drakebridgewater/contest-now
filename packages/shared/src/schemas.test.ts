@@ -21,6 +21,9 @@ describe('schemas', () => {
     const base = {
       eventName: 'Party',
       tagline: '',
+      location: '',
+      startsAt: null,
+      faqs: [],
       votingOpen: true,
       votingOpensAt: null,
       submissionsOpen: true,

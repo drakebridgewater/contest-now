@@ -1,8 +1,33 @@
+import type { Faq } from '@contest/shared';
 import { sql } from 'drizzle-orm';
 import type { Db } from './client.ts';
 import { awards, categories, criteria, eventSettings } from './schema.ts';
 
 export const DEFAULT_EVENT_NAME = 'Holiday Contest';
+
+/** The FAQ a new event starts with. Hosts edit it on the Manage Event page. */
+export const DEFAULT_FAQS: Faq[] = [
+  {
+    question: 'Is the event free?',
+    answer:
+      'Yes, since most partygoers take part in the challenges. If you’re not entering a friendly competition, we encourage you to donate to the pizza fund.',
+  },
+  {
+    question: 'Can I bring my kids?',
+    answer:
+      'No, this is a 21-and-up party. All the other events around the holidays will include our children.',
+  },
+  {
+    question: 'When should I show up?',
+    answer:
+      'If you’re entering a challenge, please try to arrive within the first hour of the event.',
+  },
+  { question: 'When are the winners announced?', answer: 'Around 8–9 pm.' },
+  {
+    question: 'Can I bring something to share but not enter it in the competitions?',
+    answer: 'Of course! We’d love anything you’d like to share with the PDXmas family.',
+  },
+];
 
 const defaultCriteria = {
   appearance: { name: 'Appearance', helpText: 'How does it look? Plating, color, presentation.' },
@@ -26,7 +51,12 @@ export async function seedDefaults(db: Db): Promise<{ seeded: boolean }> {
 
   await db
     .insert(eventSettings)
-    .values({ id: 1, eventName: DEFAULT_EVENT_NAME, tagline: 'Food & drink contest' })
+    .values({
+      id: 1,
+      eventName: DEFAULT_EVENT_NAME,
+      tagline: 'Food & drink contest',
+      faqs: DEFAULT_FAQS,
+    })
     .onConflictDoNothing();
 
   if (existing > 0) return { seeded: false };

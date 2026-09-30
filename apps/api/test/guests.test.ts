@@ -230,12 +230,20 @@ describe('RSVP summary', () => {
     expect(summary.plusOnes).toBe(1);
     expect(summary.headcount).toBe(2);
     expect(summary.preregistered).toEqual({ cocktail: 1, dessert: 1 });
+    expect(summary.allergies).toEqual(['peanuts']);
 
     await ctx.api.post('/api/rsvp/request-link').send({ email: 'nora@example.com' });
     const nora = await openMagicLink('nora@example.com');
     await nora.put('/api/me/profile').send({ rsvpStatus: 'no' });
     const after = (await ctx.api.get('/api/rsvp/summary')).body as RsvpSummary;
-    expect(after).toMatchObject({ yes: 0, no: 1, plusOnes: 0, headcount: 0, preregistered: {} });
+    expect(after).toMatchObject({
+      yes: 0,
+      no: 1,
+      plusOnes: 0,
+      headcount: 0,
+      preregistered: {},
+      allergies: [],
+    });
     // Guests who declined drop out of the submit autocomplete.
     const names = (await ctx.api.get('/api/guests/names')).body as { name: string }[];
     expect(names.map((n) => n.name)).not.toContain('Nora Park');

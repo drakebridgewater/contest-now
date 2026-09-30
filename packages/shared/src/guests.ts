@@ -94,6 +94,8 @@ export const RsvpSummarySchema = z.object({
   headcount: z.number().int(),
   /** Category id to number of guests who might enter it. */
   preregistered: z.record(z.string(), z.number().int()),
+  /** Every allergen id a guest who has not declined avoids. No names. */
+  allergies: z.array(z.string()),
 });
 export type RsvpSummary = z.infer<typeof RsvpSummarySchema>;
 

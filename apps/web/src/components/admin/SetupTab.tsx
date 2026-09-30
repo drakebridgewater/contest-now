@@ -5,6 +5,8 @@ import {
   type ContestConfig,
   type Criterion,
   type EventSettings,
+  type Faq,
+  FAQS_MAX,
 } from '@contest/shared';
 import { ChevronDown, ChevronUp, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
@@ -12,7 +14,7 @@ import { useNow } from '../../lib/useNow.ts';
 import { opensAtText, toLocalInput, untilText } from '../../lib/time.ts';
 import { Button } from '../ui/Button.tsx';
 import { Card, CardHeader } from '../ui/Card.tsx';
-import { TextField, Toggle } from '../ui/Field.tsx';
+import { TextAreaField, TextField, Toggle } from '../ui/Field.tsx';
 
 export interface SetupActions {
   saveSettings: (input: Partial<EventSettings>) => void;
@@ -40,6 +42,7 @@ export function SetupTab({
     <div className="space-y-6">
       <ScheduleSection settings={config.settings} onSave={actions.saveSettings} />
       <SettingsSection settings={config.settings} onSave={actions.saveSettings} />
+      <FaqSection faqs={config.settings.faqs} onSave={(faqs) => actions.saveSettings({ faqs })} />
       <CategoriesSection config={config} hasRatings={hasRatings} actions={actions} />
       <AwardsSection config={config} actions={actions} />
     </div>
@@ -178,15 +181,22 @@ function SettingsSection({
   const [eventName, setEventName] = useState(settings.eventName);
   const [tagline, setTagline] = useState(settings.tagline);
   const [photoShareUrl, setPhotoShareUrl] = useState(settings.photoShareUrl);
+  const [location, setLocation] = useState(settings.location);
+  const [startsAt, setStartsAt] = useState(toLocalInput(settings.startsAt));
 
   const dirty =
     eventName !== settings.eventName ||
     tagline !== settings.tagline ||
-    photoShareUrl !== settings.photoShareUrl;
+    photoShareUrl !== settings.photoShareUrl ||
+    location !== settings.location ||
+    startsAt !== toLocalInput(settings.startsAt);
 
   return (
     <Card>
-      <CardHeader title="Event" subtitle="Shown in the header on every page." />
+      <CardHeader
+        title="Event"
+        subtitle="The name shows in the header on every page; the rest on the Info page."
+      />
       <div className="space-y-4 p-4">
         <TextField
           label="Event name"
@@ -207,9 +217,139 @@ function SettingsSection({
           value={photoShareUrl}
           onChange={(event) => setPhotoShareUrl(event.target.value)}
         />
-        <Button disabled={!dirty} onClick={() => onSave({ eventName, tagline, photoShareUrl })}>
+        <TextAreaField
+          label="Location"
+          help="Anyone with the app link can see this. Leave empty to show TBA."
+          rows={2}
+          value={location}
+          onChange={(event) => setLocation(event.target.value)}
+        />
+        <TextField
+          label="Party starts at"
+          help="Leave empty to show TBA."
+          type="datetime-local"
+          value={startsAt}
+          onChange={(event) => setStartsAt(event.target.value)}
+        />
+        <Button
+          disabled={!dirty}
+          onClick={() =>
+            onSave({
+              eventName,
+              tagline,
+              photoShareUrl,
+              location,
+              startsAt: startsAt === '' ? null : new Date(startsAt).toISOString(),
+            })
+          }
+        >
           Save event details
         </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** A FAQ being edited, with a stable key so reordering keeps focus and state. */
+type FaqDraft = Faq & { key: number };
+
+let nextFaqKey = 1;
+const toDrafts = (faqs: Faq[]): FaqDraft[] => faqs.map((faq) => ({ ...faq, key: nextFaqKey++ }));
+
+function FaqSection({ faqs, onSave }: { faqs: Faq[]; onSave: (faqs: Faq[]) => void }) {
+  const [drafts, setDrafts] = useState(() => toDrafts(faqs));
+
+  const cleaned = drafts.map(({ question, answer }) => ({
+    question: question.trim(),
+    answer: answer.trim(),
+  }));
+  const dirty = JSON.stringify(cleaned) !== JSON.stringify(faqs);
+  const incomplete = cleaned.some((faq) => faq.question === '' || faq.answer === '');
+
+  const update = (key: number, patch: Partial<Faq>) =>
+    setDrafts((list) => list.map((d) => (d.key === key ? { ...d, ...patch } : d)));
+  const move = (index: number, direction: -1 | 1) =>
+    setDrafts((list) => {
+      const next = [...list];
+      [next[index], next[index + direction]] = [next[index + direction]!, next[index]!];
+      return next;
+    });
+
+  return (
+    <Card>
+      <CardHeader title="FAQ" subtitle="Shown on the Info page, in this order." />
+      <div className="space-y-4 p-4">
+        {drafts.map((draft, index) => (
+          <div key={draft.key} className="space-y-2 rounded-xl border border-black/10 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold">Question {index + 1}</h3>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Move question ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => move(index, -1)}
+                >
+                  <ChevronUp className="size-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Move question ${index + 1} down`}
+                  disabled={index === drafts.length - 1}
+                  onClick={() => move(index, 1)}
+                >
+                  <ChevronDown className="size-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Remove question ${index + 1}`}
+                  onClick={() => setDrafts((list) => list.filter((d) => d.key !== draft.key))}
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+            <TextField
+              label="Question"
+              maxLength={200}
+              value={draft.question}
+              onChange={(event) => update(draft.key, { question: event.target.value })}
+            />
+            <TextAreaField
+              label="Answer"
+              maxLength={2000}
+              rows={3}
+              value={draft.answer}
+              onChange={(event) => update(draft.key, { answer: event.target.value })}
+            />
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            disabled={drafts.length >= FAQS_MAX}
+            onClick={() =>
+              setDrafts((list) => [...list, { question: '', answer: '', key: nextFaqKey++ }])
+            }
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Add question
+          </Button>
+          <Button disabled={!dirty || incomplete} onClick={() => onSave(cleaned)}>
+            Save FAQ
+          </Button>
+          {dirty ? (
+            <Button variant="ghost" onClick={() => setDrafts(toDrafts(faqs))}>
+              Discard changes
+            </Button>
+          ) : null}
+        </div>
+        {incomplete ? (
+          <p className="text-sm text-ink-muted">Every question needs an answer before saving.</p>
+        ) : null}
       </div>
     </Card>
   );
