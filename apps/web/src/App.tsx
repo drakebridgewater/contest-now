@@ -6,6 +6,8 @@ import { AppLayout } from './components/AppLayout.tsx';
 import { ToastProvider } from './components/ui/Toast.tsx';
 import { useMe } from './lib/queries.ts';
 import { AdminPage } from './routes/AdminPage.tsx';
+import { DetailsPage } from './routes/DetailsPage.tsx';
+import { FaqPage } from './routes/FaqPage.tsx';
 import { RegisterPage } from './routes/RegisterPage.tsx';
 import { SubmitPage } from './routes/SubmitPage.tsx';
 import { VotePage } from './routes/VotePage.tsx';
@@ -23,6 +25,8 @@ const router = createBrowserRouter([
     Component: AppLayout,
     children: [
       { index: true, Component: Home },
+      { path: 'details', Component: DetailsPage },
+      { path: 'faq', Component: FaqPage },
       { path: 'register', Component: RegisterPage },
       { path: 'rsvp', element: <Navigate to="/register" replace /> },
       { path: 'submit', Component: SubmitPage },

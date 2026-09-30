@@ -1,8 +1,17 @@
-import { Camera, ClipboardList, Images, PartyPopper, Trophy } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router';
+import { Camera, ClipboardList, Images, Info, PartyPopper, Trophy } from 'lucide-react';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { useContest } from '../lib/queries.ts';
 
-const TABS: { to: string; label: string; shortLabel?: string; Icon: typeof Trophy }[] = [
+const TABS: {
+  to: string;
+  label: string;
+  shortLabel?: string;
+  Icon: typeof Trophy;
+  /** Other paths that light this tab up too. */
+  alsoActive?: string[];
+}[] = [
+  // Details and FAQ share one tab so the phone tab bar keeps its width.
+  { to: '/details', label: 'Info', Icon: Info, alsoActive: ['/faq'] },
   { to: '/register', label: 'RSVP', Icon: PartyPopper },
   { to: '/submit', label: 'Submit', Icon: Camera },
   { to: '/vote', label: 'Vote', Icon: ClipboardList },
@@ -13,6 +22,7 @@ const TABS: { to: string; label: string; shortLabel?: string; Icon: typeof Troph
 export function AppLayout() {
   const contest = useContest();
   const settings = contest.data?.settings;
+  const { pathname } = useLocation();
 
   return (
     <div className="min-h-dvh">
@@ -31,13 +41,15 @@ export function AppLayout() {
           </div>
 
           <nav className="hidden gap-1 sm:flex" aria-label="Main">
-            {TABS.map(({ to, label, Icon }) => (
+            {TABS.map(({ to, label, Icon, alsoActive }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
                   `tap-target inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
-                    isActive ? 'bg-white text-brand-700' : 'text-white/90 hover:bg-white/15'
+                    isActive || alsoActive?.includes(pathname)
+                      ? 'bg-white text-brand-700'
+                      : 'text-white/90 hover:bg-white/15'
                   }`
                 }
               >
@@ -87,20 +99,22 @@ export function AppLayout() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="mx-auto flex max-w-lg">
-          {TABS.map(({ to, label, shortLabel, Icon }) => (
+          {TABS.map(({ to, label, shortLabel, Icon, alsoActive }) => (
             <li key={to} className="flex-1">
               <NavLink
                 to={to}
                 className={({ isActive }) =>
                   `flex flex-col items-center gap-0.5 py-2 text-center text-xs leading-tight font-semibold ${
-                    isActive ? 'text-brand-700' : 'text-ink-muted'
+                    isActive || alsoActive?.includes(pathname) ? 'text-brand-700' : 'text-ink-muted'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
                     <Icon
-                      className={isActive ? 'size-6' : 'size-6 opacity-70'}
+                      className={
+                        isActive || alsoActive?.includes(pathname) ? 'size-6' : 'size-6 opacity-70'
+                      }
                       aria-hidden="true"
                     />
                     <span className="whitespace-pre-line">{shortLabel ?? label}</span>
