@@ -9,6 +9,10 @@ const config: ContestConfig = {
     eventName: 'PDXmas',
     tagline: 'Food & drink',
     photoShareUrl: '',
+    location: '',
+    startsAt: null,
+    faqs: [],
+    knownAllergies: [],
     votingOpen: true,
     votingOpensAt: null,
     submissionsOpen: true,
@@ -160,6 +164,46 @@ describe('SetupTab', () => {
       const actions = renderSetup();
       await user.click(screen.getByRole('switch', { name: /Accepting entries/ }));
       expect(actions.saveSettings).toHaveBeenCalledWith({ submissionsOpen: false });
+    });
+  });
+
+  describe('event info', () => {
+    it('saves the location and start time with the event details', async () => {
+      const user = userEvent.setup();
+      const actions = renderSetup();
+      await user.type(screen.getByLabelText('Location'), '123 Elm St');
+      await user.type(screen.getByLabelText('Party starts at'), '2026-12-19T18:00');
+      await user.click(screen.getByRole('button', { name: 'Save event details' }));
+      expect(actions.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: '123 Elm St',
+          startsAt: new Date('2026-12-19T18:00').toISOString(),
+        }),
+      );
+    });
+
+    it('saves the host’s known allergies', async () => {
+      const user = userEvent.setup();
+      const actions = renderSetup();
+      const save = screen.getByRole('button', { name: 'Save allergies' });
+      expect(save).toBeDisabled();
+      await user.click(screen.getByRole('button', { name: 'Dairy' }));
+      await user.click(save);
+      expect(actions.saveSettings).toHaveBeenCalledWith({ knownAllergies: ['dairy'] });
+    });
+
+    it('adds a FAQ and saves it only once it has an answer', async () => {
+      const user = userEvent.setup();
+      const actions = renderSetup();
+      const save = screen.getByRole('button', { name: 'Save FAQ' });
+      await user.click(screen.getByRole('button', { name: 'Add question' }));
+      await user.type(screen.getByLabelText('Question'), ' Parking? ');
+      expect(save).toBeDisabled();
+      await user.type(screen.getByLabelText('Answer'), 'On the street.');
+      await user.click(save);
+      expect(actions.saveSettings).toHaveBeenCalledWith({
+        faqs: [{ question: 'Parking?', answer: 'On the street.' }],
+      });
     });
   });
 });

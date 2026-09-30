@@ -48,7 +48,11 @@ export function RegisterPage() {
     inviteTried.current = true;
     api
       .inviteSignIn(invite)
-      .then(() => queryClient.removeQueries({ queryKey: queryKeys.me }))
+      .then(() => {
+        queryClient.removeQueries({ queryKey: queryKeys.me });
+        // Signed-in guests see more of the event, like its address.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.contest });
+      })
       .catch((error: unknown) =>
         setInviteError(errorMessage(error, 'That invite link did not work.')),
       )

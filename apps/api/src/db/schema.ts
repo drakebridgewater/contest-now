@@ -1,9 +1,11 @@
+import type { Faq } from '@contest/shared';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   real,
@@ -24,6 +26,13 @@ export const eventSettings = pgTable(
     eventName: text().notNull(),
     tagline: text().notNull().default(''),
     photoShareUrl: text().notNull().default(''),
+    location: text().notNull().default(''),
+    startsAt: timestamp({ withTimezone: true }),
+    faqs: jsonb().$type<Faq[]>().notNull().default([]),
+    knownAllergies: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     votingOpen: boolean().notNull().default(true),
     votingOpensAt: timestamp({ withTimezone: true }),
     submissionsOpen: boolean().notNull().default(true),

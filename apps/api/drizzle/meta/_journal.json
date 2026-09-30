@@ -8,6 +8,20 @@
       "when": 1790687430831,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790737969691,
+      "tag": "0001_event_info",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790738416709,
+      "tag": "0002_known_allergies",
+      "breakpoints": true
     }
   ]
 }

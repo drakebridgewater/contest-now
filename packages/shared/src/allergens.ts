@@ -39,6 +39,7 @@ export const ALLERGENS: readonly AllergenOption[] = [
   { id: 'chocolate', label: 'Chocolate', emoji: '🍫' },
   { id: 'coconut', label: 'Coconut', emoji: '🥥' },
   { id: 'cranberries', label: 'Cranberries', emoji: '🔴' },
+  { id: 'lentils', label: 'Lentils', emoji: '🫘' },
   { id: 'chamomile', label: 'Chamomile / Calendula', emoji: '🌼' },
   { id: 'alcohol', label: 'Alcohol', emoji: '🍷' },
   {

@@ -15,7 +15,7 @@ import { getContestConfig } from '../../services/contest.ts';
 import { createEntry, listEntries, type PhotoStorage } from '../../services/entries.ts';
 import { deleteBallot, getVoterState, upsertBallot, upsertVote } from '../../services/votes.ts';
 import { badRequest, parse, unsupportedMedia } from '../errors.ts';
-import { guestOf, requireGuest } from '../middleware/guestAuth.ts';
+import { guestOf, requireGuest, sessionScope } from '../middleware/guestAuth.ts';
 
 const EntryId = z.coerce.number().int().positive();
 const AwardId = z.string().min(1);
@@ -52,8 +52,11 @@ export function publicRoutes(db: Db, auth: Auth, storage: PhotoStorage): Router 
     },
   });
 
-  router.get('/contest', async (_req, res) => {
-    res.json(await getContestConfig(db));
+  router.get('/contest', async (req, res) => {
+    const config = await getContestConfig(db);
+    // The address is for invited guests: a magic link or invite, not a name typed on the tablet.
+    if ((await sessionScope(auth, req)) !== 'full') config.settings.location = '';
+    res.set('Cache-Control', 'private, no-cache').json(config);
   });
 
   router.get('/entries', async (_req, res) => {

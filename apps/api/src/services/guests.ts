@@ -246,7 +246,7 @@ export async function listGuestNames(db: Db): Promise<GuestName[]> {
 }
 
 export async function rsvpSummary(db: Db): Promise<RsvpSummary> {
-  const [statusRows, plusOneRow, preregRows] = await Promise.all([
+  const [statusRows, plusOneRow, preregRows, allergyRows] = await Promise.all([
     db
       .select({ status: guests.rsvpStatus, count: sql<number>`count(*)::int` })
       .from(guests)
@@ -265,6 +265,10 @@ export async function rsvpSummary(db: Db): Promise<RsvpSummary> {
       .innerJoin(guests, eq(guests.id, guestPreregistrations.guestId))
       .where(ne(guests.rsvpStatus, 'no'))
       .groupBy(guestPreregistrations.categoryId),
+    db
+      .selectDistinct({ allergy: sql<string>`unnest(${guests.allergies})` })
+      .from(guests)
+      .where(ne(guests.rsvpStatus, 'no')),
   ]);
   const count = (status: RsvpStatus) => statusRows.find((r) => r.status === status)?.count ?? 0;
   const plusOnes = plusOneRow?.count ?? 0;
@@ -276,6 +280,7 @@ export async function rsvpSummary(db: Db): Promise<RsvpSummary> {
     plusOnes,
     headcount: count('yes') + plusOnes,
     preregistered: Object.fromEntries(preregRows.map((r) => [r.categoryId, r.count])),
+    allergies: allergyRows.map((r) => r.allergy).sort(),
   };
 }
 

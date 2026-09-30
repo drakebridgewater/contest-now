@@ -61,6 +61,44 @@ describe('admin setup', () => {
     expect(pub.body.settings.photoShareUrl).toBe('https://photos.example/x');
   });
 
+  it('starts with the default FAQ and saves location, start time and FAQ', async () => {
+    const before = await ctx.api.get('/api/contest');
+    expect(before.body.settings).toMatchObject({ location: '', startsAt: null });
+    expect(before.body.settings.faqs.length).toBeGreaterThan(0);
+    expect(before.body.settings.knownAllergies).toContain('lentils');
+
+    const faqs = [{ question: 'Parking?', answer: 'On the street.' }];
+    const res = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ location: '123 Elm St', startsAt: '2026-12-19T18:00:00.000-08:00', faqs });
+    expect(res.status).toBe(200);
+    // Admin view: the public one hides the address from signed-out visitors.
+    const saved = await ctx.api.get('/api/admin/config').set(ctx.admin);
+    expect(saved.body.settings).toMatchObject({
+      location: '123 Elm St',
+      startsAt: '2026-12-20T02:00:00.000Z',
+      faqs,
+    });
+
+    const allergies = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ knownAllergies: ['fish', 'soy', 'fish'] });
+    expect(allergies.body.knownAllergies).toEqual(['fish', 'soy']);
+    const unknown = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ knownAllergies: ['vegan'] });
+    expect(unknown.status).toBe(400);
+
+    const blank = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ faqs: [{ question: 'Half a question', answer: ' ' }] });
+    expect(blank.status).toBe(400);
+  });
+
   it('rejects an invalid photo url', async () => {
     const res = await ctx.api
       .put('/api/admin/settings')

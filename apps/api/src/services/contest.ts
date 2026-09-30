@@ -45,13 +45,15 @@ export async function getSettings(db: Db): Promise<EventSettings> {
 
 export async function updateSettings(db: Db, input: SettingsInput): Promise<EventSettings> {
   await getSettings(db);
-  const { votingOpensAt, submissionsOpenAt, ...rest } = input;
+  const { votingOpensAt, submissionsOpenAt, startsAt, knownAllergies, ...rest } = input;
   const row = await db
     .update(eventSettings)
     .set({
       ...rest,
       ...(votingOpensAt !== undefined ? { votingOpensAt: toDate(votingOpensAt) } : {}),
       ...(submissionsOpenAt !== undefined ? { submissionsOpenAt: toDate(submissionsOpenAt) } : {}),
+      ...(startsAt !== undefined ? { startsAt: toDate(startsAt) } : {}),
+      ...(knownAllergies !== undefined ? { knownAllergies: [...new Set(knownAllergies)] } : {}),
       updatedAt: new Date(),
     })
     .where(eq(eventSettings.id, 1))
@@ -66,6 +68,10 @@ function toSettings(row: typeof eventSettings.$inferSelect): EventSettings {
     eventName: row.eventName,
     tagline: row.tagline,
     photoShareUrl: row.photoShareUrl,
+    location: row.location,
+    startsAt: row.startsAt?.toISOString() ?? null,
+    faqs: row.faqs,
+    knownAllergies: row.knownAllergies,
     votingOpen: row.votingOpen,
     votingOpensAt: row.votingOpensAt?.toISOString() ?? null,
     submissionsOpen: row.submissionsOpen,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AllergenId } from './allergens.ts';
 import { Slug } from './slug.ts';
 
 const ShortText = (max: number) => z.string().trim().max(max);
@@ -39,10 +40,26 @@ export const AwardSchema = z.object({
 });
 export type Award = z.infer<typeof AwardSchema>;
 
+export const FAQS_MAX = 50;
+
+export const FaqSchema = z.object({
+  question: ShortText(200).min(1, 'Enter a question'),
+  answer: ShortText(2000).min(1, 'Enter an answer'),
+});
+export type Faq = z.infer<typeof FaqSchema>;
+
 export const EventSettingsSchema = z.object({
   eventName: ShortText(80).min(1),
   tagline: ShortText(160),
   photoShareUrl: z.union([z.url(), z.literal('')]),
+  /** Where the party is, shown on the details page. Empty = not announced yet. */
+  location: ShortText(200),
+  /** When the party starts (ISO). Null = not announced yet. */
+  startsAt: z.iso.datetime({ offset: true }).nullable(),
+  /** The FAQ page, in display order. */
+  faqs: z.array(FaqSchema).max(FAQS_MAX),
+  /** Allergies the host lists on the details page, on top of what guests report. */
+  knownAllergies: z.array(AllergenId).max(40),
   /** Manual switch: when false, votes and award ballots are read-only. */
   votingOpen: z.boolean(),
   /** Voting stays shut until this moment (ISO). Null = no wait. */
