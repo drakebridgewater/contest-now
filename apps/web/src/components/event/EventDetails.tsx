@@ -1,9 +1,8 @@
 import { labelFor } from '@contest/shared';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
-import { InfoTabs } from '../components/InfoTabs.tsx';
-import { Card, CardHeader } from '../components/ui/Card.tsx';
-import { useContest, useMe, useRsvpSummary } from '../lib/queries.ts';
+import { useContest, useMe, useRsvpSummary } from '../../lib/queries.ts';
+import { Card, CardHeader } from '../ui/Card.tsx';
+import { SectionLink } from './EventSectionNav.tsx';
 
 const startsAtFormat = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',
@@ -34,12 +33,13 @@ const APPETIZER_IDEAS = [
   'Chicken and waffle bites',
 ];
 
-export function DetailsPage() {
+/**
+ * The intro and the facts a guest needs before answering the RSVP.
+ * `meEnabled` holds off asking who we are until an invite link has been traded in.
+ */
+export function EventFacts({ meEnabled }: { meEnabled: boolean }) {
   const settings = useContest().data?.settings;
-  const me = useMe();
-  const guestAllergies = useRsvpSummary().data?.allergies ?? [];
-  // The host's list first, in their order, then anything only guests reported.
-  const allergies = [...new Set([...(settings?.knownAllergies ?? []), ...guestAllergies])];
+  const me = useMe(meEnabled);
 
   const details: { label: string; value: ReactNode }[] = [
     {
@@ -53,9 +53,9 @@ export function DetailsPage() {
         me.data?.scope === 'full' ? (
           settings?.location || 'TBA'
         ) : (
-          <Link to="/register" className="font-semibold text-brand-700 underline">
+          <SectionLink to="rsvp" className="font-semibold text-brand-700 underline">
             RSVP to see the address
-          </Link>
+          </SectionLink>
         ),
     },
     { label: 'Attire', value: 'Holiday attire' },
@@ -63,17 +63,15 @@ export function DetailsPage() {
     {
       label: 'RSVP',
       value: (
-        <Link to="/register" className="font-semibold text-brand-700 underline">
+        <SectionLink to="rsvp" className="font-semibold text-brand-700 underline">
           Required; okay to bring a +1
-        </Link>
+        </SectionLink>
       ),
     },
   ];
 
   return (
-    <div className="space-y-4">
-      <InfoTabs />
-
+    <>
       <Card className="px-4 py-5">
         <h2 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
           It’s nearly Xmas! 🎄
@@ -99,7 +97,19 @@ export function DetailsPage() {
           ))}
         </dl>
       </Card>
+    </>
+  );
+}
 
+/** The allergy list and the competition rules: worth reading, but not before answering. */
+export function EventExtras() {
+  const settings = useContest().data?.settings;
+  const guestAllergies = useRsvpSummary().data?.allergies ?? [];
+  // The host's list first, in their order, then anything only guests reported.
+  const allergies = [...new Set([...(settings?.knownAllergies ?? []), ...guestAllergies])];
+
+  return (
+    <>
       {allergies.length > 0 ? (
         <Card className="border-amber-300 bg-amber-50 px-4 py-4 text-amber-950">
           <h2 className="text-lg font-bold">Known allergies</h2>
@@ -156,6 +166,6 @@ export function DetailsPage() {
           </ul>
         </div>
       </Card>
-    </div>
+    </>
   );
 }

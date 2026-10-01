@@ -1,15 +1,13 @@
 import { ChevronDown } from 'lucide-react';
-import { InfoTabs } from '../components/InfoTabs.tsx';
-import { Card } from '../components/ui/Card.tsx';
-import { useContest } from '../lib/queries.ts';
+import { useContest } from '../../lib/queries.ts';
+import { Card } from '../ui/Card.tsx';
 
-export function FaqPage() {
+export function FaqSection() {
   const contest = useContest();
   const faqs = contest.data?.settings.faqs ?? [];
 
   return (
-    <div className="space-y-4">
-      <InfoTabs />
+    <>
       <h2 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
         Frequently asked questions
       </h2>
@@ -30,6 +28,6 @@ export function FaqPage() {
           </details>
         ))}
       </Card>
-    </div>
+    </>
   );
 }

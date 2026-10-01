@@ -6,9 +6,7 @@ import { AppLayout } from './components/AppLayout.tsx';
 import { ToastProvider } from './components/ui/Toast.tsx';
 import { useMe } from './lib/queries.ts';
 import { AdminPage } from './routes/AdminPage.tsx';
-import { DetailsPage } from './routes/DetailsPage.tsx';
-import { FaqPage } from './routes/FaqPage.tsx';
-import { RegisterPage } from './routes/RegisterPage.tsx';
+import { EventPage, ToEvent } from './routes/EventPage.tsx';
 import { SubmitPage } from './routes/SubmitPage.tsx';
 import { VotePage } from './routes/VotePage.tsx';
 
@@ -25,10 +23,12 @@ const router = createBrowserRouter([
     Component: AppLayout,
     children: [
       { index: true, Component: Home },
-      { path: 'details', Component: DetailsPage },
-      { path: 'faq', Component: FaqPage },
-      { path: 'register', Component: RegisterPage },
-      { path: 'rsvp', element: <Navigate to="/register" replace /> },
+      { path: 'event', Component: EventPage },
+      // Old pages, and links in emails already sent, all open the Event page.
+      { path: 'details', element: <ToEvent /> },
+      { path: 'faq', element: <ToEvent hash="#faq" /> },
+      { path: 'register', element: <ToEvent /> },
+      { path: 'rsvp', element: <ToEvent /> },
       { path: 'submit', Component: SubmitPage },
       { path: 'vote', Component: VotePage },
       { path: 'admin', Component: AdminPage },
@@ -38,11 +38,11 @@ const router = createBrowserRouter([
   },
 ]);
 
-/** Guests who are signed in land on voting; everyone else on the RSVP. */
+/** Guests who are signed in land on voting; everyone else on the event and its RSVP. */
 function Home() {
   const me = useMe();
   if (me.isLoading) return null;
-  return <Navigate to={me.data ? '/vote' : '/register'} replace />;
+  return <Navigate to={me.data ? '/vote' : '/event'} replace />;
 }
 
 export function App() {

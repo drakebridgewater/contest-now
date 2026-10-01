@@ -67,7 +67,7 @@ describe('custom email', () => {
     expect(res.body.sent).toBe(1);
     const message = ctx.mail.sent.at(-1)!;
     const url = lastLinkTo(ctx, 'robin@example.com');
-    expect(url.startsWith(`${PUBLIC_URL}/register?invite=`)).toBe(true);
+    expect(url.startsWith(`${PUBLIC_URL}/event?invite=`)).toBe(true);
     expect(message.html).toContain(`href="${url}"`);
     expect((await guest('Robin')).inviteStatus).toBe('sent');
 
@@ -130,7 +130,7 @@ describe('custom email', () => {
       .send({ subject: 'Hi {{ guest_name }}', html: '<p><a href="{{ rsvp_link }}">RSVP</a></p>' });
     expect(res.status).toBe(200);
     expect(res.body.subject).toBe('Hi Sam Sample');
-    expect(res.body.html).toContain(`${PUBLIC_URL}/register?invite=preview`);
+    expect(res.body.html).toContain(`${PUBLIC_URL}/event?invite=preview`);
     expect(ctx.mail.sent.length).toBe(sentBefore);
     expect((await guest('Robin')).inviteStatus).toBe(before);
   });

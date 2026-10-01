@@ -25,7 +25,7 @@ async function openMagicLink(email: string): Promise<Agent> {
   const device = ctx.device();
   const res = await device.get(url.pathname + url.search);
   expect(res.status).toBe(302);
-  expect(res.headers.location).toBe(`${PUBLIC_URL}/register`);
+  expect(res.headers.location).toBe(`${PUBLIC_URL}/event`);
   return device;
 }
 
@@ -194,7 +194,7 @@ describe('host invites', () => {
 
   it('an invite link signs the guest in with a pre-filled RSVP, and stays usable', async () => {
     const url = lastLinkTo(ctx, 'pat@example.com');
-    expect(url.startsWith(`${PUBLIC_URL}/register?invite=`)).toBe(true);
+    expect(url.startsWith(`${PUBLIC_URL}/event?invite=`)).toBe(true);
     const phone = await openInvite(url);
     expect((await phone.get('/api/me/profile')).body).toMatchObject({
       name: 'Pat Lee',
