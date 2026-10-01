@@ -48,6 +48,16 @@ export const FaqSchema = z.object({
 });
 export type Faq = z.infer<typeof FaqSchema>;
 
+export const SCHEDULE_MAX = 30;
+
+/** One line of the evening's timeline, added by the host. */
+export const ScheduleItemSchema = z.object({
+  at: z.iso.datetime({ offset: true }),
+  title: ShortText(80).min(1, 'Name this item'),
+  details: ShortText(300),
+});
+export type ScheduleItem = z.infer<typeof ScheduleItemSchema>;
+
 export const EventSettingsSchema = z.object({
   eventName: ShortText(80).min(1),
   tagline: ShortText(160),
@@ -58,6 +68,8 @@ export const EventSettingsSchema = z.object({
   startsAt: z.iso.datetime({ offset: true }).nullable(),
   /** The FAQ page, in display order. */
   faqs: z.array(FaqSchema).max(FAQS_MAX),
+  /** The host's timeline items, in time order. The start, entry and voting times are added to it for guests. */
+  schedule: z.array(ScheduleItemSchema).max(SCHEDULE_MAX),
   /** Allergies the host lists on the details page, on top of what guests report. */
   knownAllergies: z.array(AllergenId).max(40),
   /** Manual switch: when false, votes and award ballots are read-only. */

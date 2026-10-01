@@ -1,4 +1,4 @@
-import type { Faq } from '@contest/shared';
+import type { Faq, ScheduleItem } from '@contest/shared';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -29,6 +29,7 @@ export const eventSettings = pgTable(
     location: text().notNull().default(''),
     startsAt: timestamp({ withTimezone: true }),
     faqs: jsonb().$type<Faq[]>().notNull().default([]),
+    schedule: jsonb().$type<ScheduleItem[]>().notNull().default([]),
     knownAllergies: text()
       .array()
       .notNull()

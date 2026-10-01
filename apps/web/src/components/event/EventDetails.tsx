@@ -1,6 +1,6 @@
-import { labelFor } from '@contest/shared';
+import { activeSorted } from '@contest/shared';
 import type { ReactNode } from 'react';
-import { useContest, useMe, useRsvpSummary } from '../../lib/queries.ts';
+import { useContest, useMe } from '../../lib/queries.ts';
 import { Card, CardHeader } from '../ui/Card.tsx';
 import { SectionLink } from './EventSectionNav.tsx';
 
@@ -12,13 +12,7 @@ const startsAtFormat = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 });
 
-// The rest of the page is static copy: edit here for next year's party.
-const CHALLENGES = [
-  { emoji: '🥟', name: 'Appetizer Challenge' },
-  { emoji: '🍰', name: 'Holiday Dessert Challenge' },
-  { emoji: '🍹', name: 'Cocktail Challenge' },
-];
-
+// The rules and ideas are static copy: edit here for next year's party.
 const RULES = [
   'There is no limit to how many entries you bring.',
   'You must bake your own baked goods (box cake = okay, purchased cake = no).',
@@ -101,71 +95,68 @@ export function EventFacts({ meEnabled }: { meEnabled: boolean }) {
   );
 }
 
-/** The allergy list and the competition rules: worth reading, but not before answering. */
+/** The competitions, awards and rules: worth reading, but not before answering. */
 export function EventExtras() {
-  const settings = useContest().data?.settings;
-  const guestAllergies = useRsvpSummary().data?.allergies ?? [];
-  // The host's list first, in their order, then anything only guests reported.
-  const allergies = [...new Set([...(settings?.knownAllergies ?? []), ...guestAllergies])];
+  const contest = useContest().data;
+  const categories = activeSorted(contest?.categories ?? []);
+  const awards = activeSorted(contest?.awards ?? []);
 
   return (
-    <>
-      {allergies.length > 0 ? (
-        <Card className="border-amber-300 bg-amber-50 px-4 py-4 text-amber-950">
-          <h2 className="text-lg font-bold">Known allergies</h2>
-          <p className="mt-1 text-sm">
-            You can still use these ingredients, but please mention them when you arrive so we can
-            put up the right signage.
-          </p>
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {allergies.map((id) => {
-              const { label, emoji } = labelFor(id);
-              return (
-                <li
-                  key={id}
-                  className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm font-medium"
-                >
-                  <span aria-hidden="true">{emoji}</span> <span>{label}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      ) : null}
-
-      <Card>
-        <CardHeader
-          title="Friendly competitions"
-          subtitle="Don your bartender getup or your apron and toque and bring a custom cocktail or tasty dish."
-        />
+    <Card>
+      <CardHeader
+        title="Friendly competitions"
+        subtitle="Don your bartender getup or your apron and toque and bring a custom cocktail or tasty dish."
+      />
+      {categories.length > 0 ? (
         <ul className="grid gap-2 px-4 py-3 sm:grid-cols-3">
-          {CHALLENGES.map(({ emoji, name }) => (
-            <li
-              key={name}
-              className="flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 font-semibold"
-            >
-              <span aria-hidden="true">{emoji}</span>
-              {name}
+          {categories.map(({ id, emoji, name, description }) => (
+            <li key={id} className="rounded-lg bg-brand-50 px-3 py-2">
+              <span className="flex items-center gap-2 font-semibold">
+                <span aria-hidden="true">{emoji}</span>
+                {name}
+              </span>
+              {description ? (
+                <span className="mt-0.5 block text-sm text-ink-muted">{description}</span>
+              ) : null}
             </li>
           ))}
         </ul>
+      ) : null}
+      {awards.length > 0 ? (
         <div className="border-t border-black/5 px-4 py-3">
-          <h3 className="font-bold">Rules</h3>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {RULES.map((rule) => (
-              <li key={rule}>{rule}</li>
+          <h3 className="font-bold">Special awards</h3>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            On top of the star ratings, everyone nominates one favourite for each award.
+          </p>
+          <ul className="mt-2 space-y-2">
+            {awards.map(({ id, emoji, name, description }) => (
+              <li key={id} className="flex gap-2">
+                <span aria-hidden="true">{emoji || '🏆'}</span>
+                <span>
+                  <span className="font-semibold">{name}</span>
+                  {description ? <span className="text-ink-muted"> – {description}</span> : null}
+                </span>
+              </li>
             ))}
           </ul>
         </div>
-        <div className="border-t border-black/5 px-4 py-3">
-          <h3 className="font-bold">Appetizer ideas</h3>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {APPETIZER_IDEAS.map((idea) => (
-              <li key={idea}>{idea}</li>
-            ))}
-          </ul>
-        </div>
-      </Card>
-    </>
+      ) : null}
+      <div className="border-t border-black/5 px-4 py-3">
+        <h3 className="font-bold">Rules</h3>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          {RULES.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="border-t border-black/5 px-4 py-3">
+        <h3 className="font-bold">Appetizer ideas</h3>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          {APPETIZER_IDEAS.map((idea) => (
+            <li key={idea}>{idea}</li>
+          ))}
+        </ul>
+      </div>
+    </Card>
   );
 }

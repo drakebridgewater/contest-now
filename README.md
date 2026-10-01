@@ -122,9 +122,12 @@ name that already belongs to a different email is refused.
 **Host side.** The Guests tab under Results lists RSVP status, plus-ones,
 allergies and pre-registrations with totals. Paste a guest list ("Name, email"
 per line), email invites to everyone not yet invited, or copy a guest's personal
-link to send yourself. Making a new link revokes the old one. Setup has a
-schedule: voting and entries each have an "opens at" time, plus a switch to
-close them by hand.
+link to send yourself. Making a new link revokes the old one. The Schedule tab
+sets the party's start time, when entries and voting open (each with a switch to
+close them by hand), and the evening's timeline. Guests see the start, opening
+and timeline times merged in order on the Event page. The Friendly competitions
+card there lists the live categories and special awards, and the known allergies
+are the FAQ's first question.
 
 **Email** goes over any SMTP server (`SMTP_*` in `.env`). Without `SMTP_HOST`,
 links are written to the API log instead, which is how you follow them in

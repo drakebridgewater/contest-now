@@ -73,7 +73,7 @@ function useActiveSection(): EventSectionId {
 }
 
 /** Sticky chips that jump between the Event page's sections. */
-export function EventSectionNav() {
+export function EventSectionNav({ hidden = [] }: { hidden?: EventSectionId[] }) {
   const active = useActiveSection();
   return (
     <nav
@@ -82,7 +82,7 @@ export function EventSectionNav() {
       className="sticky z-20 -mx-4 flex gap-2 bg-surface-muted/95 px-4 py-2 backdrop-blur"
       style={{ top: 'var(--header-h, 4rem)' }}
     >
-      {EVENT_SECTIONS.map(({ id, label }) => (
+      {EVENT_SECTIONS.filter(({ id }) => !hidden.includes(id)).map(({ id, label }) => (
         <SectionLink
           key={id}
           to={id}

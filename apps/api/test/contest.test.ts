@@ -99,6 +99,30 @@ describe('admin setup', () => {
     expect(blank.status).toBe(400);
   });
 
+  it('keeps the timeline in time order, and every item needs a name', async () => {
+    const res = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({
+        schedule: [
+          { at: '2026-12-19T20:30:00-08:00', title: 'Winners announced', details: '' },
+          { at: '2026-12-19T18:00:00-08:00', title: 'Doors open', details: 'Coats upstairs' },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.schedule).toEqual([
+      { at: '2026-12-20T02:00:00.000Z', title: 'Doors open', details: 'Coats upstairs' },
+      { at: '2026-12-20T04:30:00.000Z', title: 'Winners announced', details: '' },
+    ]);
+    expect((await ctx.api.get('/api/contest')).body.settings.schedule).toHaveLength(2);
+
+    const blank = await ctx.api
+      .put('/api/admin/settings')
+      .set(ctx.admin)
+      .send({ schedule: [{ at: '2026-12-19T18:00:00Z', title: ' ', details: '' }] });
+    expect(blank.status).toBe(400);
+  });
+
   it('rejects an invalid photo url', async () => {
     const res = await ctx.api
       .put('/api/admin/settings')
