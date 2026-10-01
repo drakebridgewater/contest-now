@@ -10,7 +10,9 @@ export interface RsvpTotals {
   preregistered: Map<string, number>;
 }
 
-export function rsvpTotals(guests: readonly AdminGuest[]): RsvpTotals {
+export function rsvpTotals(allGuests: readonly AdminGuest[]): RsvpTotals {
+  // People waiting on (or turned away by) the host are not on the list yet.
+  const guests = allGuests.filter((g) => g.access !== 'requested' && g.access !== 'declined');
   const count = (status: RsvpStatus) => guests.filter((g) => g.rsvpStatus === status).length;
   const plusOnes = guests.filter((g) => g.rsvpStatus === 'yes' && g.plusOneFirstName !== '').length;
   const preregistered = new Map<string, number>();

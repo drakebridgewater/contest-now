@@ -208,8 +208,13 @@ export const guests = pgTable(
     inviteCreatedAt: timestamp({ withTimezone: true }),
     inviteSentAt: timestamp({ withTimezone: true }),
     inviteOpenedAt: timestamp({ withTimezone: true }),
+    /** GuestAccess: only 'invited' guests can get a sign-in link. */
+    access: text().notNull().default('invited'),
   },
-  (t) => [check('guests_rsvp_status', sql`${t.rsvpStatus} in ('pending', 'yes', 'maybe', 'no')`)],
+  (t) => [
+    check('guests_rsvp_status', sql`${t.rsvpStatus} in ('pending', 'yes', 'maybe', 'no')`),
+    check('guests_access', sql`${t.access} in ('invited', 'requested', 'declined', 'walk_in')`),
+  ],
 );
 
 export const guestSessions = pgTable(

@@ -15,6 +15,7 @@ const guest = (overrides: Partial<AdminGuest>): AdminGuest => ({
   allergies: [],
   preregistrations: [],
   inviteStatus: 'none',
+  access: 'invited',
   entryCount: 0,
   voteCount: 0,
   completeVoteCount: 0,

@@ -70,12 +70,39 @@ export const UpdateProfileSchema = z
   );
 export type UpdateProfile = z.infer<typeof UpdateProfileSchema>;
 
-/** Ask for a sign-in link. The name is used when the email is new to us. */
+/**
+ * Who may sign in to the RSVP. Only `invited` guests get a sign-in link:
+ * - `invited`: on the host's list, or approved by the host.
+ * - `requested`: asked to join from the RSVP page; waiting on the host.
+ * - `declined`: the host said no.
+ * - `walk_in`: only ever typed a name on the voting tablet or submit form.
+ */
+export const GUEST_ACCESS = ['invited', 'requested', 'declined', 'walk_in'] as const;
+export type GuestAccess = (typeof GUEST_ACCESS)[number];
+
+/**
+ * Ask for a sign-in link. The name is used when the email is new to us.
+ * `requestAccess` asks the host to add someone who is not on the list yet.
+ */
 export const RequestLinkSchema = z.object({
   email: z.email('Enter a valid email').trim().toLowerCase().max(200),
   name: VoterName.optional(),
+  requestAccess: z.boolean().optional(),
 });
 export type RequestLink = z.infer<typeof RequestLinkSchema>;
+
+/** A link was emailed, or a request to join was passed to the host. */
+export type RequestLinkResult = { sent: true } | { requested: true };
+
+/**
+ * Details on the 403 the RSVP page gets for someone not on the list: whether
+ * they may ask to join, or have already asked.
+ */
+export interface NotInvitedDetails {
+  notInvited: true;
+  canRequest: boolean;
+  alreadyRequested?: boolean;
+}
 
 export const VoteSignInSchema = z.object({ name: VoterName });
 export const InviteSignInSchema = z.object({ token: z.string().min(20).max(200) });
@@ -108,6 +135,7 @@ export const AdminGuestSchema = GuestProfileSchema.omit({ email: true }).extend(
   /** Empty for walk-in guests who only ever typed their name. */
   email: z.string(),
   inviteStatus: z.enum(INVITE_STATUSES),
+  access: z.enum(GUEST_ACCESS),
   entryCount: z.number().int(),
   voteCount: z.number().int(),
   completeVoteCount: z.number().int(),
@@ -122,6 +150,10 @@ export const NewGuestSchema = z.object({
   email: z.union([z.email('Enter a valid email').trim().toLowerCase(), z.literal('')]).default(''),
 });
 export type NewGuest = z.infer<typeof NewGuestSchema>;
+
+/** The host approving (`invited`) or turning down (`declined`) a guest. */
+export const SetGuestAccessSchema = z.object({ access: z.enum(['invited', 'declined']) });
+export type SetGuestAccess = z.infer<typeof SetGuestAccessSchema>;
 
 export const AddGuestsSchema = z.object({ guests: z.array(NewGuestSchema).min(1).max(500) });
 export type AddGuests = z.infer<typeof AddGuestsSchema>;

@@ -15,6 +15,7 @@ const guest = (overrides: Partial<AdminGuest>): AdminGuest => ({
   allergies: [],
   preregistrations: [],
   inviteStatus: 'none',
+  access: 'invited',
   entryCount: 0,
   voteCount: 0,
   completeVoteCount: 0,
@@ -43,6 +44,8 @@ const guests = [
   }),
   guest({ name: 'Cy', rsvpStatus: 'no', preregistrations: ['dessert'] }),
   guest({ name: 'Dee', tastedCount: 2 }),
+  guest({ name: 'Gus Ask', email: 'gus@example.com', access: 'requested' }),
+  guest({ name: 'Hal No', email: 'hal@example.com', access: 'declined' }),
 ];
 
 beforeAll(() => {
@@ -64,6 +67,7 @@ function renderTab(mailConfigured = true) {
     sendInvites: vi.fn(),
     rename: vi.fn(),
     remove: vi.fn(),
+    setAccess: vi.fn(),
   };
   render(
     <GuestsTab
@@ -131,6 +135,29 @@ describe('GuestsTab', () => {
     expect(
       await screen.findByDisplayValue('http://party.test/event?invite=abc'),
     ).toBeInTheDocument();
+  });
+
+  it('lists people asking to join apart, and approves or declines them', async () => {
+    const user = userEvent.setup();
+    const actions = renderTab();
+    const requests = screen
+      .getByText('Asking to join (1)')
+      .closest('div.rounded-card') as HTMLElement;
+    expect(within(requests).getByText('gus@example.com')).toBeInTheDocument();
+    await user.click(within(requests).getByRole('button', { name: /Approve/ }));
+    expect(actions.setAccess).toHaveBeenCalledWith(guests[4], 'invited');
+    await user.click(within(requests).getByRole('button', { name: /Decline/ }));
+    expect(actions.setAccess).toHaveBeenCalledWith(guests[4], 'declined');
+    // Not in the main list or its count.
+    expect(screen.getByRole('button', { name: 'All 5' })).toBeInTheDocument();
+  });
+
+  it('lets a declined guest back in', async () => {
+    const user = userEvent.setup();
+    const actions = renderTab();
+    expect(screen.getByText('Declined')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Let them in/ }));
+    expect(actions.setAccess).toHaveBeenCalledWith(guests[5], 'invited');
   });
 
   it('warns and hides email buttons when email is not set up', () => {

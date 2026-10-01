@@ -8,6 +8,8 @@ import {
   type GuestName,
   type GuestProfile,
   type InviteStatus,
+  type GuestAccess,
+  type NotInvitedDetails,
   type NewGuest,
   type RsvpStatus,
   type RsvpSummary,
@@ -16,7 +18,7 @@ import {
   type SessionScope,
   type UpdateProfile,
 } from '@contest/shared';
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, notInArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
 import {
   awardBallots,
@@ -24,9 +26,10 @@ import {
   entries,
   guestPreregistrations,
   guests,
+  guestSessions,
   votes,
 } from '../db/schema.ts';
-import { badRequest, conflict, notFound } from '../http/errors.ts';
+import { badRequest, conflict, HttpError, notFound } from '../http/errors.ts';
 import { linkEmail, type Mailer } from './mailer.ts';
 import { listVoters } from './votes.ts';
 
@@ -92,7 +95,7 @@ export async function findOrCreateGuestByName(
   if (existing) return existing;
   await db
     .insert(guests)
-    .values({ id: randomUUID(), name, email: placeholderEmail(), nameKey: key })
+    .values({ id: randomUUID(), name, email: placeholderEmail(), nameKey: key, access: 'walk_in' })
     .onConflictDoNothing({ target: guests.nameKey });
   // Re-read: a second tablet may have typed the same name at the same moment.
   const row = await guestByKey(db, key);
@@ -191,24 +194,43 @@ export async function updateProfile(
   return getProfile(db, guestId);
 }
 
+/** The 403 for someone the host has not invited. */
+function notInvited(details: Omit<NotInvitedDetails, 'notInvited'>) {
+  const message = details.alreadyRequested
+    ? 'You’ve asked to join. The host will email you once they’ve added you.'
+    : 'You’re not on the guest list yet.';
+  return new HttpError(403, message, { notInvited: true, ...details } satisfies NotInvitedDetails);
+}
+
 /**
- * Makes sure a guest owns `email` before a sign-in link is mailed to it.
+ * Decides what the RSVP page's "email me a link" does for `email`. Only guests
+ * the host invited (or approved) get a sign-in link; anyone else is told they
+ * are not on the list, and may ask to join (`requestAccess`), which leaves them
+ * `requested` until the host approves or declines.
  *
- * - The email is known: that guest.
- * - A name-only guest has this name (they voted on the tablet or brought a dish
- *   before RSVPing): the email is attached to them, so their votes and entries
- *   follow. It stays unverified until the link is used.
+ * - The email is known: that guest, if invited.
+ * - A name-only guest has this name (the host added them by name, or they voted
+ *   on the tablet or brought a dish before RSVPing): the email is attached to
+ *   them, so their votes and entries follow. It stays unverified until the link
+ *   is used. A walk-in still has to ask to join.
  * - The name belongs to someone with a different email: refused, rather than
  *   letting a stranger take over an RSVP by typing its name.
- * - Otherwise a new guest.
+ * - Otherwise, with `requestAccess`, a new guest waiting on the host.
  */
-export async function ensureGuestForEmail(
+export async function prepareSignIn(
   db: Db,
   email: string,
   rawName: string | undefined,
-): Promise<GuestRow> {
+  requestAccess = false,
+): Promise<{ guest: GuestRow; outcome: 'link' | 'requested' }> {
   const byEmail = await guestByEmail(db, email);
-  if (byEmail) return byEmail;
+  if (byEmail) {
+    if (byEmail.access === 'invited') return { guest: byEmail, outcome: 'link' };
+    throw notInvited({
+      canRequest: false,
+      alreadyRequested: byEmail.access === 'requested',
+    });
+  }
   if (!rawName) {
     throw badRequest('We don’t have that email yet. Tell us your name too.', { needsName: true });
   }
@@ -221,27 +243,44 @@ export async function ensureGuestForEmail(
         `“${name}” has already RSVP'd with a different email. Use that email, or add a surname if you are someone else.`,
       );
     }
+    const invited = byName.access === 'invited';
+    if (!invited && (byName.access === 'declined' || !requestAccess)) {
+      throw notInvited({ canRequest: byName.access !== 'declined' });
+    }
+    const access = invited ? 'invited' : 'requested';
     await db
       .update(guests)
-      .set({ email, emailVerified: false, updatedAt: new Date() })
+      .set({ email, emailVerified: false, access, updatedAt: new Date() })
       .where(eq(guests.id, byName.id));
-    return { ...byName, email, emailVerified: false };
+    return {
+      guest: { ...byName, email, emailVerified: false, access },
+      outcome: invited ? 'link' : 'requested',
+    };
   }
+  if (!requestAccess) throw notInvited({ canRequest: true });
   const row = await db
     .insert(guests)
-    .values({ id: randomUUID(), name, email, nameKey: key })
+    .values({ id: randomUUID(), name, email, nameKey: key, access: 'requested' })
     .returning()
     .then((r) => r[0]!);
-  return row;
+  return { guest: row, outcome: 'requested' };
+}
+
+/** Whether `email` belongs to a guest allowed a sign-in link. */
+export async function mayReceiveSignInLink(db: Db, email: string): Promise<boolean> {
+  return (await guestByEmail(db, email))?.access === 'invited';
 }
 
 // ---- public lists -------------------------------------------------------------
+
+/** People who asked to join but are not (or not yet) let in: left out of lists and counts. */
+const NOT_ON_LIST: GuestAccess[] = ['requested', 'declined'];
 
 export async function listGuestNames(db: Db): Promise<GuestName[]> {
   return db
     .select({ id: guests.id, name: guests.name })
     .from(guests)
-    .where(ne(guests.rsvpStatus, 'no'))
+    .where(and(ne(guests.rsvpStatus, 'no'), notInArray(guests.access, NOT_ON_LIST)))
     .orderBy(asc(guests.nameKey));
 }
 
@@ -250,6 +289,7 @@ export async function rsvpSummary(db: Db): Promise<RsvpSummary> {
     db
       .select({ status: guests.rsvpStatus, count: sql<number>`count(*)::int` })
       .from(guests)
+      .where(notInArray(guests.access, NOT_ON_LIST))
       .groupBy(guests.rsvpStatus),
     db
       .select({ count: sql<number>`count(*)::int` })
@@ -312,6 +352,7 @@ export async function listGuests(db: Db): Promise<AdminGuest[]> {
         preregRows.filter((p) => p.guestId === row.id).map((p) => p.categoryId),
       ),
       inviteStatus: inviteStatus(row),
+      access: row.access as GuestAccess,
       entryCount: entryRows.find((e) => e.guestId === row.id)?.count ?? 0,
       voteCount: voter?.voteCount ?? 0,
       completeVoteCount: voter?.completeVoteCount ?? 0,
@@ -328,8 +369,15 @@ export async function addGuests(db: Db, list: NewGuest[]): Promise<AddGuestsResu
     const name = tidyName(entry.name);
     const key = normalizeVoterName(name);
     const email = entry.email.toLowerCase();
-    if (email && (await guestByEmail(db, email))) {
-      result.skipped.push({ name, reason: `${email} is already on the list` });
+    const byEmail = email ? await guestByEmail(db, email) : undefined;
+    if (byEmail) {
+      // Someone who asked to join: adding them is approving them.
+      if (byEmail.access !== 'invited') {
+        await setAccess(db, byEmail.id, 'invited');
+        result.added += 1;
+      } else {
+        result.skipped.push({ name, reason: `${email} is already on the list` });
+      }
       continue;
     }
     const byName = await guestByKey(db, key);
@@ -338,7 +386,7 @@ export async function addGuests(db: Db, list: NewGuest[]): Promise<AddGuestsResu
       if (email && isPlaceholderEmail(byName.email)) {
         await db
           .update(guests)
-          .set({ email, updatedAt: new Date() })
+          .set({ email, access: 'invited', updatedAt: new Date() })
           .where(eq(guests.id, byName.id));
         result.added += 1;
       } else {
@@ -384,6 +432,32 @@ export async function deleteGuest(
   });
 }
 
+/**
+ * The host approving (`invited`) or turning down (`declined`) a guest. Declining
+ * also revokes their invite link and signs out their RSVP sessions; a tablet
+ * (`vote`) session is left alone, as anyone at the party may vote.
+ */
+export async function setAccess(
+  db: Db,
+  guestId: string,
+  access: Extract<GuestAccess, 'invited' | 'declined'>,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await getGuest(tx, guestId);
+    if (access === 'declined') {
+      await tx
+        .update(guests)
+        .set({ access, inviteTokenHash: null, updatedAt: new Date() })
+        .where(eq(guests.id, guestId));
+      await tx
+        .delete(guestSessions)
+        .where(and(eq(guestSessions.userId, guestId), eq(guestSessions.scope, 'full')));
+    } else {
+      await tx.update(guests).set({ access, updatedAt: new Date() }).where(eq(guests.id, guestId));
+    }
+  });
+}
+
 export function inviteUrl(publicUrl: string, token: string): string {
   return `${publicUrl}/event?invite=${encodeURIComponent(token)}`;
 }
@@ -402,6 +476,8 @@ export async function createInviteLink(
   await db
     .update(guests)
     .set({
+      // Making someone a link is letting them in.
+      access: 'invited',
       inviteTokenHash: hashToken(token),
       inviteCreatedAt: new Date(),
       inviteOpenedAt: null,
@@ -421,7 +497,11 @@ export async function sendInvites(
   const rows =
     'guestIds' in selector
       ? await db.select().from(guests).where(inArray(guests.id, selector.guestIds))
-      : await db.select().from(guests).where(isNull(guests.inviteSentAt));
+      : // "Everyone not yet invited" means the host's list, never people who only asked.
+        await db
+          .select()
+          .from(guests)
+          .where(and(isNull(guests.inviteSentAt), eq(guests.access, 'invited')));
   const result: SendInvitesResult = { sent: 0, skipped: 0, failed: [] };
   for (const row of rows) {
     if (isPlaceholderEmail(row.email)) {

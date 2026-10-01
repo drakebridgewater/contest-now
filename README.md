@@ -106,9 +106,18 @@ exposes anyone's contact details or plus-one. Anyone at the tablet can still
 vote under any name. That is the price of zero friction, and the host can delete
 a bogus voter from the Guests tab.
 
+**The RSVP is invite-only.** A sign-in link is only ever emailed to someone on
+the host's list. An unknown email is told it is not on the guest list and can
+ask to join. The request waits under **Asking to join** on the Guests tab, and
+nobody who is waiting sees the address or appears in the counts. Approving
+emails the guest their invite. Declining revokes their link and RSVP sessions,
+and they cannot ask again. Adding someone to the list, or making or emailing
+them a link, also lets them in.
+
 Someone who voted or brought a dish by name and RSVPs later with the same name
-is the same guest: their email is attached and their votes and entries follow.
-A name that already belongs to a different email is refused.
+is the same guest: their votes and entries follow once they are let in. A name
+the host added without an email is claimed by the first email typed with it. A
+name that already belongs to a different email is refused.
 
 **Host side.** The Guests tab under Results lists RSVP status, plus-ones,
 allergies and pre-registrations with totals. Paste a guest list ("Name, email"

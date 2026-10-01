@@ -7,6 +7,7 @@ import {
   CustomEmailSchema,
   RenameVoterSchema,
   SendInvitesSchema,
+  SetGuestAccessSchema,
   SettingsInputSchema,
 } from '@contest/shared';
 import { Router } from 'express';
@@ -36,6 +37,7 @@ import {
   listGuests,
   renameGuest,
   sendInvites,
+  setAccess,
 } from '../../services/guests.ts';
 import type { Mailer } from '../../services/mailer.ts';
 import { parse } from '../errors.ts';
@@ -128,6 +130,18 @@ export function adminRoutes(
   });
   router.delete('/guests/:id', async (req, res) => {
     res.json(await deleteGuest(db, parse(GuestId, req.params.id, 'guest id')));
+  });
+  /** Approve or decline someone; approving emails them their invite when mail works. */
+  router.put('/guests/:id/access', async (req, res) => {
+    const id = parse(GuestId, req.params.id, 'guest id');
+    const { access } = parse(SetGuestAccessSchema, req.body);
+    await setAccess(db, id, access);
+    if (access === 'invited' && mail.mailer.configured) {
+      const { eventName } = await getSettings(db);
+      res.json(await sendInvites(db, mail.mailer, mail.publicUrl, eventName, { guestIds: [id] }));
+      return;
+    }
+    res.status(204).end();
   });
   router.post('/guests/:id/invite-link', async (req, res) => {
     const id = parse(GuestId, req.params.id, 'guest id');

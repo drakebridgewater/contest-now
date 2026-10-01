@@ -160,6 +160,17 @@ export function AdminPage() {
       }, 'Invites sent'),
     rename: (guest, newName) =>
       act(() => api.renameGuest(guest.id, newName), `Renamed to ${newName}`),
+    setAccess: (guest, access) =>
+      act(
+        async () => {
+          const result = await api.setGuestAccess(guest.id, access);
+          if (result && result.failed.length > 0) {
+            toast.error(`Could not email ${guest.name}: ${result.failed[0]!.error}`);
+          }
+          return result;
+        },
+        access === 'invited' ? `${guest.name} is on the list` : `Declined ${guest.name}`,
+      ),
     remove: (guest) => {
       if (!confirm(`Delete ${guest.name} and all of their ratings and nominations?`)) return;
       act(() => api.deleteGuest(guest.id), `Deleted ${guest.name}`);

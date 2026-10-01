@@ -14,6 +14,8 @@ export const GUEST_FILTERS: readonly (readonly [GuestFilter, string])[] = [
 
 export function guestMatchesFilter(guest: AdminGuest, filter: GuestFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'uninvited') return guest.inviteStatus === 'none' && guest.email !== '';
+  if (filter === 'uninvited') {
+    return guest.inviteStatus === 'none' && guest.email !== '' && guest.access === 'invited';
+  }
   return guest.rsvpStatus === filter;
 }

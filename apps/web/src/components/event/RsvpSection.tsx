@@ -3,12 +3,13 @@ import {
   RSVP_STATUSES,
   VOTER_NAME_MIN,
   type GuestProfile,
+  type NotInvitedDetails,
   type RsvpStatus,
   type UpdateProfile,
 } from '@contest/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { LogOut, MailCheck, Send } from 'lucide-react';
+import { Hourglass, LogOut, MailCheck, Send, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, ApiRequestError } from '../../lib/api.ts';
@@ -74,12 +75,21 @@ function RequestLinkForm({
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<{ name?: string; email?: string; form?: string }>({});
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [notInvited, setNotInvited] = useState<NotInvitedDetails | null>(null);
+  const [requested, setRequested] = useState(false);
 
   const request = useMutation({
-    mutationFn: () => api.requestLink(email.trim(), name.trim()),
-    onSuccess: () => setSentTo(email.trim()),
+    mutationFn: (requestAccess: boolean) =>
+      api.requestLink(email.trim(), name.trim(), requestAccess),
+    onSuccess: (result) => {
+      setNotInvited(null);
+      if ('requested' in result) setRequested(true);
+      else setSentTo(email.trim());
+    },
     onError: (error) => {
-      if (
+      if (isNotInvited(error)) {
+        setNotInvited(error.details);
+      } else if (
         error instanceof ApiRequestError &&
         error.status === 400 &&
         /email/i.test(error.message)
@@ -96,7 +106,69 @@ function RequestLinkForm({
     if (name.trim().length < VOTER_NAME_MIN) next.name = 'Tell us your name';
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = 'Enter your email';
     setErrors(next);
-    if (Object.keys(next).length === 0) request.mutate();
+    if (Object.keys(next).length === 0) request.mutate(false);
+  }
+
+  function startOver() {
+    setSentTo(null);
+    setNotInvited(null);
+    setRequested(false);
+  }
+
+  if (requested) {
+    return (
+      <Card className="space-y-4 p-6 text-center">
+        <Hourglass className="mx-auto size-12 text-accent-600" aria-hidden="true" />
+        <div>
+          <h2 className="text-xl font-bold">Request sent</h2>
+          <p className="mt-1 text-ink-muted">
+            We’ve asked the host to add you. Once they do, you’ll get an email at{' '}
+            <strong>{email.trim()}</strong> with your RSVP link.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (notInvited) {
+    return (
+      <Card className="space-y-4 p-6 text-center">
+        <UserX className="mx-auto size-12 text-ink-muted" aria-hidden="true" />
+        <div>
+          <h2 className="text-xl font-bold">
+            {notInvited.alreadyRequested
+              ? 'You’ve already asked to join'
+              : 'You’re not on the guest list yet'}
+          </h2>
+          <p className="mt-1 text-ink-muted">
+            {notInvited.alreadyRequested ? (
+              <>
+                The host will email <strong>{email.trim()}</strong> once they’ve added you.
+              </>
+            ) : notInvited.canRequest ? (
+              <>
+                We don’t have <strong>{email.trim()}</strong> on the list. If you were invited with
+                another email, use that one. Otherwise, ask the host to add you and you’ll get your
+                RSVP link once they do.
+              </>
+            ) : (
+              <>Check you used the email your invite came to, or get in touch with the host.</>
+            )}
+          </p>
+        </div>
+        {errors.form ? <p className="text-sm font-medium text-red-700">{errors.form}</p> : null}
+        <div className="flex flex-col justify-center gap-2 sm:flex-row">
+          {notInvited.canRequest ? (
+            <Button loading={request.isPending} onClick={() => request.mutate(true)}>
+              Ask the host to add me
+            </Button>
+          ) : null}
+          <Button variant="ghost" onClick={startOver}>
+            Use a different email
+          </Button>
+        </div>
+      </Card>
+    );
   }
 
   if (sentTo) {
@@ -111,10 +183,14 @@ function RequestLinkForm({
           </p>
         </div>
         <div className="flex flex-col justify-center gap-2 sm:flex-row">
-          <Button variant="secondary" loading={request.isPending} onClick={() => request.mutate()}>
+          <Button
+            variant="secondary"
+            loading={request.isPending}
+            onClick={() => request.mutate(false)}
+          >
             Send it again
           </Button>
-          <Button variant="ghost" onClick={() => setSentTo(null)}>
+          <Button variant="ghost" onClick={startOver}>
             Use a different email
           </Button>
         </div>
@@ -127,8 +203,8 @@ function RequestLinkForm({
       <div>
         <h2 className="text-xl font-bold">RSVP</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Tell us who you are and we will email you a link to your RSVP. No password: the link is
-          your key, and you can ask for a new one any time.
+          Use the email your invite came to and we will email you a link to your RSVP. No password:
+          the link is your key, and you can ask for a new one any time.
         </p>
         {votingAs ? (
           <p className="mt-2 text-sm text-ink-muted">
@@ -164,6 +240,17 @@ function RequestLinkForm({
         Email me a link
       </Button>
     </Card>
+  );
+}
+
+/** The 403 for an email the host has not put on the guest list. */
+function isNotInvited(error: unknown): error is ApiRequestError & { details: NotInvitedDetails } {
+  return (
+    error instanceof ApiRequestError &&
+    error.status === 403 &&
+    typeof error.details === 'object' &&
+    error.details !== null &&
+    'notInvited' in error.details
   );
 }
 

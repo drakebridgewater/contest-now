@@ -248,7 +248,11 @@ export function EmailTab({
 
   useEffect(() => saveDraft({ subject, html }), [subject, html]);
 
-  const withEmail = useMemo(() => guests.filter((g) => g.email !== ''), [guests]);
+  // Not people waiting on (or turned away by) the host.
+  const withEmail = useMemo(
+    () => guests.filter((g) => g.email !== '' && g.access === 'invited'),
+    [guests],
+  );
   const shown = useMemo(
     () => withEmail.filter((guest) => guestMatchesFilter(guest, filter)),
     [withEmail, filter],
