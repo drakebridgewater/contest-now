@@ -106,16 +106,28 @@ exposes anyone's contact details or plus-one. Anyone at the tablet can still
 vote under any name. That is the price of zero friction, and the host can delete
 a bogus voter from the Guests tab.
 
+**The RSVP is invite-only.** A sign-in link is only ever emailed to someone on
+the host's list. An unknown email is told it is not on the guest list and can
+ask to join. The request waits under **Asking to join** on the Guests tab, and
+nobody who is waiting sees the address or appears in the counts. Approving
+emails the guest their invite. Declining revokes their link and RSVP sessions,
+and they cannot ask again. Adding someone to the list, or making or emailing
+them a link, also lets them in.
+
 Someone who voted or brought a dish by name and RSVPs later with the same name
-is the same guest: their email is attached and their votes and entries follow.
-A name that already belongs to a different email is refused.
+is the same guest: their votes and entries follow once they are let in. A name
+the host added without an email is claimed by the first email typed with it. A
+name that already belongs to a different email is refused.
 
 **Host side.** The Guests tab under Results lists RSVP status, plus-ones,
 allergies and pre-registrations with totals. Paste a guest list ("Name, email"
 per line), email invites to everyone not yet invited, or copy a guest's personal
-link to send yourself. Making a new link revokes the old one. Setup has a
-schedule: voting and entries each have an "opens at" time, plus a switch to
-close them by hand.
+link to send yourself. Making a new link revokes the old one. The Schedule tab
+sets the party's start time, when entries and voting open (each with a switch to
+close them by hand), and the evening's timeline. Guests see the start, opening
+and timeline times merged in order on the Event page. The Friendly competitions
+card there lists the live categories and special awards, and the known allergies
+are the FAQ's first question.
 
 **Email** goes over any SMTP server (`SMTP_*` in `.env`). Without `SMTP_HOST`,
 links are written to the API log instead, which is how you follow them in

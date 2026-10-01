@@ -37,6 +37,19 @@ async function openInvite(url: string): Promise<Agent> {
   return device;
 }
 
+/** The host puts someone on the guest list, as the Guests tab does. */
+async function addToList(name: string, email: string): Promise<void> {
+  const res = await ctx.api
+    .post('/api/admin/guests')
+    .set(ctx.admin)
+    .send({ guests: [{ name, email }] });
+  expect(res.status).toBe(201);
+}
+
+function mailCountTo(email: string): number {
+  return ctx.mail.sent.filter((m) => m.to === email).length;
+}
+
 async function adminGuest(name: string): Promise<AdminGuest> {
   const res = await ctx.api.get('/api/admin/guests').set(ctx.admin);
   const row = (res.body as AdminGuest[]).find((g) => g.name === name);
@@ -66,7 +79,8 @@ describe('vote-page sign-in', () => {
 });
 
 describe('RSVP by magic link', () => {
-  it('creates the guest, mails a link, and the link opens a full session', async () => {
+  it('mails a guest on the list a link, and the link opens a full session', async () => {
+    await addToList('Nora Park', 'nora@example.com');
     const asked = await ctx.api
       .post('/api/rsvp/request-link')
       .send({ email: 'Nora@Example.com', name: 'Nora Park' });
@@ -110,6 +124,15 @@ describe('RSVP by magic link', () => {
     expect(unknown.body.details).toEqual({ needsName: true });
   });
 
+  it('attaches an email to a guest the host added by name only', async () => {
+    await addToList('Ravi Shah', '');
+    await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'ravi@example.com', name: 'Ravi Shah' });
+    const phone = await openMagicLink('ravi@example.com');
+    expect((await phone.get('/api/me')).body).toMatchObject({ name: 'Ravi Shah', scope: 'full' });
+  });
+
   it('a link works once', async () => {
     await ctx.api.post('/api/rsvp/request-link').send({ email: 'nora@example.com' });
     const url = new URL(lastLinkTo(ctx, 'nora@example.com'));
@@ -124,9 +147,16 @@ describe('RSVP by magic link', () => {
     const tablet = await ctx.voter('omar diaz');
     await tablet.put(`/api/votes/${entry}`).send({ tasted: true });
 
-    await ctx.api
+    // A walk-in is not on the list: they ask, the host approves, then they sign in.
+    const asked = await ctx.api
       .post('/api/rsvp/request-link')
-      .send({ email: 'omar@example.com', name: 'Omar Diaz' });
+      .send({ email: 'omar@example.com', name: 'Omar Diaz', requestAccess: true });
+    expect(asked.body).toEqual({ requested: true });
+    const omar = await adminGuest('Omar Diaz');
+    await ctx.api.put(`/api/admin/guests/${omar.id}/access`).set(ctx.admin).send({
+      access: 'invited',
+    });
+    await ctx.api.post('/api/rsvp/request-link').send({ email: 'omar@example.com' });
     const phone = await openMagicLink('omar@example.com');
     const state = await phone.get('/api/me/state');
     expect(state.body.votes[String(entry)].tasted).toBe(true);
@@ -159,6 +189,87 @@ describe('RSVP by magic link', () => {
   });
 });
 
+describe('the guest list', () => {
+  it('turns away an email the host never added, and lets them ask to join', async () => {
+    const before = ctx.mail.sent.length;
+    const res = await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'stranger@example.com', name: 'Sam Stranger' });
+    expect(res.status).toBe(403);
+    expect(res.body.details).toEqual({ notInvited: true, canRequest: true });
+    // Nothing was created by asking.
+    const all = (await ctx.api.get('/api/admin/guests').set(ctx.admin)).body as AdminGuest[];
+    expect(all.map((g) => g.name)).not.toContain('Sam Stranger');
+
+    const asked = await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'stranger@example.com', name: 'Sam Stranger', requestAccess: true });
+    expect(asked.status).toBe(202);
+    expect(asked.body).toEqual({ requested: true });
+    expect(ctx.mail.sent.length).toBe(before);
+    expect((await adminGuest('Sam Stranger')).access).toBe('requested');
+
+    const again = await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'stranger@example.com' });
+    expect(again.status).toBe(403);
+    expect(again.body.details).toMatchObject({ alreadyRequested: true, canRequest: false });
+  });
+
+  it('never mails a link to someone waiting, even through Better Auth directly', async () => {
+    const res = await ctx.api
+      .post('/api/auth/sign-in/magic-link')
+      .set('Origin', PUBLIC_URL)
+      .send({ email: 'stranger@example.com' });
+    expect(res.status).toBe(200);
+    expect(mailCountTo('stranger@example.com')).toBe(0);
+  });
+
+  it('keeps people waiting out of the public names and counts', async () => {
+    const names = (await ctx.api.get('/api/guests/names')).body as { name: string }[];
+    expect(names.map((n) => n.name)).not.toContain('Sam Stranger');
+  });
+
+  it('approving emails the invite, and declining shuts them out again', async () => {
+    const sam = await adminGuest('Sam Stranger');
+    const approved = await ctx.api
+      .put(`/api/admin/guests/${sam.id}/access`)
+      .set(ctx.admin)
+      .send({ access: 'invited' });
+    expect(approved.status).toBe(200);
+    expect(approved.body.sent).toBe(1);
+    const invite = lastLinkTo(ctx, 'stranger@example.com');
+    const phone = await openInvite(invite);
+    expect((await phone.get('/api/me/profile')).status).toBe(200);
+
+    const declined = await ctx.api
+      .put(`/api/admin/guests/${sam.id}/access`)
+      .set(ctx.admin)
+      .send({ access: 'declined' });
+    expect(declined.status).toBe(204);
+    // Their RSVP session and invite link stop working.
+    expect((await phone.get('/api/me/profile')).status).toBe(401);
+    const token = new URL(invite).searchParams.get('invite');
+    expect((await ctx.device().post('/api/auth/guest/invite').send({ token })).status).toBe(401);
+    // And asking again gets them nowhere.
+    const res = await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'stranger@example.com', requestAccess: true });
+    expect(res.status).toBe(403);
+    expect(res.body.details).toMatchObject({ canRequest: false });
+  });
+
+  it('a walk-in who typed a name on the tablet cannot claim it without asking', async () => {
+    await ctx.voter('Wanda Walker');
+    const res = await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'wanda@example.com', name: 'Wanda Walker' });
+    expect(res.status).toBe(403);
+    expect(res.body.details).toEqual({ notInvited: true, canRequest: true });
+    expect(mailCountTo('wanda@example.com')).toBe(0);
+  });
+});
+
 describe('host invites', () => {
   it('adds guests, skipping duplicates', async () => {
     const res = await ctx.api
@@ -176,13 +287,24 @@ describe('host invites', () => {
     expect(res.body.skipped).toHaveLength(1);
   });
 
+  it('adding someone who asked to join approves them', async () => {
+    await ctx.api
+      .post('/api/rsvp/request-link')
+      .send({ email: 'tia@example.com', name: 'Tia Ng', requestAccess: true });
+    await addToList('Tia Ng', 'tia@example.com');
+    expect((await adminGuest('Tia Ng')).access).toBe('invited');
+  });
+
   it('emails invites to guests with an address and not yet invited', async () => {
     const res = await ctx.api
       .post('/api/admin/guests/invite')
       .set(ctx.admin)
       .send({ uninvited: true });
     expect(res.status).toBe(200);
-    expect(res.body.sent).toBe(3); // Pat, Nora and Omar; name-only guests are skipped
+    // Pat, Nora, Ravi and Tia. Omar and Sam were mailed when approved, Sam was
+    // then declined, and name-only guests have no address.
+    expect(res.body.sent).toBe(4);
+    expect(mailCountTo('stranger@example.com')).toBe(1);
     expect(res.body.skipped).toBeGreaterThan(0);
     expect((await adminGuest('Pat Lee')).inviteStatus).toBe('sent');
     const again = await ctx.api
@@ -231,6 +353,7 @@ describe('event location', () => {
 
     expect(await location(ctx.device())).toBe('');
     expect(await location(await ctx.voter('Tablet Tess'))).toBe('');
+    await addToList('Lena Ruiz', 'lena@example.com');
     await ctx.api
       .post('/api/rsvp/request-link')
       .send({ email: 'lena@example.com', name: 'Lena Ruiz' });

@@ -1,4 +1,4 @@
-import type { Faq } from '@contest/shared';
+import type { Faq, ScheduleItem } from '@contest/shared';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -29,6 +29,7 @@ export const eventSettings = pgTable(
     location: text().notNull().default(''),
     startsAt: timestamp({ withTimezone: true }),
     faqs: jsonb().$type<Faq[]>().notNull().default([]),
+    schedule: jsonb().$type<ScheduleItem[]>().notNull().default([]),
     knownAllergies: text()
       .array()
       .notNull()
@@ -208,8 +209,13 @@ export const guests = pgTable(
     inviteCreatedAt: timestamp({ withTimezone: true }),
     inviteSentAt: timestamp({ withTimezone: true }),
     inviteOpenedAt: timestamp({ withTimezone: true }),
+    /** GuestAccess: only 'invited' guests can get a sign-in link. */
+    access: text().notNull().default('invited'),
   },
-  (t) => [check('guests_rsvp_status', sql`${t.rsvpStatus} in ('pending', 'yes', 'maybe', 'no')`)],
+  (t) => [
+    check('guests_rsvp_status', sql`${t.rsvpStatus} in ('pending', 'yes', 'maybe', 'no')`),
+    check('guests_access', sql`${t.access} in ('invited', 'requested', 'declined', 'walk_in')`),
+  ],
 );
 
 export const guestSessions = pgTable(

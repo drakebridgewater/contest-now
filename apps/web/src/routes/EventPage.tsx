@@ -5,23 +5,27 @@ import { EventExtras, EventFacts } from '../components/event/EventDetails.tsx';
 import { EventSectionNav } from '../components/event/EventSectionNav.tsx';
 import { FaqSection } from '../components/event/FaqSection.tsx';
 import { RsvpSection } from '../components/event/RsvpSection.tsx';
+import { ScheduleSection } from '../components/event/ScheduleSection.tsx';
 import { EVENT_SECTIONS, SECTION_SCROLL_MARGIN } from '../components/event/sections.ts';
 import { useContest } from '../lib/queries.ts';
+import { eventTimeline } from '../lib/timeline.ts';
 import { useInviteSignIn } from '../lib/useInviteSignIn.ts';
 
 const sectionStyle = { scrollMarginTop: SECTION_SCROLL_MARGIN };
 
 /**
  * Everything a guest needs on one page, in the order they need it: the key
- * facts, then the RSVP, then the fine print and the FAQ.
+ * facts, then the RSVP, then the fine print, the timeline and the FAQ.
  */
 export function EventPage() {
   const invite = useInviteSignIn();
+  const settings = useContest().data?.settings;
+  const hasSchedule = settings ? eventTimeline(settings).length > 0 : false;
   useScrollToHash();
 
   return (
     <div className="space-y-4">
-      <EventSectionNav />
+      <EventSectionNav hidden={hasSchedule ? [] : ['schedule']} />
 
       <section id="details" data-section="details" className="space-y-4" style={sectionStyle}>
         <EventFacts meEnabled={invite.settled} />
@@ -35,6 +39,12 @@ export function EventPage() {
       <section data-section="details" aria-label="More details" className="space-y-4">
         <EventExtras />
       </section>
+
+      {hasSchedule ? (
+        <section id="schedule" data-section="schedule" className="space-y-4" style={sectionStyle}>
+          <ScheduleSection />
+        </section>
+      ) : null}
 
       <section id="faq" data-section="faq" className="space-y-4" style={sectionStyle}>
         <FaqSection />

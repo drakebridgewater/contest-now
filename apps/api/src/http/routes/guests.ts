@@ -1,13 +1,13 @@
-import { RequestLinkSchema, UpdateProfileSchema } from '@contest/shared';
+import { RequestLinkSchema, UpdateProfileSchema, type RequestLinkResult } from '@contest/shared';
 import { fromNodeHeaders } from 'better-auth/node';
 import { Router } from 'express';
 import type { Auth } from '../../auth.ts';
 import type { Db } from '../../db/client.ts';
 import {
-  ensureGuestForEmail,
   getGuest,
   getProfile,
   listGuestNames,
+  prepareSignIn,
   rsvpSummary,
   toSessionGuest,
   updateProfile,
@@ -34,12 +34,17 @@ export function guestRoutes(db: Db, auth: Auth): Router {
   });
 
   /**
-   * Emails a sign-in link for the RSVP page. The guest is found or created here
-   * so Better Auth's magic link only ever signs in; see ensureGuestForEmail.
+   * Emails a sign-in link for the RSVP page to a guest the host invited, or
+   * passes a request to join to the host; see prepareSignIn. Guests are found
+   * or created here so Better Auth's magic link only ever signs in.
    */
   router.post('/rsvp/request-link', async (req, res) => {
-    const { email, name } = parse(RequestLinkSchema, req.body);
-    const guest = await ensureGuestForEmail(db, email, name);
+    const { email, name, requestAccess } = parse(RequestLinkSchema, req.body);
+    const { guest, outcome } = await prepareSignIn(db, email, name, requestAccess);
+    if (outcome === 'requested') {
+      res.status(202).json({ requested: true } satisfies RequestLinkResult);
+      return;
+    }
     await auth.api.signInMagicLink({
       body: {
         email: guest.email,
@@ -49,7 +54,7 @@ export function guestRoutes(db: Db, auth: Auth): Router {
       },
       headers: fromNodeHeaders(req.headers),
     });
-    res.status(202).json({ sent: true });
+    res.status(202).json({ sent: true } satisfies RequestLinkResult);
   });
 
   router.get('/rsvp/summary', async (_req, res) => {

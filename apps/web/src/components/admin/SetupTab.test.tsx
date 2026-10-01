@@ -1,5 +1,5 @@
 import type { ContestConfig } from '@contest/shared';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { SetupTab, type SetupActions } from './SetupTab.tsx';
@@ -12,6 +12,7 @@ const config: ContestConfig = {
     location: '',
     startsAt: null,
     faqs: [],
+    schedule: [],
     knownAllergies: [],
     votingOpen: true,
     votingOpensAt: null,
@@ -146,39 +147,14 @@ describe('SetupTab', () => {
     );
   });
 
-  describe('schedule', () => {
-    it('saves an opening time as an ISO instant from the local time typed', async () => {
-      const user = userEvent.setup();
-      const actions = renderSetup();
-      const input = screen.getByLabelText('Voting open at');
-      await user.type(input, '2026-12-20T19:30');
-      const section = input.closest('section')!;
-      await user.click(within(section).getByRole('button', { name: 'Save time' }));
-      expect(actions.saveSettings).toHaveBeenCalledWith({
-        votingOpensAt: new Date('2026-12-20T19:30').toISOString(),
-      });
-    });
-
-    it('has its own switch for entries, separate from voting', async () => {
-      const user = userEvent.setup();
-      const actions = renderSetup();
-      await user.click(screen.getByRole('switch', { name: /Accepting entries/ }));
-      expect(actions.saveSettings).toHaveBeenCalledWith({ submissionsOpen: false });
-    });
-  });
-
   describe('event info', () => {
-    it('saves the location and start time with the event details', async () => {
+    it('saves the location with the event details', async () => {
       const user = userEvent.setup();
       const actions = renderSetup();
       await user.type(screen.getByLabelText('Location'), '123 Elm St');
-      await user.type(screen.getByLabelText('Party starts at'), '2026-12-19T18:00');
       await user.click(screen.getByRole('button', { name: 'Save event details' }));
       expect(actions.saveSettings).toHaveBeenCalledWith(
-        expect.objectContaining({
-          location: '123 Elm St',
-          startsAt: new Date('2026-12-19T18:00').toISOString(),
-        }),
+        expect.objectContaining({ location: '123 Elm St' }),
       );
     });
 

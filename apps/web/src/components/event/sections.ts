@@ -1,6 +1,7 @@
 export const EVENT_SECTIONS = [
   { id: 'details', label: 'Details' },
   { id: 'rsvp', label: 'RSVP' },
+  { id: 'schedule', label: 'Schedule' },
   { id: 'faq', label: 'FAQ' },
 ] as const;
 

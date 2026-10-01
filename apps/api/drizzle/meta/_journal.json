@@ -22,6 +22,20 @@
       "when": 1790738416709,
       "tag": "0002_known_allergies",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790855589535,
+      "tag": "0003_guest_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790856272877,
+      "tag": "0004_event_schedule",
+      "breakpoints": true
     }
   ]
 }

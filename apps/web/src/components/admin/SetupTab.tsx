@@ -1,5 +1,4 @@
 import {
-  phaseStatus,
   type Award,
   type Category,
   type ContestConfig,
@@ -10,12 +9,10 @@ import {
 } from '@contest/shared';
 import { ChevronDown, ChevronUp, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
-import { useNow } from '../../lib/useNow.ts';
-import { opensAtText, toLocalInput, untilText } from '../../lib/time.ts';
 import { AllergenPicker } from '../submit/AllergenPicker.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Card, CardHeader } from '../ui/Card.tsx';
-import { TextAreaField, TextField, Toggle } from '../ui/Field.tsx';
+import { TextAreaField, TextField } from '../ui/Field.tsx';
 
 export interface SetupActions {
   saveSettings: (input: Partial<EventSettings>) => void;
@@ -41,7 +38,6 @@ export function SetupTab({
 }) {
   return (
     <div className="space-y-6">
-      <ScheduleSection settings={config.settings} onSave={actions.saveSettings} />
       <SettingsSection settings={config.settings} onSave={actions.saveSettings} />
       <KnownAllergiesSection
         knownAllergies={config.settings.knownAllergies}
@@ -51,128 +47,6 @@ export function SetupTab({
       <CategoriesSection config={config} hasRatings={hasRatings} actions={actions} />
       <AwardsSection config={config} actions={actions} />
     </div>
-  );
-}
-
-function ScheduleSection({
-  settings,
-  onSave,
-}: {
-  settings: EventSettings;
-  onSave: (input: Partial<EventSettings>) => void;
-}) {
-  const now = useNow(true, 30_000);
-  return (
-    <Card>
-      <CardHeader
-        title="Schedule"
-        subtitle="Guests see a countdown until each opens. The switch closes it by hand at any time."
-      />
-      <div className="space-y-5 p-4">
-        <PhaseSchedule
-          title="Entries"
-          switchLabel="Accepting entries"
-          switchHelp="Turn off to stop new dishes being submitted."
-          open={settings.submissionsOpen}
-          opensAt={settings.submissionsOpenAt}
-          now={now}
-          onOpenChange={(submissionsOpen) => onSave({ submissionsOpen })}
-          onOpensAtChange={(submissionsOpenAt) => onSave({ submissionsOpenAt })}
-        />
-        <PhaseSchedule
-          title="Voting"
-          switchLabel="Voting is open"
-          switchHelp="Turn off after the awards to freeze ratings and nominations."
-          open={settings.votingOpen}
-          opensAt={settings.votingOpensAt}
-          now={now}
-          onOpenChange={(votingOpen) => onSave({ votingOpen })}
-          onOpensAtChange={(votingOpensAt) => onSave({ votingOpensAt })}
-        />
-      </div>
-    </Card>
-  );
-}
-
-function PhaseSchedule({
-  title,
-  switchLabel,
-  switchHelp,
-  open,
-  opensAt,
-  now,
-  onOpenChange,
-  onOpensAtChange,
-}: {
-  title: string;
-  switchLabel: string;
-  switchHelp: string;
-  open: boolean;
-  opensAt: string | null;
-  now: Date;
-  onOpenChange: (open: boolean) => void;
-  onOpensAtChange: (opensAt: string | null) => void;
-}) {
-  const [draft, setDraft] = useState(toLocalInput(opensAt));
-  const status = phaseStatus(open, opensAt, now);
-  const saved = toLocalInput(opensAt);
-  const statusText =
-    status === 'open'
-      ? 'Open now'
-      : status === 'closed'
-        ? 'Closed'
-        : `Opens ${opensAtText(new Date(opensAt!), now)} (${untilText(new Date(opensAt!), now)})`;
-
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-bold">{title}</h3>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            status === 'open'
-              ? 'bg-accent-100 text-accent-700'
-              : status === 'scheduled'
-                ? 'bg-amber-50 text-amber-900'
-                : 'bg-surface-muted text-ink-muted'
-          }`}
-        >
-          {statusText}
-        </span>
-      </div>
-      <Toggle label={switchLabel} help={switchHelp} checked={open} onChange={onOpenChange} />
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <TextField
-            label={`${title} open at`}
-            help="Leave empty to open as soon as the switch is on."
-            type="datetime-local"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-        </div>
-        <Button
-          size="sm"
-          className="mb-6"
-          disabled={draft === saved || draft === ''}
-          onClick={() => onOpensAtChange(new Date(draft).toISOString())}
-        >
-          Save time
-        </Button>
-        {opensAt ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="mb-6"
-            onClick={() => {
-              setDraft('');
-              onOpensAtChange(null);
-            }}
-          >
-            Clear
-          </Button>
-        ) : null}
-      </div>
-    </section>
   );
 }
 
@@ -187,20 +61,18 @@ function SettingsSection({
   const [tagline, setTagline] = useState(settings.tagline);
   const [photoShareUrl, setPhotoShareUrl] = useState(settings.photoShareUrl);
   const [location, setLocation] = useState(settings.location);
-  const [startsAt, setStartsAt] = useState(toLocalInput(settings.startsAt));
 
   const dirty =
     eventName !== settings.eventName ||
     tagline !== settings.tagline ||
     photoShareUrl !== settings.photoShareUrl ||
-    location !== settings.location ||
-    startsAt !== toLocalInput(settings.startsAt);
+    location !== settings.location;
 
   return (
     <Card>
       <CardHeader
         title="Event"
-        subtitle="The name shows in the header on every page; the rest on the Info page."
+        subtitle="The name shows in the header on every page; the rest on the Event page. Times are on the Schedule tab."
       />
       <div className="space-y-4 p-4">
         <TextField
@@ -229,13 +101,6 @@ function SettingsSection({
           value={location}
           onChange={(event) => setLocation(event.target.value)}
         />
-        <TextField
-          label="Party starts at"
-          help="Leave empty to show TBA."
-          type="datetime-local"
-          value={startsAt}
-          onChange={(event) => setStartsAt(event.target.value)}
-        />
         <Button
           disabled={!dirty}
           onClick={() =>
@@ -244,7 +109,6 @@ function SettingsSection({
               tagline,
               photoShareUrl,
               location,
-              startsAt: startsAt === '' ? null : new Date(startsAt).toISOString(),
             })
           }
         >
@@ -269,7 +133,7 @@ function KnownAllergiesSection({
     <Card>
       <CardHeader
         title="Known allergies"
-        subtitle="Listed on the Info page. Allergies guests add to their RSVP are shown too."
+        subtitle="Answered in the FAQ on the Event page. Allergies guests add to their RSVP are listed too."
       />
       <div className="space-y-4 p-4">
         <AllergenPicker for="guest" selected={selected} onChange={setSelected} />
@@ -308,7 +172,10 @@ function FaqSection({ faqs, onSave }: { faqs: Faq[]; onSave: (faqs: Faq[]) => vo
 
   return (
     <Card>
-      <CardHeader title="FAQ" subtitle="Shown on the Info page, in this order." />
+      <CardHeader
+        title="FAQ"
+        subtitle="Shown on the Event page, in this order, after the allergies question."
+      />
       <div className="space-y-4 p-4">
         {drafts.map((draft, index) => (
           <div key={draft.key} className="space-y-2 rounded-xl border border-black/10 p-3">

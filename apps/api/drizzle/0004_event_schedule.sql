@@ -1,0 +1,1 @@
+ALTER TABLE "event_settings" ADD COLUMN "schedule" jsonb DEFAULT '[]'::jsonb NOT NULL;

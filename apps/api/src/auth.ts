@@ -14,7 +14,7 @@ import type { AppConfig } from './config.ts';
 import type { Db } from './db/client.ts';
 import { authAccounts, authVerifications, guests, guestSessions } from './db/schema.ts';
 import { linkEmail, type Mailer } from './services/mailer.ts';
-import { findOrCreateGuestByName, hashToken } from './services/guests.ts';
+import { findOrCreateGuestByName, hashToken, mayReceiveSignInLink } from './services/guests.ts';
 
 export const AUTH_BASE_PATH = '/api/auth';
 /** A sign-in link from the RSVP page: short, it is used right away. */
@@ -45,11 +45,16 @@ function guestPlugin(db: Db) {
         { method: 'POST', body: InviteSignInSchema, use: [formCsrfMiddleware] },
         async (ctx) => {
           const guest = await db
-            .select({ id: guests.id, inviteOpenedAt: guests.inviteOpenedAt })
+            .select({
+              id: guests.id,
+              inviteOpenedAt: guests.inviteOpenedAt,
+              access: guests.access,
+            })
             .from(guests)
             .where(eq(guests.inviteTokenHash, hashToken(ctx.body.token)))
             .then((rows) => rows[0]);
-          if (!guest) {
+          // Declining a guest clears their link too; the access check is a backstop.
+          if (!guest || guest.access !== 'invited') {
             throw new APIError('UNAUTHORIZED', {
               message: 'This invite link is no longer valid. Ask the host for a new one.',
             });
@@ -150,6 +155,9 @@ export function createAuth(db: Db, config: AuthConfig, mailer: Mailer) {
         storeToken: 'hashed',
         sendMagicLink: async ({ email, url, metadata }) => {
           if (isPlaceholderEmail(email)) return;
+          // Better Auth's own /sign-in/magic-link endpoint is public too, so the
+          // guest list is enforced here, not only on the RSVP route.
+          if (!(await mayReceiveSignInLink(db, email))) return;
           const name = typeof metadata?.name === 'string' ? metadata.name : '';
           await mailer.send(
             linkEmail({

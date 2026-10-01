@@ -1,6 +1,7 @@
 import type {
   ContestConfig,
   GuestProfile,
+  RequestLinkResult,
   RsvpSummary,
   SessionGuest,
   UpdateProfile,
@@ -22,6 +23,7 @@ const contest: ContestConfig = {
     location: '',
     startsAt: null,
     faqs: [],
+    schedule: [],
     knownAllergies: [],
     votingOpen: true,
     votingOpensAt: null,
@@ -56,7 +58,8 @@ const summary: RsvpSummary = {
 
 let me: SessionGuest | null;
 let profile: GuestProfile;
-const requestLink = vi.fn<(email: string, name?: string) => Promise<{ sent: true }>>();
+const requestLink =
+  vi.fn<(email: string, name?: string, requestAccess?: boolean) => Promise<RequestLinkResult>>();
 const inviteSignIn = vi.fn<(token: string) => Promise<{ guestId: string }>>();
 const updateProfile = vi.fn<(input: UpdateProfile) => Promise<GuestProfile>>();
 
@@ -69,7 +72,8 @@ vi.mock('../lib/api.ts', async (importOriginal) => {
       getContest: () => Promise.resolve(contest),
       rsvpSummary: () => Promise.resolve(summary),
       getProfile: () => Promise.resolve(profile),
-      requestLink: (email: string, name?: string) => requestLink(email, name),
+      requestLink: (email: string, name?: string, requestAccess?: boolean) =>
+        requestLink(email, name, requestAccess),
       inviteSignIn: (token: string) => inviteSignIn(token),
       updateProfile: (input: UpdateProfile) => updateProfile(input),
       signOut: () => Promise.resolve({}),
@@ -122,8 +126,51 @@ describe('Event page RSVP', () => {
     await user.type(await screen.findByLabelText('Your name'), 'Nora Park');
     await user.type(screen.getByLabelText('Email'), 'nora@example.com');
     await user.click(screen.getByRole('button', { name: /Email me a link/ }));
-    expect(requestLink).toHaveBeenCalledWith('nora@example.com', 'Nora Park');
+    expect(requestLink).toHaveBeenCalledWith('nora@example.com', 'Nora Park', false);
     expect(await screen.findByText('Check your inbox')).toBeInTheDocument();
+  });
+
+  it('tells someone not on the list, and lets them ask the host to add them', async () => {
+    const { ApiRequestError } = await vi.importActual<typeof ApiModule>('../lib/api.ts');
+    requestLink.mockImplementation((_email, _name, requestAccess) =>
+      requestAccess
+        ? Promise.resolve({ requested: true })
+        : Promise.reject(
+            new ApiRequestError(403, 'You’re not on the guest list yet.', {
+              notInvited: true,
+              canRequest: true,
+            }),
+          ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(await screen.findByLabelText('Your name'), 'Sam Stranger');
+    await user.type(screen.getByLabelText('Email'), 'sam@example.com');
+    await user.click(screen.getByRole('button', { name: /Email me a link/ }));
+    expect(await screen.findByText('You’re not on the guest list yet')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ask the host to add me' }));
+    expect(requestLink).toHaveBeenLastCalledWith('sam@example.com', 'Sam Stranger', true);
+    expect(await screen.findByText('Request sent')).toBeInTheDocument();
+  });
+
+  it('does not offer to ask again once someone has asked', async () => {
+    const { ApiRequestError } = await vi.importActual<typeof ApiModule>('../lib/api.ts');
+    requestLink.mockRejectedValue(
+      new ApiRequestError(403, 'You’ve asked to join.', {
+        notInvited: true,
+        canRequest: false,
+        alreadyRequested: true,
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(await screen.findByLabelText('Your name'), 'Sam Stranger');
+    await user.type(screen.getByLabelText('Email'), 'sam@example.com');
+    await user.click(screen.getByRole('button', { name: /Email me a link/ }));
+    expect(await screen.findByText('You’ve already asked to join')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Ask the host to add me' }),
+    ).not.toBeInTheDocument();
   });
 
   it('trades an invite link for a session, even from an old /register link', async () => {

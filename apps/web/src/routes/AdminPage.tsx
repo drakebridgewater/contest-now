@@ -12,6 +12,7 @@ import { lazy, Suspense, useState } from 'react';
 import { AwardsTab } from '../components/admin/AwardsTab.tsx';
 import { GuestsTab, RsvpSummaryCard, type GuestActions } from '../components/admin/GuestsTab.tsx';
 import { ResultsTab } from '../components/admin/ResultsTab.tsx';
+import { ScheduleTab } from '../components/admin/ScheduleTab.tsx';
 import { SetupTab, type SetupActions } from '../components/admin/SetupTab.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { Card } from '../components/ui/Card.tsx';
@@ -27,11 +28,12 @@ const EmailTab = lazy(() =>
   import('../components/admin/EmailTab.tsx').then((module) => ({ default: module.EmailTab })),
 );
 
-type Tab = 'results' | 'guests' | 'email' | 'awards' | 'setup';
+type Tab = 'results' | 'guests' | 'schedule' | 'email' | 'awards' | 'setup';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'results', label: 'Results' },
   { id: 'guests', label: 'Guests' },
+  { id: 'schedule', label: 'Schedule' },
   { id: 'email', label: 'Email' },
   { id: 'awards', label: 'Awards' },
   { id: 'setup', label: 'Setup' },
@@ -160,6 +162,17 @@ export function AdminPage() {
       }, 'Invites sent'),
     rename: (guest, newName) =>
       act(() => api.renameGuest(guest.id, newName), `Renamed to ${newName}`),
+    setAccess: (guest, access) =>
+      act(
+        async () => {
+          const result = await api.setGuestAccess(guest.id, access);
+          if (result && result.failed.length > 0) {
+            toast.error(`Could not email ${guest.name}: ${result.failed[0]!.error}`);
+          }
+          return result;
+        },
+        access === 'invited' ? `${guest.name} is on the list` : `Declined ${guest.name}`,
+      ),
     remove: (guest) => {
       if (!confirm(`Delete ${guest.name} and all of their ratings and nominations?`)) return;
       act(() => api.deleteGuest(guest.id), `Deleted ${guest.name}`);
@@ -179,12 +192,16 @@ export function AdminPage() {
             invite links.
           </li>
           <li>
+            <strong>Schedule</strong> sets when the party starts, when entries and voting open, and
+            the evening&rsquo;s timeline guests see on the Event page.
+          </li>
+          <li>
             <strong>Email</strong> sends your own message to the guests you pick, with their name
             and personal RSVP link filled in.
           </li>
           <li>
-            <strong>Setup</strong> is where you add categories, criteria and awards. Guests see
-            changes within a minute.
+            <strong>Setup</strong> is where you add categories, criteria, awards, allergies and the
+            FAQ. Guests see changes within a minute.
           </li>
           <li>
             Hiding something keeps its data. Deleting is blocked once people have voted on it.
@@ -277,6 +294,14 @@ export function AdminPage() {
             }
           />
         </Suspense>
+      ) : null}
+
+      {tab === 'schedule' ? (
+        config.data ? (
+          <ScheduleTab settings={config.data.settings} onSave={actions.saveSettings} />
+        ) : (
+          <p className="text-ink-muted">Loading schedule…</p>
+        )
       ) : null}
 
       {tab === 'setup' ? (

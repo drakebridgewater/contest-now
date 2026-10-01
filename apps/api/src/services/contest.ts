@@ -2,6 +2,7 @@ import {
   slugify,
   type Award,
   type AwardInput,
+  type ScheduleItem,
   type Category,
   type CategoryInput,
   type ContestConfig,
@@ -45,7 +46,7 @@ export async function getSettings(db: Db): Promise<EventSettings> {
 
 export async function updateSettings(db: Db, input: SettingsInput): Promise<EventSettings> {
   await getSettings(db);
-  const { votingOpensAt, submissionsOpenAt, startsAt, knownAllergies, ...rest } = input;
+  const { votingOpensAt, submissionsOpenAt, startsAt, knownAllergies, schedule, ...rest } = input;
   const row = await db
     .update(eventSettings)
     .set({
@@ -54,6 +55,7 @@ export async function updateSettings(db: Db, input: SettingsInput): Promise<Even
       ...(submissionsOpenAt !== undefined ? { submissionsOpenAt: toDate(submissionsOpenAt) } : {}),
       ...(startsAt !== undefined ? { startsAt: toDate(startsAt) } : {}),
       ...(knownAllergies !== undefined ? { knownAllergies: [...new Set(knownAllergies)] } : {}),
+      ...(schedule !== undefined ? { schedule: sortSchedule(schedule) } : {}),
       updatedAt: new Date(),
     })
     .where(eq(eventSettings.id, 1))
@@ -61,6 +63,13 @@ export async function updateSettings(db: Db, input: SettingsInput): Promise<Even
     .then((r) => r[0]);
   if (!row) throw notFound('Settings not found');
   return toSettings(row);
+}
+
+/** Timeline items in time order, with times normalised to UTC. */
+function sortSchedule(items: ScheduleItem[]): ScheduleItem[] {
+  return items
+    .map((item) => ({ ...item, at: new Date(item.at).toISOString() }))
+    .sort((a, b) => a.at.localeCompare(b.at));
 }
 
 function toSettings(row: typeof eventSettings.$inferSelect): EventSettings {
@@ -71,6 +80,7 @@ function toSettings(row: typeof eventSettings.$inferSelect): EventSettings {
     location: row.location,
     startsAt: row.startsAt?.toISOString() ?? null,
     faqs: row.faqs,
+    schedule: row.schedule,
     knownAllergies: row.knownAllergies,
     votingOpen: row.votingOpen,
     votingOpensAt: row.votingOpensAt?.toISOString() ?? null,

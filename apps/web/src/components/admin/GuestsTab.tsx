@@ -113,6 +113,8 @@ export interface GuestActions {
   sendInvites: (selector: { guestIds: string[] } | { uninvited: true }) => void;
   rename: (guest: AdminGuest, newName: string) => void;
   remove: (guest: AdminGuest) => void;
+  /** Let someone in (emailing their invite when mail works) or turn them away. */
+  setAccess: (guest: AdminGuest, access: 'invited' | 'declined') => void;
 }
 
 export function GuestsTab({
@@ -130,16 +132,25 @@ export function GuestsTab({
   const [adding, setAdding] = useState(false);
   const [link, setLink] = useState<{ guest: AdminGuest; url: string } | null>(null);
 
+  const requests = guests.filter((g) => g.access === 'requested');
+  const listed = useMemo(() => guests.filter((g) => g.access !== 'requested'), [guests]);
   const shown = useMemo(
-    () => guests.filter((guest) => guestMatchesFilter(guest, filter)),
-    [guests, filter],
+    () => listed.filter((guest) => guestMatchesFilter(guest, filter)),
+    [listed, filter],
   );
-  const uninvitedWithEmail = guests.filter(
-    (g) => g.email !== '' && (g.inviteStatus === 'none' || g.inviteStatus === 'created'),
+  const uninvitedWithEmail = listed.filter(
+    (g) =>
+      g.access === 'invited' &&
+      g.email !== '' &&
+      (g.inviteStatus === 'none' || g.inviteStatus === 'created'),
   ).length;
 
   return (
     <div className="space-y-4">
+      {requests.length > 0 ? (
+        <JoinRequests requests={requests} mailConfigured={mailConfigured} actions={actions} />
+      ) : null}
+
       <RsvpSummaryCard guests={guests} categoryNames={categoryNames} />
 
       {!mailConfigured ? (
@@ -171,9 +182,9 @@ export function GuestsTab({
         ) : null}
       </div>
 
-      <FilterChips value={filter} onChange={setFilter} labels={{ all: `All ${guests.length}` }} />
+      <FilterChips value={filter} onChange={setFilter} labels={{ all: `All ${listed.length}` }} />
 
-      {guests.length === 0 ? (
+      {listed.length === 0 ? (
         <p className="text-ink-muted">
           No guests yet. Add your guest list, or wait for people to RSVP or vote.
         </p>
@@ -216,6 +227,54 @@ export function GuestsTab({
   );
 }
 
+/** People who asked to join from the RSVP page, waiting on the host. */
+function JoinRequests({
+  requests,
+  mailConfigured,
+  actions,
+}: {
+  requests: AdminGuest[];
+  mailConfigured: boolean;
+  actions: GuestActions;
+}) {
+  return (
+    <Card className="border-amber-300">
+      <div className="border-b border-black/5 px-4 py-3">
+        <h2 className="text-lg font-bold">Asking to join ({requests.length})</h2>
+        <p className="mt-0.5 text-sm text-ink-muted">
+          They tried to RSVP with an email that is not on your list.{' '}
+          {mailConfigured
+            ? 'Approving emails them their RSVP link.'
+            : 'After approving, use Link to send them their RSVP link.'}
+        </p>
+      </div>
+      <ul className="divide-y divide-black/5">
+        {requests.map((guest) => (
+          <li key={guest.id} className="flex flex-wrap items-center gap-2 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{guest.name}</p>
+              <p className="truncate text-sm text-ink-muted">{guest.email}</p>
+            </div>
+            <Button size="sm" onClick={() => actions.setAccess(guest, 'invited')}>
+              <Check className="size-4" aria-hidden="true" />
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-700"
+              onClick={() => actions.setAccess(guest, 'declined')}
+            >
+              <X className="size-4" aria-hidden="true" />
+              Decline
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 function GuestRow({
   guest,
   categoryNames,
@@ -233,6 +292,7 @@ function GuestRow({
   const [draft, setDraft] = useState(guest.name);
   const [linking, setLinking] = useState(false);
   const status = guest.rsvpStatus;
+  const declined = guest.access === 'declined';
 
   const details = [
     guest.email,
@@ -281,14 +341,20 @@ function GuestRow({
         ) : (
           <>
             <p className="min-w-0 flex-1 truncate font-semibold">{guest.name}</p>
-            <span
-              className={clsx(
-                'rounded-full border px-2 py-0.5 text-xs font-semibold',
-                RSVP_CLASS[status],
-              )}
-            >
-              {RSVP_LABEL[status]}
-            </span>
+            {declined ? (
+              <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800">
+                Declined
+              </span>
+            ) : (
+              <span
+                className={clsx(
+                  'rounded-full border px-2 py-0.5 text-xs font-semibold',
+                  RSVP_CLASS[status],
+                )}
+              >
+                {RSVP_LABEL[status]}
+              </span>
+            )}
           </>
         )}
       </div>
@@ -316,7 +382,24 @@ function GuestRow({
           .join(' · ')}
       </p>
 
-      {!editing ? (
+      {!editing && declined ? (
+        <div className="-ml-3 flex flex-wrap gap-1">
+          <Button size="sm" variant="ghost" onClick={() => actions.setAccess(guest, 'invited')}>
+            <Check className="size-4" aria-hidden="true" />
+            Let them in
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-700"
+            aria-label={`Delete ${guest.name}`}
+            onClick={() => actions.remove(guest)}
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      ) : null}
+      {!editing && !declined ? (
         <div className="-ml-3 flex flex-wrap gap-1">
           <Button
             size="sm"

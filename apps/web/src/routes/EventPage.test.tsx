@@ -15,15 +15,36 @@ const contest: ContestConfig = {
     location: 'Matt & Mar’s Home',
     startsAt: '2026-12-19T18:00:00.000Z',
     faqs: [{ question: 'When are the winners announced?', answer: 'Around 8–9 pm.' }],
+    schedule: [{ at: '2026-12-19T20:30:00.000Z', title: 'Winners announced', details: 'Prizes!' }],
     knownAllergies: ['cashews', 'fish'],
     votingOpen: true,
-    votingOpensAt: null,
+    votingOpensAt: '2026-12-19T19:00:00.000Z',
     submissionsOpen: true,
     submissionsOpenAt: null,
   },
-  categories: [],
+  categories: [
+    {
+      id: 'dessert',
+      name: 'Holiday desserts',
+      emoji: '🍰',
+      description: 'Homemade only',
+      sortOrder: 10,
+      isActive: true,
+    },
+    { id: 'old', name: 'Retired', emoji: '', description: '', sortOrder: 20, isActive: false },
+  ],
   criteria: [],
-  awards: [],
+  awards: [
+    {
+      id: 'best-presented',
+      name: 'Best presented',
+      emoji: '🎨',
+      description: 'The prettiest plate',
+      categoryIds: [],
+      sortOrder: 10,
+      isActive: true,
+    },
+  ],
 };
 
 const summary: RsvpSummary = {
@@ -86,6 +107,41 @@ describe('event page', () => {
     expect(await screen.findByText('Lentils')).toBeInTheDocument();
     expect(screen.getByText('Fish')).toBeInTheDocument();
     expect(screen.getByText('Cashews')).toBeInTheDocument();
+  });
+
+  it('answers the allergies question first in the FAQ', async () => {
+    const user = userEvent.setup();
+    renderAt('/event');
+    const question = await screen.findByText('Are there any allergies to know about?');
+    const faq = document.getElementById('faq')!;
+    expect(faq).toContainElement(question);
+    await user.click(question);
+    expect(await within(faq).findByText('Lentils')).toBeVisible();
+  });
+
+  it('lists the live categories and special awards', async () => {
+    renderAt('/event');
+    expect(await screen.findByText('Holiday desserts')).toBeInTheDocument();
+    expect(screen.getByText('Homemade only')).toBeInTheDocument();
+    expect(screen.queryByText('Retired')).not.toBeInTheDocument();
+    expect(screen.getByText('Best presented')).toBeInTheDocument();
+    expect(screen.getByText(/The prettiest plate/)).toBeInTheDocument();
+  });
+
+  it('merges the start and voting times into the host’s timeline, in order', async () => {
+    renderAt('/event');
+    await screen.findByText('Winners announced');
+    const schedule = document.getElementById('schedule')!;
+    const titles = within(schedule)
+      .getAllByRole('listitem')
+      .map((li) => li.querySelector('.font-semibold:not(time)')?.textContent);
+    expect(titles).toEqual(['Party starts', 'Voting opens', 'Winners announced']);
+    expect(within(schedule).getByText('Prizes!')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Event sections' });
+    expect(within(nav).getByRole('link', { name: 'Schedule' })).toHaveAttribute(
+      'href',
+      '#schedule',
+    );
   });
 
   it('asks guests who are not signed in from their email to RSVP for the address', async () => {

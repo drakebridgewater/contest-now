@@ -18,10 +18,12 @@ import {
   type GuestName,
   type GuestProfile,
   type NewGuest,
+  type RequestLinkResult,
   type RsvpSummary,
   type SendInvites,
   type SendInvitesResult,
   type SessionGuest,
+  type SetGuestAccess,
   type SettingsInput,
   type UpdateProfile,
   type UpsertVote,
@@ -132,10 +134,10 @@ export const api = {
     request<{ guestId: string }>('/auth/guest/vote', { method: 'POST', body: { name } }),
   inviteSignIn: (token: string) =>
     request<{ guestId: string }>('/auth/guest/invite', { method: 'POST', body: { token } }),
-  requestLink: (email: string, name?: string) =>
-    request<{ sent: true }>('/rsvp/request-link', {
+  requestLink: (email: string, name?: string, requestAccess = false) =>
+    request<RequestLinkResult>('/rsvp/request-link', {
       method: 'POST',
-      body: name ? { email, name } : { email },
+      body: { email, ...(name ? { name } : {}), ...(requestAccess ? { requestAccess } : {}) },
     }),
   signOut: () => request<unknown>('/auth/sign-out', { method: 'POST', body: {} }),
 
@@ -228,6 +230,12 @@ export const api = {
     request<void>(`/admin/guests/${encodeURIComponent(guestId)}`, {
       method: 'PUT',
       body: { newName },
+      admin: true,
+    }),
+  setGuestAccess: (guestId: string, access: SetGuestAccess['access']) =>
+    request<SendInvitesResult | undefined>(`/admin/guests/${encodeURIComponent(guestId)}/access`, {
+      method: 'PUT',
+      body: { access },
       admin: true,
     }),
   deleteGuest: (guestId: string) =>
