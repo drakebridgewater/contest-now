@@ -14,18 +14,12 @@ const startsAtFormat = new Intl.DateTimeFormat(undefined, {
 
 // The rules and ideas are static copy: edit here for next year's party.
 const RULES = [
-  'There is no limit to how many entries you bring.',
-  'You must bake your own baked goods (box cake = okay, purchased cake = no).',
-  'A cocktail is at least two ingredients, not counting water. Mocktails count!',
-  'Everyone is the judge.',
-];
-
-const APPETIZER_IDEAS = [
-  'Charcuterie board',
-  'Chips and homemade salsa',
-  'Pasta salad',
-  'Chicken and waffle bites',
-];
+    "No entry limit. Bring five appetizers if you want—we're here for it",
+    "Homemade only for baked goods. Box mix is totally fine; the bakery counter is not.?",
+    "Cocktails = 2+ ingredients (water's free). Mocktails absolutely count.",
+    "All judges. Everyone votes. No judges table, no gatekeeping.",
+    "One prize per entry. Even if your dish is *that* good, spread the wealth."
+  ];
 
 /**
  * The intro and the facts a guest needs before answering the RSVP.
@@ -52,7 +46,7 @@ export function EventFacts({ meEnabled }: { meEnabled: boolean }) {
           </SectionLink>
         ),
     },
-    { label: 'Attire', value: 'Holiday attire' },
+    { label: 'Attire', value: 'Holiday Chic or Cocktail' },
     { label: 'Drinks', value: 'Soda / seltzer' },
     {
       label: 'RSVP',
@@ -71,12 +65,13 @@ export function EventFacts({ meEnabled }: { meEnabled: boolean }) {
           It’s nearly Xmas! 🎄
         </h2>
         <p className="mt-2">
-          Our 8th annual event is finally here, and we want to celebrate with you! Music, games, the
+          Our 8th annual PDXmas is finally here, and we want to celebrate with you! Music, games, the
           usual stuff.
         </p>
         <p className="mt-2">
-          We’ll serve pizza with snacks from a local pizza shop. For dessert, appetizers, and
-          beverages, everyone is welcome to join a friendly competition with prizes!
+          Dust off your cookbooks and cocktail shakers; we're having competitions! Bring your best
+          appetizers, desserts, and beverages to compete for amazing prizes. We'll kick things 
+          off with pizza from a local pizza shop.
         </p>
       </Card>
 
@@ -105,7 +100,7 @@ export function EventExtras() {
     <Card>
       <CardHeader
         title="Friendly competitions"
-        subtitle="Don your bartender getup or your apron and toque and bring a custom cocktail or tasty dish."
+        subtitle="Chef's hat and mixologist credentials optional. Just bring your best cocktail or dish to the competition."
       />
       {categories.length > 0 ? (
         <ul className="grid gap-2 px-4 py-3 sm:grid-cols-3">
@@ -146,14 +141,6 @@ export function EventExtras() {
         <ul className="mt-2 list-disc space-y-1 pl-5">
           {RULES.map((rule) => (
             <li key={rule}>{rule}</li>
-          ))}
-        </ul>
-      </div>
-      <div className="border-t border-black/5 px-4 py-3">
-        <h3 className="font-bold">Appetizer ideas</h3>
-        <ul className="mt-2 list-disc space-y-1 pl-5">
-          {APPETIZER_IDEAS.map((idea) => (
-            <li key={idea}>{idea}</li>
           ))}
         </ul>
       </div>
