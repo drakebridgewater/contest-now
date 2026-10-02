@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    # event/<slug> branches publish images tagged event-<slug>; see deploy/README.md.
+    branches: [main, 'event/**']
   workflow_dispatch:
 
 concurrency:
@@ -59,7 +60,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/contest-now-${{ matrix.app }}
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
             type=sha,prefix=sha-,format=short
 
       - uses: docker/build-push-action@v6
@@ -79,7 +81,9 @@ jobs:
     needs: publish
     # Fires only after both images exist, which a GitHub-to-Dockhand webhook on
     # push could not guarantee. Skipped when the secret is not configured.
-    if: ${{ github.event_name == 'push' }}
+    # main only: the one webhook belongs to the main stack, and event stacks are
+    # redeployed by hand.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - name: Trigger the Dockhand stack webhook
         env:

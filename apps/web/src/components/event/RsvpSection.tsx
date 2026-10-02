@@ -10,7 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Hourglass, LogOut, MailCheck, Send, UserX } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import { errorMessage } from '../../lib/errorMessage.ts';
@@ -38,8 +38,21 @@ export function RsvpSection({
   inviteSettled: boolean;
   inviteError: string | null;
 }) {
-  const [params] = useSearchParams();
-  const linkError = params.get('error');
+  const [params, setParams] = useSearchParams();
+  // Held in state so the banner survives dropping ?error= from the address bar;
+  // otherwise a refresh, or a tab restored later, shows the stale error forever.
+  const [linkError] = useState(() => params.get('error'));
+  useEffect(() => {
+    if (!params.has('error')) return;
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete('error');
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
+  }, [params, setParams]);
   const me = useMe(inviteSettled);
 
   if (!inviteSettled || me.isLoading) {
@@ -49,7 +62,8 @@ export function RsvpSection({
   const guest = me.data ?? null;
   return (
     <div className="space-y-4">
-      {inviteError || linkError ? (
+      {/* A used link no longer matters once this device is signed in, e.g. from another tab. */}
+      {inviteError || (linkError && guest?.scope !== 'full') ? (
         <p className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 font-medium text-amber-900">
           {inviteError ??
             'That sign-in link has expired or was already used. Ask for a fresh one below.'}
@@ -449,9 +463,13 @@ function ProfileEditor({ profile }: { profile: GuestProfile }) {
           {categories.length > 0 ? (
             <Card className="p-4">
               <fieldset>
-                <legend className="text-sm font-semibold">Might you enter the contest?</legend>
+                <legend className="text-sm font-semibold">Contests you plan to enter</legend>
                 <p className="mt-0.5 text-sm text-ink-muted">
-                  No commitment — it just helps the host plan. Tick any you might bring.
+                  Optional with no firm commitment, it just helps the hosts plan. Check any you
+                  might participate in.{' '}
+                  <a href="#contest" className="font-semibold text-brand-700 underline">
+                    See the categories, awards and rules below.
+                  </a>
                 </p>
                 <div className="mt-3 space-y-2">
                   {categories.map((category) => {
@@ -482,6 +500,11 @@ function ProfileEditor({ profile }: { profile: GuestProfile }) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold">{category.name}</span>
+                          {category.description ? (
+                            <span className="block text-xs text-ink-muted">
+                              {category.description}
+                            </span>
+                          ) : null}
                           <span className="block text-xs text-ink-muted">
                             {others === 0
                               ? 'Nobody else yet — be the first!'

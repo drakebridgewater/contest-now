@@ -32,6 +32,8 @@ branch you deploy from (`main`).
 | `APPDATA_PATH`        | Defaults to `/mnt/user/appdata/contest-now`        |
 | `WEB_PORT`            | Defaults to `3099`                                 |
 | `GITHUB_OWNER`        | The account the images were published under        |
+| `STACK_NAME`          | Defaults to `contest`; unique per event (below)    |
+| `IMAGE_TAG`           | Defaults to `latest`; `event-<slug>` for an event  |
 
 > **Dockhand secrets caveat.** On Git stacks without a committed `.env`,
 > Dockhand versions before 1.0.14 could inject variables marked as _secret_ as
@@ -48,6 +50,65 @@ and add it to this repository under Settings → Secrets → Actions as
 `DOCKHAND_WEBHOOK_URL`. The Release workflow calls it _after_ both images are
 published. Pointing GitHub's own webhook at Dockhand instead would fire when the
 push lands, before the images exist, and redeploy the previous build.
+
+## Running a second event
+
+Each event gets its own branch, its own images and its own Dockhand stack with
+its own database, so two parties never share guests, votes or photos.
+
+1. **Start from an up-to-date `main`.** Fixes made on `main` reach an event only
+   when you merge them into its branch (step 6).
+
+2. **Create the branch.** The slug becomes part of image tags, container names
+   and folders: lowercase letters, digits and dashes.
+
+   ```bash
+   git checkout main && git pull
+   git checkout -b event/<slug>
+   git push -u origin event/<slug>
+   ```
+
+   The Release workflow publishes `contest-now-api:event-<slug>` and
+   `contest-now-web:event-<slug>`. Only `main` moves `latest`, and only `main`
+   calls `DOCKHAND_WEBHOOK_URL`, so this never redeploys the first event.
+
+3. **Change the event's copy on that branch.** The intro, the Details rows
+   (attire, drinks, activities) and the rules are written in
+   `apps/web/src/components/event/EventDetails.tsx`. Search the web app for the
+   old event's name for anything else. Commit and push; Release rebuilds the
+   `event-<slug>` images.
+
+4. **Add a second Dockhand Git stack.** Same repository and compose file
+   (`deploy/docker-compose.yml`), branch `event/<slug>`. Set:
+
+   | Variable                                                    | Value                                                           |
+   | ----------------------------------------------------------- | --------------------------------------------------------------- |
+   | `STACK_NAME`                                                | `<slug>`: names the containers and network                      |
+   | `IMAGE_TAG`                                                 | `event-<slug>`                                                  |
+   | `APPDATA_PATH`                                              | `/mnt/user/appdata/contest-<slug>`: never reuse another event's |
+   | `WEB_PORT`                                                  | A free port, e.g. `3100`                                        |
+   | `PUBLIC_URL`                                                | The new address, e.g. `https://<sub>.example.com`               |
+   | `ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` | New values, not copies of the first event's                     |
+   | `SMTP_*`, `MAIL_FROM`                                       | The same mailbox is fine                                        |
+
+   Deploy. The API creates a fresh database and seeds the default contest.
+
+5. **Point a hostname at it** in your reverse proxy (`<sub>.example.com` →
+   `<unraid-host>:3100`, same TLS settings as the first event), then check
+   `curl https://<sub>.example.com/api/health`. Open `/admin` → **Setup** and
+   set the event name, date, location, categories and FAQ; those live in the
+   database, not the branch.
+
+6. **Bring fixes across** from `main` when you want them, then redeploy the
+   event's stack in Dockhand:
+
+   ```bash
+   git checkout event/<slug> && git merge main && git push
+   ```
+
+When the event is over, back it up (below, with `<slug>-db` as the container
+and its `APPDATA_PATH`), delete its stack in Dockhand, and keep or delete the
+branch.
 
 ## Checking a deploy
 

@@ -46,8 +46,9 @@ export function EventFacts({ meEnabled }: { meEnabled: boolean }) {
           </SectionLink>
         ),
     },
-    { label: 'Attire', value: 'Holiday Chic or Cocktail' },
+    { label: 'Attire', value: 'Holiday Chic, Cocktail, or Ugly Sweater' },
     { label: 'Drinks', value: 'Soda / seltzer' },
+    { label: 'Activities', value: 'A Spotify Jam you can add songs to, party games, VR, and more' },
     {
       label: 'RSVP',
       value: (
@@ -100,7 +101,7 @@ export function EventExtras() {
     <Card>
       <CardHeader
         title="Friendly competitions"
-        subtitle="Chef's hat and mixologist credentials optional. Just bring your best cocktail or dish to the competition."
+        subtitle="Bring your best cocktail or dish to the competition."
       />
       {categories.length > 0 ? (
         <ul className="grid gap-2 px-4 py-3 sm:grid-cols-3">
