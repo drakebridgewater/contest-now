@@ -14,12 +14,12 @@ const startsAtFormat = new Intl.DateTimeFormat(undefined, {
 
 // The rules and ideas are static copy: edit here for next year's party.
 const RULES = [
-    "No entry limit. Bring five appetizers if you want—we're here for it",
-    "Homemade only for baked goods. Box mix is totally fine; the bakery counter is not.?",
-    "Cocktails = 2+ ingredients (water's free). Mocktails absolutely count.",
-    "All judges. Everyone votes. No judges table, no gatekeeping.",
-    "One prize per entry. Even if your dish is *that* good, spread the wealth."
-  ];
+  "No entry limit. Bring five appetizers if you want—we're here for it",
+  'Homemade only for baked goods. Box mix is totally fine; the bakery counter is not.?',
+  "Cocktails = 2+ ingredients (water's free). Mocktails absolutely count.",
+  'All judges. Everyone votes. No judges table, no gatekeeping.',
+  'One prize per entry. Even if your dish is *that* good, spread the wealth.',
+];
 
 /**
  * The intro and the facts a guest needs before answering the RSVP.
@@ -65,13 +65,13 @@ export function EventFacts({ meEnabled }: { meEnabled: boolean }) {
           It’s nearly Xmas! 🎄
         </h2>
         <p className="mt-2">
-          Our 8th annual PDXmas is finally here, and we want to celebrate with you! Music, games, the
-          usual stuff.
+          Our 8th annual PDXmas is finally here, and we want to celebrate with you! Music, games,
+          the usual stuff.
         </p>
         <p className="mt-2">
           Dust off your cookbooks and cocktail shakers; we're having competitions! Bring your best
-          appetizers, desserts, and beverages to compete for amazing prizes. We'll kick things 
-          off with pizza from a local pizza shop.
+          appetizers, desserts, and beverages to compete for amazing prizes. We'll kick things off
+          with pizza from a local pizza shop.
         </p>
       </Card>
 
