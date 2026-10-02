@@ -115,6 +115,23 @@ describe('RSVP by magic link', () => {
     expect((await phone.get('/api/me')).body.allergies).toEqual(['peanuts']);
   });
 
+  it('answers 502 with a way forward when the email cannot be sent', async () => {
+    // Nora is on the list from the test above; a failed send leaves nothing behind.
+    const send = ctx.mail.send;
+    ctx.mail.send = async () => {
+      throw new Error('connect ETIMEDOUT');
+    };
+    try {
+      const asked = await ctx.api
+        .post('/api/rsvp/request-link')
+        .send({ email: 'nora@example.com', name: 'Nora Park' });
+      expect(asked.status).toBe(502);
+      expect(asked.body.error).toMatch(/invite link/);
+    } finally {
+      ctx.mail.send = send;
+    }
+  });
+
   it('a known email needs no name; an unknown one does', async () => {
     expect(
       (await ctx.api.post('/api/rsvp/request-link').send({ email: 'nora@example.com' })).status,

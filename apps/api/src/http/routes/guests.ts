@@ -12,7 +12,7 @@ import {
   toSessionGuest,
   updateProfile,
 } from '../../services/guests.ts';
-import { parse } from '../errors.ts';
+import { HttpError, parse } from '../errors.ts';
 import { guestOf, requireGuest } from '../middleware/guestAuth.ts';
 
 /** Guest-facing routes outside Better Auth's own /api/auth. */
@@ -45,15 +45,23 @@ export function guestRoutes(db: Db, auth: Auth): Router {
       res.status(202).json({ requested: true } satisfies RequestLinkResult);
       return;
     }
-    await auth.api.signInMagicLink({
-      body: {
-        email: guest.email,
-        callbackURL: '/event',
-        errorCallbackURL: '/event',
-        metadata: { name: guest.name },
-      },
-      headers: fromNodeHeaders(req.headers),
-    });
+    try {
+      await auth.api.signInMagicLink({
+        body: {
+          email: guest.email,
+          callbackURL: '/event',
+          errorCallbackURL: '/event',
+          metadata: { name: guest.name },
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+    } catch {
+      // The mailer has already logged the SMTP error; the guest needs a way forward.
+      throw new HttpError(
+        502,
+        'We couldn’t send the email just now. Try again in a few minutes, or ask the host for your invite link.',
+      );
+    }
     res.status(202).json({ sent: true } satisfies RequestLinkResult);
   });
 
