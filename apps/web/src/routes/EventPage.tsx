@@ -36,7 +36,13 @@ export function EventPage() {
       </section>
 
       {/* Still the details, just the parts nobody needs before answering. */}
-      <section data-section="details" aria-label="More details" className="space-y-4">
+      <section
+        id="contest"
+        data-section="details"
+        aria-label="More details"
+        className="space-y-4"
+        style={sectionStyle}
+      >
         <EventExtras />
       </section>
 

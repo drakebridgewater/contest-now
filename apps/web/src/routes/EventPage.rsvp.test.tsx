@@ -31,7 +31,14 @@ const contest: ContestConfig = {
     submissionsOpenAt: null,
   },
   categories: [
-    { id: 'dessert', name: 'Desserts', emoji: '🍰', description: '', sortOrder: 1, isActive: true },
+    {
+      id: 'dessert',
+      name: 'Desserts',
+      emoji: '🍰',
+      description: 'Sweet bites and baked goods',
+      sortOrder: 1,
+      isActive: true,
+    },
     {
       id: 'cocktail',
       name: 'Cocktails',
@@ -223,6 +230,17 @@ describe('Event page RSVP', () => {
         expect(screen.getByText('2 others are planning this')).toBeInTheDocument(),
       );
       expect(screen.getByText('Nobody else yet — be the first!')).toBeInTheDocument();
+    });
+
+    it('explains the contests next to the boxes and links to the rules', async () => {
+      renderPage();
+      await screen.findByText('Hi, Nora!');
+      expect(await screen.findByText('Contests you plan to enter')).toBeInTheDocument();
+      // Once in the checkbox row, once in the competitions card further down.
+      expect(screen.getAllByText('Sweet bites and baked goods')).toHaveLength(2);
+      expect(
+        screen.getByRole('link', { name: 'See the categories, awards and rules below.' }),
+      ).toHaveAttribute('href', '#contest');
     });
 
     it('saves the RSVP with a plus-one, allergies and pre-registrations', async () => {
