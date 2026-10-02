@@ -9,7 +9,7 @@ import type {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui/Toast.tsx';
 import type * as ApiModule from '../lib/api.ts';
@@ -81,6 +81,11 @@ vi.mock('../lib/api.ts', async (importOriginal) => {
   };
 });
 
+/** Shows the current query string, so tests can see what a refresh would reload. */
+function LocationProbe() {
+  return <output data-testid="search">{useLocation().search}</output>;
+}
+
 function renderPage(url = '/event') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -93,6 +98,7 @@ function renderPage(url = '/event') {
             <Route path="/event" element={<EventPage />} />
             <Route path="/register" element={<ToEvent />} />
           </Routes>
+          <LocationProbe />
         </MemoryRouter>
       </ToastProvider>
     </QueryClientProvider>,
@@ -181,6 +187,21 @@ describe('Event page RSVP', () => {
     renderPage('/register?invite=tok-123');
     expect(await screen.findByText('Hi, Nora!')).toBeInTheDocument();
     expect(inviteSignIn).toHaveBeenCalledWith('tok-123');
+  });
+
+  it('shows a spent sign-in link once and drops it from the address', async () => {
+    renderPage('/event?error=INVALID_TOKEN');
+    expect(
+      await screen.findByText(/sign-in link has expired or was already used/),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('search')).toBeEmptyDOMElement());
+  });
+
+  it('skips the spent-link warning when this device is already signed in', async () => {
+    me = { id: 'g1', name: 'Nora Park', scope: 'full', allergies: [] };
+    renderPage('/event?error=INVALID_TOKEN');
+    expect(await screen.findByText('Hi, Nora!')).toBeInTheDocument();
+    expect(screen.queryByText(/sign-in link has expired/)).not.toBeInTheDocument();
   });
 
   it('a vote-only session still needs the email link to open the RSVP', async () => {

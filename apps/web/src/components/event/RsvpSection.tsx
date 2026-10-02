@@ -10,7 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Hourglass, LogOut, MailCheck, Send, UserX } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import { errorMessage } from '../../lib/errorMessage.ts';
@@ -38,8 +38,21 @@ export function RsvpSection({
   inviteSettled: boolean;
   inviteError: string | null;
 }) {
-  const [params] = useSearchParams();
-  const linkError = params.get('error');
+  const [params, setParams] = useSearchParams();
+  // Held in state so the banner survives dropping ?error= from the address bar;
+  // otherwise a refresh, or a tab restored later, shows the stale error forever.
+  const [linkError] = useState(() => params.get('error'));
+  useEffect(() => {
+    if (!params.has('error')) return;
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete('error');
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
+  }, [params, setParams]);
   const me = useMe(inviteSettled);
 
   if (!inviteSettled || me.isLoading) {
@@ -49,7 +62,8 @@ export function RsvpSection({
   const guest = me.data ?? null;
   return (
     <div className="space-y-4">
-      {inviteError || linkError ? (
+      {/* A used link no longer matters once this device is signed in, e.g. from another tab. */}
+      {inviteError || (linkError && guest?.scope !== 'full') ? (
         <p className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 font-medium text-amber-900">
           {inviteError ??
             'That sign-in link has expired or was already used. Ask for a fresh one below.'}
