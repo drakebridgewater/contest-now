@@ -4,12 +4,13 @@
 # by GitHub Actions and published to GHCR, so nothing is compiled on the server.
 # Set the variables from .env.example in Dockhand before the first deploy.
 
-name: contest
+# STACK_NAME keeps a second event's stack apart from this one; see README.
+name: ${STACK_NAME:-contest}
 
 services:
   db:
     image: postgres:17-alpine
-    container_name: contest-db
+    container_name: ${STACK_NAME:-contest}-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-contest}
@@ -27,7 +28,7 @@ services:
 
   api:
     image: ghcr.io/${GITHUB_OWNER:-drakebridgewater}/contest-now-api:${IMAGE_TAG:-latest}
-    container_name: contest-api
+    container_name: ${STACK_NAME:-contest}-api
     restart: unless-stopped
     depends_on:
       db:
@@ -58,7 +59,7 @@ services:
 
   web:
     image: ghcr.io/${GITHUB_OWNER:-drakebridgewater}/contest-now-web:${IMAGE_TAG:-latest}
-    container_name: contest-web
+    container_name: ${STACK_NAME:-contest}-web
     restart: unless-stopped
     depends_on: [api]
     ports:
@@ -67,4 +68,5 @@ services:
 
 networks:
   contest:
-    name: contest
+    # Per stack, so the web container's proxy_pass to `api` never reaches another event's API.
+    name: ${STACK_NAME:-contest}
