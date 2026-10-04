@@ -468,7 +468,7 @@ function ProfileEditor({ profile }: { profile: GuestProfile }) {
                   Optional with no firm commitment, it just helps the hosts plan. Check any you
                   might participate in.{' '}
                   <a href="#contest" className="font-semibold text-brand-700 underline">
-                    See the categories, awards and rules below.
+                    See the categories, awards and rules section.
                   </a>
                 </p>
                 <div className="mt-3 space-y-2">
