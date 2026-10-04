@@ -15,6 +15,10 @@ RUN npm run build -w apps/web
 FROM nginx:alpine
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+# Built-in themes; THEME picks one at start-up, and files mounted at /themes add more.
+COPY apps/web/themes /usr/share/contest/themes
+COPY --chmod=755 apps/web/docker/40-theme.sh /docker-entrypoint.d/40-theme.sh
+ENV THEME=christmas
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1

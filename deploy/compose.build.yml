@@ -25,7 +25,10 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+    volumes:
+      - contest-local-themes:/themes:ro
 
 volumes:
   contest-local-db:
   contest-local-uploads:
+  contest-local-themes:

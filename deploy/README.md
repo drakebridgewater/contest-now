@@ -34,6 +34,7 @@ branch you deploy from (`main`).
 | `GITHUB_OWNER`        | The account the images were published under        |
 | `STACK_NAME`          | Defaults to `contest`; unique per event (below)    |
 | `IMAGE_TAG`           | Defaults to `latest`; `event-<slug>` for an event  |
+| `THEME`               | `christmas` (default), `halloween`, or your own    |
 
 > **Dockhand secrets caveat.** On Git stacks without a committed `.env`,
 > Dockhand versions before 1.0.14 could inject variables marked as _secret_ as
@@ -90,6 +91,7 @@ its own database, so two parties never share guests, votes or photos.
    | `PUBLIC_URL`                                                | The new address, e.g. `https://<sub>.example.com`               |
    | `ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` | New values, not copies of the first event's                     |
    | `SMTP_*`, `MAIL_FROM`                                       | The same mailbox is fine                                        |
+   | `THEME`                                                     | The look for this party, e.g. `halloween` (below)               |
 
    Deploy. The API creates a fresh database and seeds the default contest.
 
@@ -109,6 +111,21 @@ its own database, so two parties never share guests, votes or photos.
 When the event is over, back it up (below, with `<slug>-db` as the container
 and its `APPDATA_PATH`), delete its stack in Dockhand, and keep or delete the
 branch.
+
+## Themes
+
+`THEME` picks the colors and heading font. It is read when the web container
+starts, so switching is a variable change and a restart, never a rebuild, and two
+events on the same images can look different.
+
+- **Built in:** `christmas` (the default) and `halloween`, from
+  [`apps/web/themes`](../apps/web/themes).
+- **Your own:** copy one of those files to `${APPDATA_PATH}/themes/<name>.css` on
+  the server, change the values, and set `THEME=<name>`. A file there wins over a
+  built-in theme of the same name, so you can also tweak `christmas` in place.
+
+A misspelt or missing theme does not take the site down: the web container logs
+`theme: no theme named …` with the names it found and uses the default.
 
 ## Checking a deploy
 

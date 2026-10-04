@@ -152,8 +152,10 @@ for guests within a minute.
 - **Close voting** with the toggle after the awards, which freezes entries,
   ratings, tasting marks and nominations.
 
-Retheming for next year is one file: the color and font tokens in
-`apps/web/src/styles/index.css`.
+Retheming is one file and no rebuild: `THEME` picks a stylesheet from
+[`apps/web/themes`](apps/web/themes) (`christmas`, `halloween`) or your own, set
+on the web container. Locally, `THEME=halloween npm run dev`. See the
+[themes README](apps/web/themes/README.md).
 
 ## How scoring works
 
