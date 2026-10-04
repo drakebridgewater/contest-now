@@ -62,6 +62,12 @@ services:
     container_name: ${STACK_NAME:-contest}-web
     restart: unless-stopped
     depends_on: [api]
+    environment:
+      # The look: a file name from apps/web/themes (christmas, halloween), or your own
+      # <name>.css dropped into ${APPDATA_PATH}/themes. Restart the web container to switch.
+      THEME: ${THEME:-christmas}
+    volumes:
+      - ${APPDATA_PATH:-/mnt/user/appdata/contest-now}/themes:/themes:ro
     ports:
       - '${WEB_PORT:-3099}:80'
     networks: [contest]

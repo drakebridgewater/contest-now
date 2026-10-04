@@ -1,13 +1,18 @@
 @import 'tailwindcss';
 
 /*
- * Theme tokens. Change these to retheme the whole app (next year's colors go here).
+ * Theme tokens: the app's fallback colors and fonts.
  * Tailwind 4 reads @theme variables and generates utilities such as bg-brand, text-accent.
+ *
+ * To retheme, do not edit these: add or edit a file in apps/web/themes and pick it with
+ * the THEME environment variable. That file is served as /theme.css and, being outside
+ * any cascade layer, overrides the values below without a rebuild.
  */
 @theme {
   --color-brand-50: oklch(0.971 0.013 17.4);
   --color-brand-100: oklch(0.936 0.032 17.7);
   --color-brand-200: oklch(0.885 0.062 18.3);
+  --color-brand-300: oklch(0.808 0.114 19.6);
   --color-brand-500: oklch(0.637 0.208 25.3);
   --color-brand-600: oklch(0.577 0.207 27.3);
   --color-brand-700: oklch(0.505 0.19 27.5);
@@ -48,11 +53,15 @@
   }
 
   body {
-    background: linear-gradient(
-      180deg,
-      var(--color-brand-50) 0%,
-      var(--color-surface-muted) 40%,
-      var(--color-surface-muted) 100%
+    /* A theme can replace the whole backdrop with --app-background. */
+    background: var(
+      --app-background,
+      linear-gradient(
+        180deg,
+        var(--color-brand-50) 0%,
+        var(--color-surface-muted) 40%,
+        var(--color-surface-muted) 100%
+      )
     );
     color: var(--color-ink);
     min-height: 100dvh;

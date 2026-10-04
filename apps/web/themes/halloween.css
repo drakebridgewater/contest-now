@@ -1,0 +1,35 @@
+/*
+ * Halloween: pumpkin orange and potion purple on a dusky page.
+ * See christmas.css for what each token colors.
+ */
+:root {
+  --color-brand-50: oklch(0.98 0.016 73.7);
+  --color-brand-100: oklch(0.954 0.038 75.2);
+  --color-brand-200: oklch(0.901 0.076 70.7);
+  --color-brand-300: oklch(0.837 0.128 66.3);
+  --color-brand-500: oklch(0.646 0.222 41.1);
+  /* A shade darker than a true pumpkin so white button text stays readable. */
+  --color-brand-600: oklch(0.553 0.195 38.4);
+  --color-brand-700: oklch(0.47 0.157 37.3);
+  --color-brand-800: oklch(0.408 0.123 38.2);
+
+  --color-accent-100: oklch(0.946 0.033 307.2);
+  --color-accent-500: oklch(0.627 0.265 303.9);
+  --color-accent-600: oklch(0.558 0.288 302.3);
+  --color-accent-700: oklch(0.438 0.218 303.7);
+
+  --color-surface: oklch(1 0 0);
+  --color-surface-muted: oklch(0.975 0.008 75);
+  --color-ink: oklch(0.2 0.03 300);
+  --color-ink-muted: oklch(0.44 0.03 300);
+
+  --font-display: 'Georgia', 'Times New Roman', serif;
+
+  --app-background: linear-gradient(
+    180deg,
+    oklch(0.9 0.05 305) 0%,
+    var(--color-brand-50) 30%,
+    var(--color-surface-muted) 60%,
+    var(--color-surface-muted) 100%
+  );
+}

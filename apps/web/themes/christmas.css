@@ -1,0 +1,43 @@
+/*
+ * Christmas: cranberry red and pine green. The default theme.
+ *
+ * Copy this file to make your own: every token the app reads is listed here.
+ * Leave a line out and the app's built-in value (the same as this file) is used.
+ */
+:root {
+  /* Buttons, selected chips, links, the header's left edge. 600 sits under white text. */
+  --color-brand-50: oklch(0.971 0.013 17.4);
+  --color-brand-100: oklch(0.936 0.032 17.7);
+  --color-brand-200: oklch(0.885 0.062 18.3);
+  --color-brand-300: oklch(0.808 0.114 19.6);
+  --color-brand-500: oklch(0.637 0.208 25.3);
+  --color-brand-600: oklch(0.577 0.207 27.3);
+  --color-brand-700: oklch(0.505 0.19 27.5);
+  --color-brand-800: oklch(0.444 0.161 26.9);
+
+  /* Success states, switches, focus rings, the header's right edge. */
+  --color-accent-100: oklch(0.962 0.044 156.7);
+  --color-accent-500: oklch(0.596 0.145 163.2);
+  --color-accent-600: oklch(0.508 0.118 165.6);
+  --color-accent-700: oklch(0.432 0.095 166.9);
+
+  /* Page background and text. */
+  --color-surface: oklch(1 0 0);
+  --color-surface-muted: oklch(0.984 0.003 247.9);
+  --color-ink: oklch(0.21 0.034 264.7);
+  --color-ink-muted: oklch(0.446 0.027 256.8);
+
+  /* Headings: the event name and section titles. */
+  --font-display: 'Georgia', 'Times New Roman', serif;
+
+  /* How round the cards are. */
+  --radius-card: 1rem;
+
+  /* Behind everything. Any CSS background works: gradients, url(...), several layers. */
+  --app-background: linear-gradient(
+    180deg,
+    var(--color-brand-50) 0%,
+    var(--color-surface-muted) 40%,
+    var(--color-surface-muted) 100%
+  );
+}
