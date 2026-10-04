@@ -101,9 +101,8 @@ export const entries = pgTable(
     id: serial().primaryKey(),
     entryName: text().notNull(),
     contestantName: text().notNull(),
-    categoryId: text()
-      .notNull()
-      .references(() => categories.id, { onDelete: 'restrict' }),
+    /** Null when the contest has no categories (an awards-only contest). */
+    categoryId: text().references(() => categories.id, { onDelete: 'restrict' }),
     photoPath: text().notNull(),
     allergens: text()
       .array()

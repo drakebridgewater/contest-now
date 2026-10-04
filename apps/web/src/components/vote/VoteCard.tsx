@@ -194,7 +194,9 @@ export function VoteCard({
   const noCriteria =
     criteria.length === 0 ? (
       <p className="text-sm text-ink-muted">
-        This category has no rating criteria yet, so there is nothing to score.
+        {entry.categoryId === null
+          ? 'Nothing to rate here. Nominate your favourites in the awards below.'
+          : 'This category has no rating criteria yet, so there is nothing to score.'}
       </p>
     ) : null;
 

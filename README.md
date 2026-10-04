@@ -9,6 +9,10 @@ The contest itself is data, not code. Categories, the rating criteria inside eac
 category, the awards and the event branding are all edited in the app, so a new
 category or a new award never needs a deploy.
 
+Categories are optional. Delete them all and the contest is awards-only (a
+costume contest, say): entries are filed under no category, there are no stars to
+give, and guests vote with the award nominations alone.
+
 ## How it fits together
 
 | Piece             | What it is                                                           |

@@ -81,11 +81,15 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
 
   let completeVoteCount = 0;
   let tastedCount = 0;
-  const categoryResults: CategoryResults[] = categoryRows.map((categoryRow) => {
-    const category = toCategory(categoryRow);
-    const activeCriteria = activeCriteriaFor(allCriteria, category.id);
+  // Entries filed under no category (an awards-only contest) get a group of their
+  // own after the categories, so their comments and tasters are still reported.
+  const groups: CategoryResults['category'][] = categoryRows.map(toCategory);
+  if (allEntries.some((entry) => entry.categoryId === null)) groups.push(null);
+  const categoryResults: CategoryResults[] = groups.map((category) => {
+    const categoryId = category?.id ?? null;
+    const activeCriteria = activeCriteriaFor(allCriteria, categoryId);
     const summarized = allEntries
-      .filter((entry) => entry.categoryId === category.id)
+      .filter((entry) => entry.categoryId === categoryId)
       .map((entry) => {
         const entryVotes = votesByEntry.get(entry.id) ?? [];
         const summary = summarizeEntry(

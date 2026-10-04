@@ -55,7 +55,7 @@ describe('GET /api/admin/results', () => {
     const res = await ctx.api.get('/api/admin/results').set(ctx.admin);
     expect(res.status).toBe(200);
     const results = res.body as ContestResults;
-    const dessert = results.categories.find((c) => c.category.id === 'dessert')!;
+    const dessert = results.categories.find((c) => c.category?.id === 'dessert')!;
     const byName = Object.fromEntries(dessert.entries.map((e) => [e.entryName, e]));
 
     expect(byName.Pie?.overall).toBe(4);

@@ -49,7 +49,10 @@ function renderPage() {
   );
 }
 
+const dessert = contest.categories[0]!;
+
 afterEach(() => {
+  contest.categories = [dessert];
   contest.settings.submissionsOpen = true;
   contest.settings.submissionsOpenAt = null;
 });
@@ -59,6 +62,18 @@ describe('SubmitPage', () => {
     renderPage();
     expect(await screen.findByLabelText('Entry name')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Submit entry/ })).toBeEnabled();
+  });
+
+  it('asks for a category only when the contest has some', async () => {
+    const { unmount } = renderPage();
+    expect(await screen.findByRole('group', { name: 'Category' })).toBeInTheDocument();
+    unmount();
+
+    contest.categories = [];
+    renderPage();
+    expect(await screen.findByLabelText('Entry name')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Category' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/No categories yet/)).not.toBeInTheDocument();
   });
 
   it('shows only a countdown before entries open', async () => {

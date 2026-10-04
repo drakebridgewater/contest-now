@@ -161,6 +161,25 @@ describe('VotePage', () => {
     expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']);
   });
 
+  it('lists entries with no category in a group of their own, with nothing to star', async () => {
+    const saved = { categories: contest.categories, criteria: contest.criteria };
+    const savedEntries = entries.splice(0, entries.length, {
+      ...entry(4, 'Headless Horseman'),
+      categoryId: null,
+    });
+    contest.categories = [];
+    contest.criteria = [];
+    try {
+      renderPage();
+      expect(await screen.findByRole('heading', { name: /^Entries/ })).toBeInTheDocument();
+      expect(visibleEntryNames()).toEqual(['Headless Horseman']);
+      expect(screen.getByText('0 of 1 tasted')).toBeInTheDocument();
+    } finally {
+      entries.splice(0, entries.length, ...savedEntries);
+      Object.assign(contest, saved);
+    }
+  });
+
   it('starts every card collapsed, finished or not', async () => {
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));

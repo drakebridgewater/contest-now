@@ -60,6 +60,30 @@ export async function storePhoto(buffer: Buffer, storage: PhotoStorage): Promise
   return fileName;
 }
 
+/**
+ * The category an entry is filed under. A contest with no active categories is
+ * awards-only, so its entries carry none; otherwise picking one is required.
+ */
+async function resolveCategoryId(db: Db, requested: string | undefined): Promise<string | null> {
+  if (requested !== undefined) {
+    const category = await db
+      .select({ isActive: categories.isActive })
+      .from(categories)
+      .where(eq(categories.id, requested))
+      .then((r) => r[0]);
+    if (!category?.isActive) throw badRequest(`Unknown category "${requested}"`);
+    return requested;
+  }
+  const anyActive = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.isActive, true))
+    .limit(1)
+    .then((r) => r.length > 0);
+  if (anyActive) throw badRequest('Pick a category');
+  return null;
+}
+
 export async function createEntry(
   db: Db,
   fields: CreateEntryFields,
@@ -72,12 +96,7 @@ export async function createEntry(
   if (status === 'scheduled') {
     throw conflict('Submissions have not opened yet', { opensAt: settings.submissionsOpenAt });
   }
-  const category = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.id, fields.categoryId))
-    .then((r) => r[0]);
-  if (!category || !category.isActive) throw badRequest(`Unknown category "${fields.categoryId}"`);
+  const categoryId = await resolveCategoryId(db, fields.categoryId);
 
   // The name field autocompletes from the guest list. Picking a guest files the
   // entry under them without signing anyone in; a name nobody has used yet
@@ -98,7 +117,7 @@ export async function createEntry(
       .values({
         entryName: fields.entryName,
         contestantName: fields.guestId ? guest.name : fields.contestantName,
-        categoryId: fields.categoryId,
+        categoryId,
         allergens: fields.allergens,
         guestId: guest.id,
         photoPath,

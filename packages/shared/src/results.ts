@@ -32,7 +32,8 @@ export interface EntryResult extends Entry, EntrySummary {
 }
 
 export interface CategoryResults {
-  category: Category;
+  /** Null for the entries filed under no category; they have no criteria, so no ranking. */
+  category: Category | null;
   criteria: Criterion[];
   entries: EntryResult[];
 }

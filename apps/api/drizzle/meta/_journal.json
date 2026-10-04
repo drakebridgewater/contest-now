@@ -36,6 +36,13 @@
       "when": 1790856272877,
       "tag": "0004_event_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791137718963,
+      "tag": "0005_uncategorized_entries",
+      "breakpoints": true
     }
   ]
 }

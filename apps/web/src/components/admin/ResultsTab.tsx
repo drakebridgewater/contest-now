@@ -93,6 +93,7 @@ function CriterionBar({
 function ResultCard({
   entry,
   criteriaNames,
+  scored,
   tied,
   expanded,
   onExpandedChange,
@@ -100,6 +101,8 @@ function ResultCard({
 }: {
   entry: EntryResult;
   criteriaNames: Map<number, string>;
+  /** False for entries with no criteria to rate: there is no rank or score to show. */
+  scored: boolean;
   tied: boolean;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
@@ -113,11 +116,13 @@ function ResultCard({
    * children are inline spans, so the computed name would run them together as
    * "#1Bourbon Pecan Pie4.326 votes".
    */
-  const label = `${entry.entryName}, ${
-    rated
-      ? `rank ${entry.rank}${tied ? ' (tie)' : ''}, score ${entry.overall.toFixed(2)}, ${entry.voteCount} ${entry.voteCount === 1 ? 'vote' : 'votes'}`
-      : 'no votes yet'
-  }`;
+  const label = !scored
+    ? entry.entryName
+    : `${entry.entryName}, ${
+        rated
+          ? `rank ${entry.rank}${tied ? ' (tie)' : ''}, score ${entry.overall.toFixed(2)}, ${entry.voteCount} ${entry.voteCount === 1 ? 'vote' : 'votes'}`
+          : 'no votes yet'
+      }`;
 
   return (
     <Card>
@@ -136,27 +141,29 @@ function ResultCard({
             loading="lazy"
             className="size-10 shrink-0 rounded-lg object-cover"
           />
-          <RankBadge rank={entry.rank} tied={tied} rated={rated} compact />
+          {scored ? <RankBadge rank={entry.rank} tied={tied} rated={rated} compact /> : null}
           <span className="min-w-0 flex-1 truncate font-bold">{entry.entryName}</span>
-          <span className="shrink-0 text-right">
-            <span
-              className={`block text-lg leading-tight font-bold ${rated ? 'text-brand-700' : 'text-ink-muted'}`}
-            >
-              {rated ? entry.overall.toFixed(2) : '—'}
-            </span>
-            {rated ? (
+          {scored ? (
+            <span className="shrink-0 text-right">
               <span
-                className={`flex items-center justify-end gap-0.5 text-xs ${
-                  lowVotes ? 'font-semibold text-amber-700' : 'text-ink-muted'
-                }`}
+                className={`block text-lg leading-tight font-bold ${rated ? 'text-brand-700' : 'text-ink-muted'}`}
               >
-                {lowVotes ? <TriangleAlert className="size-3.5" aria-hidden="true" /> : null}
-                {entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}
+                {rated ? entry.overall.toFixed(2) : '—'}
               </span>
-            ) : (
-              <span className="block text-xs text-ink-muted">No votes</span>
-            )}
-          </span>
+              {rated ? (
+                <span
+                  className={`flex items-center justify-end gap-0.5 text-xs ${
+                    lowVotes ? 'font-semibold text-amber-700' : 'text-ink-muted'
+                  }`}
+                >
+                  {lowVotes ? <TriangleAlert className="size-3.5" aria-hidden="true" /> : null}
+                  {entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}
+                </span>
+              ) : (
+                <span className="block text-xs text-ink-muted">No votes</span>
+              )}
+            </span>
+          ) : null}
           <ChevronDown
             className={`size-5 shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`}
             aria-hidden="true"
@@ -265,7 +272,7 @@ export function ResultsTab({
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
   if (results.length === 0) {
-    return <p className="text-ink-muted">No categories yet. Add one under Setup.</p>;
+    return <p className="text-ink-muted">No entries yet.</p>;
   }
 
   const allEntries = results.flatMap((category) => category.entries);
@@ -294,11 +301,19 @@ export function ResultsTab({
           rankCounts.set(entry.rank, (rankCounts.get(entry.rank) ?? 0) + 1);
         }
         return (
-          <section key={category.category.id} className="space-y-3">
+          <section key={category.category?.id ?? ''} className="space-y-3">
             <h2 className="flex items-center gap-2 text-xl font-bold">
-              <span aria-hidden="true">{category.category.emoji}</span>
-              {category.category.name}
-              {!category.category.isActive ? (
+              {category.category ? (
+                <>
+                  <span aria-hidden="true">{category.category.emoji}</span>
+                  {category.category.name}
+                </>
+              ) : results.length === 1 ? (
+                'Entries'
+              ) : (
+                'No category'
+              )}
+              {category.category && !category.category.isActive ? (
                 <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold text-ink-muted">
                   Hidden
                 </span>
@@ -313,6 +328,7 @@ export function ResultsTab({
                     key={entry.id}
                     entry={entry}
                     criteriaNames={names}
+                    scored={category.criteria.length > 0}
                     tied={(rankCounts.get(entry.rank) ?? 0) > 1}
                     expanded={expanded[entry.id] ?? false}
                     onExpandedChange={(value) =>

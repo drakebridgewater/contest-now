@@ -46,6 +46,10 @@ describe('activeCriteriaFor', () => {
     ];
     expect(activeCriteriaFor(list, 'dessert').map((c) => c.id)).toEqual([3, 1]);
   });
+
+  it('gives an entry with no category nothing to rate', () => {
+    expect(activeCriteriaFor([criterion(1)], null)).toEqual([]);
+  });
 });
 
 describe('isVoteComplete', () => {
@@ -142,6 +146,11 @@ describe('isEntryInAwardScope', () => {
     expect(isEntryInAwardScope({ categoryIds: ['dessert'] }, { categoryId: 'cocktail' })).toBe(
       false,
     );
+  });
+
+  it('puts an entry with no category up for unscoped awards only', () => {
+    expect(isEntryInAwardScope({ categoryIds: [] }, { categoryId: null })).toBe(true);
+    expect(isEntryInAwardScope({ categoryIds: ['dessert'] }, { categoryId: null })).toBe(false);
   });
 });
 

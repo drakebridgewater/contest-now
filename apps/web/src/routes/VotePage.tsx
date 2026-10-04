@@ -153,8 +153,17 @@ export function VotePage() {
 
   const allExpanded = entries.length > 0 && entries.every((entry) => openIds.has(entry.id));
 
-  const visibleCategories = categories.filter(
+  // Entries filed under no category (an awards-only contest) get a group of their
+  // own, after the categories and only under "All".
+  const groups: { id: string | null; emoji: string; name: string }[] = categories.filter(
     (category) => categoryFilter === null || categoryFilter === category.id,
+  );
+  if (categoryFilter === null && entries.some((entry) => entry.categoryId === null)) {
+    groups.push({ id: null, emoji: '', name: categories.length > 0 ? 'No category' : 'Entries' });
+  }
+  // Nothing to star when no category has a criterion; the copy stops talking about ratings.
+  const anyRateable = categories.some(
+    (category) => activeCriteriaFor(criteria, category.id).length > 0,
   );
 
   const conflictIds = new Set(
@@ -162,11 +171,10 @@ export function VotePage() {
   );
   const hasConflict = (entry: Entry) => (conflictsById.get(entry.id)?.length ?? 0) > 0;
   const hiddenForAllergies = entries.filter(
-    (entry) =>
-      hasConflict(entry) && visibleCategories.some((category) => category.id === entry.categoryId),
+    (entry) => hasConflict(entry) && groups.some((group) => group.id === entry.categoryId),
   ).length;
 
-  function visibleEntries(categoryId: string): Entry[] {
+  function visibleEntries(categoryId: string | null): Entry[] {
     const inCategory = entries.filter(
       (entry) => entry.categoryId === categoryId && (showAllergens || !hasConflict(entry)),
     );
@@ -177,9 +185,9 @@ export function VotePage() {
     );
   }
 
-  const anyVisible = visibleCategories.some((category) => visibleEntries(category.id).length > 0);
-  const anyInCategory = visibleCategories.some((category) =>
-    entries.some((entry) => entry.categoryId === category.id),
+  const anyVisible = groups.some((group) => visibleEntries(group.id).length > 0);
+  const anyInCategory = groups.some((group) =>
+    entries.some((entry) => entry.categoryId === group.id),
   );
   // Nothing showing means either the toggle hid it all or the category is simply empty.
   const emptyMessage = onlyRemaining && anyInCategory ? NOTHING_REMAINING : NOTHING_HERE;
@@ -189,8 +197,12 @@ export function VotePage() {
       <HelpPanel id="vote" title="How voting works">
         <ul>
           <li>Tap the tasted box on a card once you have tried it.</li>
-          <li>Tap stars to rate. Rating a dish marks it tasted for you too.</li>
-          <li>Rate every criterion on a card for it to count toward the ranking.</li>
+          {anyRateable ? (
+            <>
+              <li>Tap stars to rate. Rating a dish marks it tasted for you too.</li>
+              <li>Rate every criterion on a card for it to count toward the ranking.</li>
+            </>
+          ) : null}
           <li>Tap a dish’s name to open or close its card.</li>
           <li>Dishes with your allergens are hidden. Tap the warning chip to see them.</li>
           <li>Turn on “Only what’s left” to see just the dishes you still owe.</li>
@@ -204,7 +216,8 @@ export function VotePage() {
         </span>
         {votingOpen ? (
           <span className="text-sm text-ink-muted">
-            {progress.tasted} of {progress.total} tasted · {progress.rated} rated
+            {progress.tasted} of {progress.total} tasted
+            {anyRateable ? ` · ${progress.rated} rated` : ''}
             {awards.length > 0 ? ` · ${progress.ballots} of ${awards.length} awards` : ''}
           </span>
         ) : null}
@@ -327,15 +340,15 @@ export function VotePage() {
               <p className="mt-1 text-ink-muted">{emptyMessage.body}</p>
             </Card>
           ) : (
-            visibleCategories.map((category) => {
-              const list = visibleEntries(category.id);
+            groups.map((group) => {
+              const list = visibleEntries(group.id);
               if (list.length === 0) return null;
-              const active = activeCriteriaFor(criteria, category.id);
+              const active = activeCriteriaFor(criteria, group.id);
               return (
-                <section key={category.id} className="space-y-3">
+                <section key={group.id ?? ''} className="space-y-3">
                   <h2 className="flex items-center gap-2 text-xl font-bold">
-                    <span aria-hidden="true">{category.emoji}</span>
-                    {category.name}
+                    {group.emoji ? <span aria-hidden="true">{group.emoji}</span> : null}
+                    {group.name}
                     <span className="text-sm font-normal text-ink-muted">
                       {list.length} {list.length === 1 ? 'entry' : 'entries'}
                     </span>
@@ -382,7 +395,8 @@ export function VotePage() {
               <div>
                 <h2 className="text-xl font-bold">Special awards</h2>
                 <p className="text-sm text-ink-muted">
-                  Nominate one entry per award. This is separate from the star ratings.
+                  Nominate one entry per award.
+                  {anyRateable ? ' This is separate from the star ratings.' : ''}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">

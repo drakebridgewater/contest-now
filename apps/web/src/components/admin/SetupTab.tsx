@@ -271,7 +271,7 @@ function CategoriesSection({
     <Card>
       <CardHeader
         title="Categories and criteria"
-        subtitle="Each category is judged on its own criteria."
+        subtitle="Each category is judged on its own criteria. With no categories, entries compete for the awards only."
       />
       <div className="space-y-4 p-4">
         {sorted.map((category, index) => (
@@ -515,13 +515,15 @@ function AwardsSection({ config, actions }: { config: ContestConfig; actions: Se
                 >
                   {award.name}
                 </p>
-                <p className="text-xs text-ink-muted">
-                  {award.categoryIds.length === 0
-                    ? 'Any category'
-                    : award.categoryIds
-                        .map((id) => config.categories.find((c) => c.id === id)?.name ?? id)
-                        .join(', ')}
-                </p>
+                {config.categories.length > 0 ? (
+                  <p className="text-xs text-ink-muted">
+                    {award.categoryIds.length === 0
+                      ? 'Any category'
+                      : award.categoryIds
+                          .map((id) => config.categories.find((c) => c.id === id)?.name ?? id)
+                          .join(', ')}
+                  </p>
+                ) : null}
               </div>
               <Button
                 size="sm"
@@ -568,28 +570,30 @@ function AwardsSection({ config, actions }: { config: ContestConfig; actions: Se
               aria-label="Award description"
               className="w-full rounded-lg border border-black/15 px-3 py-2"
             />
-            <fieldset>
-              <legend className="text-xs font-semibold text-ink-muted">
-                Eligible categories (none selected = all)
-              </legend>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {config.categories.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    aria-pressed={scope.includes(category.id)}
-                    onClick={() => toggleScope(category.id)}
-                    className={`rounded-full border px-3 py-1 text-sm font-medium ${
-                      scope.includes(category.id)
-                        ? 'border-brand-600 bg-brand-600 text-white'
-                        : 'border-black/15 bg-white'
-                    }`}
-                  >
-                    {category.name}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+            {config.categories.length > 0 ? (
+              <fieldset>
+                <legend className="text-xs font-semibold text-ink-muted">
+                  Eligible categories (none selected = all)
+                </legend>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {config.categories.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      aria-pressed={scope.includes(category.id)}
+                      onClick={() => toggleScope(category.id)}
+                      className={`rounded-full border px-3 py-1 text-sm font-medium ${
+                        scope.includes(category.id)
+                          ? 'border-brand-600 bg-brand-600 text-white'
+                          : 'border-black/15 bg-white'
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
             <Button
               disabled={name.trim().length === 0}
               onClick={() => {
