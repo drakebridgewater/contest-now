@@ -155,25 +155,11 @@ describe('event page', () => {
     );
   });
 
-  it('asks guests who are not signed in from their email to RSVP for the address', async () => {
-    me = { id: 'g2', name: 'Tablet Tess', scope: 'vote', allergies: [] };
+  it('shows the details and FAQ on one page, in that order', async () => {
     renderAt('/event');
-    expect(await screen.findByRole('link', { name: 'RSVP to see the address' })).toHaveAttribute(
-      'href',
-      '#rsvp',
-    );
-    expect(screen.queryByText('Matt & Mar’s Home')).not.toBeInTheDocument();
-  });
-
-  it('shows the details, RSVP and FAQ on one page, in that order', async () => {
-    renderAt('/event');
-    expect(await screen.findByText('Loading your RSVP…')).toBeInTheDocument();
-    expect(screen.getByText('Frequently asked questions')).toBeInTheDocument();
-    const [details, rsvp, faq] = ['details', 'rsvp', 'faq'].map((id) =>
-      document.getElementById(id)!,
-    );
-    expect(details!.compareDocumentPosition(rsvp!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(rsvp!.compareDocumentPosition(faq!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(await screen.findByText('Frequently asked questions')).toBeInTheDocument();
+    const [details, faq] = ['details', 'faq'].map((id) => document.getElementById(id)!);
+    expect(details!.compareDocumentPosition(faq!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('jumps to a section from the section chips', async () => {

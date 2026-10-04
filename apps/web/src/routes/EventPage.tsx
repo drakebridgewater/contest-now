@@ -4,7 +4,6 @@ import { Navigate, useLocation } from 'react-router';
 import { EventExtras, EventFacts } from '../components/event/EventDetails.tsx';
 import { EventSectionNav } from '../components/event/EventSectionNav.tsx';
 import { FaqSection } from '../components/event/FaqSection.tsx';
-import { RsvpSection } from '../components/event/RsvpSection.tsx';
 import { ScheduleSection } from '../components/event/ScheduleSection.tsx';
 import { EVENT_SECTIONS, SECTION_SCROLL_MARGIN } from '../components/event/sections.ts';
 import { useContest } from '../lib/queries.ts';
@@ -15,10 +14,10 @@ const sectionStyle = { scrollMarginTop: SECTION_SCROLL_MARGIN };
 
 /**
  * Everything a guest needs on one page, in the order they need it: the key
- * facts, then the RSVP, then the fine print, the timeline and the FAQ.
+ * facts, then the fine print, the timeline and the FAQ.
  */
 export function EventPage() {
-  const invite = useInviteSignIn();
+  useInviteSignIn();
   const settings = useContest().data?.settings;
   const hasSchedule = settings ? eventTimeline(settings).length > 0 : false;
   useScrollToHash();
@@ -28,7 +27,7 @@ export function EventPage() {
       <EventSectionNav hidden={hasSchedule ? [] : ['schedule']} />
 
       <section id="details" data-section="details" className="space-y-4" style={sectionStyle}>
-        <EventFacts meEnabled={invite.settled} />
+        <EventFacts />
       </section>
 
       {/* Still the details, just the parts nobody needs before answering. */}
@@ -40,10 +39,6 @@ export function EventPage() {
         style={sectionStyle}
       >
         <EventExtras />
-      </section>
-
-      <section id="rsvp" data-section="rsvp" style={sectionStyle}>
-        <RsvpSection inviteSettled={invite.settled} inviteError={invite.error} />
       </section>
 
       {hasSchedule ? (
@@ -61,7 +56,7 @@ export function EventPage() {
 
 /**
  * Opens at the section in the URL hash (like /event#faq). Waits until nothing
- * is loading, because the RSVP filling in above would push the target down.
+ * is loading, because content filling in above would push the target down.
  */
 function useScrollToHash() {
   const { hash } = useLocation();
