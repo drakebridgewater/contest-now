@@ -11,12 +11,8 @@ function bySortOrder<T extends { sortOrder: number; id: number | string }>(a: T,
   return a.sortOrder - b.sortOrder || String(a.id).localeCompare(String(b.id));
 }
 
-/** Active criteria of one category, in display order. An entry with no category has none. */
-export function activeCriteriaFor(
-  criteria: readonly Criterion[],
-  categoryId: string | null,
-): Criterion[] {
-  if (categoryId === null) return [];
+/** Active criteria of one category, in display order. */
+export function activeCriteriaFor(criteria: readonly Criterion[], categoryId: string): Criterion[] {
   return criteria.filter((c) => c.categoryId === categoryId && c.isActive).sort(bySortOrder);
 }
 
@@ -170,8 +166,7 @@ export function isEntryInAwardScope(
   award: Pick<Award, 'categoryIds'>,
   entry: Pick<Entry, 'categoryId'>,
 ): boolean {
-  if (award.categoryIds.length === 0) return true;
-  return entry.categoryId !== null && award.categoryIds.includes(entry.categoryId);
+  return award.categoryIds.length === 0 || award.categoryIds.includes(entry.categoryId);
 }
 
 export interface BallotTally {

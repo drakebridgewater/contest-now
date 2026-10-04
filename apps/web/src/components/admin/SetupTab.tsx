@@ -1,6 +1,9 @@
 import {
+  CATEGORY_NOUN_MAX,
+  categoryTerms,
   type Award,
   type Category,
+  type CategoryKind,
   type ContestConfig,
   type Criterion,
   type EventSettings,
@@ -16,7 +19,7 @@ import { TextAreaField, TextField } from '../ui/Field.tsx';
 
 export interface SetupActions {
   saveSettings: (input: Partial<EventSettings>) => void;
-  createCategory: (name: string, emoji: string) => void;
+  createCategory: (name: string, emoji: string, kind: CategoryKind) => void;
   updateCategory: (category: Category, patch: Partial<Category>) => void;
   deleteCategory: (category: Category) => void;
   createCriterion: (categoryId: string, name: string, helpText: string) => void;
@@ -264,6 +267,7 @@ function CategoriesSection({
 }) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('');
+  const [kind, setKind] = useState<CategoryKind>('tasting');
 
   const sorted = [...config.categories].sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -271,7 +275,7 @@ function CategoriesSection({
     <Card>
       <CardHeader
         title="Categories and criteria"
-        subtitle="Each category is judged on its own criteria. With no categories, entries compete for the awards only."
+        subtitle="Each category is judged on its own criteria."
       />
       <div className="space-y-4 p-4">
         {sorted.map((category, index) => (
@@ -305,14 +309,15 @@ function CategoriesSection({
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Main dishes"
+              placeholder={kind === 'showcase' ? 'Costumes' : 'Main dishes'}
               aria-label="Category name"
               className="min-w-0 flex-1 rounded-lg border border-black/15 px-3 py-2"
             />
+            <KindSelect value={kind} onChange={setKind} label="New category kind" />
             <Button
               disabled={name.trim().length === 0}
               onClick={() => {
-                actions.createCategory(name.trim(), emoji.trim());
+                actions.createCategory(name.trim(), emoji.trim(), kind);
                 setName('');
                 setEmoji('');
               }}
@@ -324,6 +329,37 @@ function CategoriesSection({
         </div>
       </div>
     </Card>
+  );
+}
+
+const KIND_LABELS: Record<CategoryKind, string> = {
+  tasting: 'Tasted (food & drink)',
+  showcase: 'Seen (costumes, crafts)',
+};
+
+/** Tasted entries carry allergens and a "Tasted" mark; seen ones a "Seen" mark and no allergens. */
+function KindSelect({
+  value,
+  onChange,
+  label,
+}: {
+  value: CategoryKind;
+  onChange: (kind: CategoryKind) => void;
+  label: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value as CategoryKind)}
+      aria-label={label}
+      className="rounded-lg border border-black/15 bg-white px-2 py-2 text-sm"
+    >
+      {(Object.keys(KIND_LABELS) as CategoryKind[]).map((k) => (
+        <option key={k} value={k}>
+          {KIND_LABELS[k]}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -346,7 +382,12 @@ function CategoryEditor({
 }) {
   const [criterionName, setCriterionName] = useState('');
   const [criterionHelp, setCriterionHelp] = useState('');
+  const [noun, setNoun] = useState(category.noun);
   const sorted = [...criteria].sort((a, b) => a.sortOrder - b.sortOrder);
+  // Saved on blur, not per keystroke: each save is a request and a refetch.
+  const saveNoun = () => {
+    if (noun.trim() !== category.noun) actions.updateCategory(category, { noun: noun.trim() });
+  };
 
   return (
     <section className="rounded-xl border border-black/10 p-3">
@@ -390,6 +431,26 @@ function CategoryEditor({
           <Trash2 className="size-4" aria-hidden="true" />
         </Button>
       </header>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <KindSelect
+          value={category.kind}
+          onChange={(kind) => actions.updateCategory(category, { kind })}
+          label={`Kind of ${category.name}`}
+        />
+        <input
+          value={noun}
+          onChange={(event) => setNoun(event.target.value)}
+          onBlur={saveNoun}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') saveNoun();
+          }}
+          maxLength={CATEGORY_NOUN_MAX}
+          placeholder={`One entry is a… (${categoryTerms({ kind: category.kind, noun: '' }).noun})`}
+          aria-label={`What one ${category.name} entry is called`}
+          className="min-w-0 flex-1 rounded-lg border border-black/15 px-3 py-2 text-sm"
+        />
+      </div>
 
       <ul className="mt-3 space-y-2">
         {sorted.map((criterion, index) => (
@@ -515,15 +576,13 @@ function AwardsSection({ config, actions }: { config: ContestConfig; actions: Se
                 >
                   {award.name}
                 </p>
-                {config.categories.length > 0 ? (
-                  <p className="text-xs text-ink-muted">
-                    {award.categoryIds.length === 0
-                      ? 'Any category'
-                      : award.categoryIds
-                          .map((id) => config.categories.find((c) => c.id === id)?.name ?? id)
-                          .join(', ')}
-                  </p>
-                ) : null}
+                <p className="text-xs text-ink-muted">
+                  {award.categoryIds.length === 0
+                    ? 'Any category'
+                    : award.categoryIds
+                        .map((id) => config.categories.find((c) => c.id === id)?.name ?? id)
+                        .join(', ')}
+                </p>
               </div>
               <Button
                 size="sm"
@@ -570,30 +629,28 @@ function AwardsSection({ config, actions }: { config: ContestConfig; actions: Se
               aria-label="Award description"
               className="w-full rounded-lg border border-black/15 px-3 py-2"
             />
-            {config.categories.length > 0 ? (
-              <fieldset>
-                <legend className="text-xs font-semibold text-ink-muted">
-                  Eligible categories (none selected = all)
-                </legend>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {config.categories.map((category) => (
-                    <button
-                      key={category.id}
-                      type="button"
-                      aria-pressed={scope.includes(category.id)}
-                      onClick={() => toggleScope(category.id)}
-                      className={`rounded-full border px-3 py-1 text-sm font-medium ${
-                        scope.includes(category.id)
-                          ? 'border-brand-600 bg-brand-600 text-white'
-                          : 'border-black/15 bg-white'
-                      }`}
-                    >
-                      {category.name}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            ) : null}
+            <fieldset>
+              <legend className="text-xs font-semibold text-ink-muted">
+                Eligible categories (none selected = all)
+              </legend>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {config.categories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    aria-pressed={scope.includes(category.id)}
+                    onClick={() => toggleScope(category.id)}
+                    className={`rounded-full border px-3 py-1 text-sm font-medium ${
+                      scope.includes(category.id)
+                        ? 'border-brand-600 bg-brand-600 text-white'
+                        : 'border-black/15 bg-white'
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
             <Button
               disabled={name.trim().length === 0}
               onClick={() => {

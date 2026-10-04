@@ -100,14 +100,11 @@ export async function upsertVote(
     .then((r) => r[0]);
   if (!entry) throw notFound(`Entry ${entryId} not found`);
 
-  const categoryCriteria =
-    entry.categoryId === null
-      ? []
-      : await db
-          .select()
-          .from(criteria)
-          .where(eq(criteria.categoryId, entry.categoryId))
-          .then((rows) => rows.map(toCriterion));
+  const categoryCriteria = await db
+    .select()
+    .from(criteria)
+    .where(eq(criteria.categoryId, entry.categoryId))
+    .then((rows) => rows.map(toCriterion));
   const active = activeCriteriaFor(categoryCriteria, entry.categoryId);
   const activeIds = new Set(active.map((c) => scoreKey(c.id)));
 

@@ -1,6 +1,7 @@
 import type { ContestConfig, GuestName, SessionGuest } from '@contest/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui/Toast.tsx';
@@ -22,7 +23,16 @@ const contest: ContestConfig = {
     submissionsOpenAt: null,
   },
   categories: [
-    { id: 'dessert', name: 'Desserts', emoji: '🍰', description: '', sortOrder: 1, isActive: true },
+    {
+      id: 'dessert',
+      name: 'Desserts',
+      emoji: '🍰',
+      description: '',
+      kind: 'tasting',
+      noun: '',
+      sortOrder: 1,
+      isActive: true,
+    },
   ],
   criteria: [],
   awards: [],
@@ -57,23 +67,49 @@ afterEach(() => {
   contest.settings.submissionsOpenAt = null;
 });
 
+const costumes = {
+  id: 'costume',
+  name: 'Costumes',
+  emoji: '🎃',
+  description: '',
+  kind: 'showcase' as const,
+  noun: 'costume',
+  sortOrder: 2,
+  isActive: true,
+};
+
 describe('SubmitPage', () => {
+  it('skips the category picker when there is only one category', async () => {
+    renderPage();
+    expect(await screen.findByLabelText('Entry name')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Category' })).not.toBeInTheDocument();
+    expect(screen.getByText(/whole dish/)).toBeInTheDocument();
+  });
+
+  it('asks for no allergens in a costume-only contest, and talks about costumes', async () => {
+    contest.categories = [costumes];
+    renderPage();
+    expect(await screen.findByLabelText('Entry name')).toBeInTheDocument();
+    expect(screen.getByText(/The Headless Horseman/)).toBeInTheDocument();
+    expect(screen.getByText(/whole costume/)).toBeInTheDocument();
+    expect(screen.queryByText(/allergen/i)).not.toBeInTheDocument();
+  });
+
+  it('offers allergens once a food category is picked, and not for costumes', async () => {
+    const user = userEvent.setup();
+    contest.categories = [dessert, costumes];
+    renderPage();
+    const picker = await screen.findByRole('group', { name: 'Category' });
+    await user.click(within(picker).getByRole('button', { name: /Costumes/ }));
+    expect(screen.queryByText(/Tap everything your dish contains/)).not.toBeInTheDocument();
+    await user.click(within(picker).getByRole('button', { name: /Desserts/ }));
+    expect(screen.getByText(/Tap everything your dish contains/)).toBeInTheDocument();
+  });
+
   it('shows the form while entries are open', async () => {
     renderPage();
     expect(await screen.findByLabelText('Entry name')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Submit entry/ })).toBeEnabled();
-  });
-
-  it('asks for a category only when the contest has some', async () => {
-    const { unmount } = renderPage();
-    expect(await screen.findByRole('group', { name: 'Category' })).toBeInTheDocument();
-    unmount();
-
-    contest.categories = [];
-    renderPage();
-    expect(await screen.findByLabelText('Entry name')).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Category' })).not.toBeInTheDocument();
-    expect(screen.queryByText(/No categories yet/)).not.toBeInTheDocument();
   });
 
   it('shows only a countdown before entries open', async () => {

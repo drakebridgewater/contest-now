@@ -4,15 +4,60 @@ import { Slug } from './slug.ts';
 
 const ShortText = (max: number) => z.string().trim().max(max);
 
+/**
+ * What kind of contest a category is. It decides behaviour, not just wording:
+ * guests taste a `tasting` entry (food, drinks), so it carries allergens and a
+ * "Tasted" mark; they look at a `showcase` entry (costumes, carving), so it has
+ * neither, and the mark reads "Seen".
+ */
+export const CATEGORY_KINDS = ['tasting', 'showcase'] as const;
+export const CategoryKind = z.enum(CATEGORY_KINDS);
+export type CategoryKind = z.infer<typeof CategoryKind>;
+
+export const CATEGORY_NOUN_MAX = 30;
+
 export const CategorySchema = z.object({
   id: Slug,
   name: ShortText(60).min(1),
   emoji: ShortText(8),
   description: ShortText(200),
+  kind: CategoryKind,
+  /** What one entry is called, like "costume". Empty = the kind's default. */
+  noun: ShortText(CATEGORY_NOUN_MAX),
   sortOrder: z.number().int(),
   isActive: z.boolean(),
 });
 export type Category = z.infer<typeof CategorySchema>;
+
+export interface CategoryTerms {
+  /** One entry, lower case: "dish", "costume". */
+  noun: string;
+  /** The voter's own checklist mark. */
+  mark: 'Tasted' | 'Seen';
+  /** Submitters list allergens, and voters are warned about their own. */
+  allergens: boolean;
+  /** A sample entry name for the submit form. */
+  example: string;
+}
+
+const KIND_TERMS: Record<CategoryKind, CategoryTerms> = {
+  tasting: {
+    noun: 'dish',
+    mark: 'Tasted',
+    allergens: true,
+    example: 'Grandma’s Bourbon Pecan Pie',
+  },
+  showcase: { noun: 'entry', mark: 'Seen', allergens: false, example: 'The Headless Horseman' },
+};
+
+/** How the app talks about, and treats, entries in this category. Unknown = tasting. */
+export function categoryTerms(
+  category: Pick<Category, 'kind' | 'noun'> | undefined,
+): CategoryTerms {
+  const terms = KIND_TERMS[category?.kind ?? 'tasting'];
+  const noun = category?.noun.trim().toLowerCase();
+  return noun ? { ...terms, noun } : terms;
+}
 
 export const CriterionSchema = z.object({
   id: z.number().int().positive(),
@@ -118,7 +163,14 @@ export type ContestConfig = z.infer<typeof ContestConfigSchema>;
 // ---- admin inputs -------------------------------------------------------------
 
 export const CategoryInputSchema = CategorySchema.omit({ id: true })
-  .partial({ emoji: true, description: true, sortOrder: true, isActive: true })
+  .partial({
+    emoji: true,
+    description: true,
+    kind: true,
+    noun: true,
+    sortOrder: true,
+    isActive: true,
+  })
   .extend({ id: Slug.optional() });
 export type CategoryInput = z.infer<typeof CategoryInputSchema>;
 

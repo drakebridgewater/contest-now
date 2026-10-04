@@ -1,5 +1,5 @@
 {
-  "id": "7709da22-ba0a-47df-98b4-78ba031aa27f",
+  "id": "0c13ba8e-5b42-4628-aa08-8471248aef38",
   "prevId": "240aab8b-9ea1-4c6c-bddb-f110bd9cfb54",
   "version": "7",
   "dialect": "postgresql",
@@ -437,6 +437,20 @@
           "notNull": true,
           "default": "''"
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'tasting'"
+        },
+        "noun": {
+          "name": "noun",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -457,7 +471,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "categories_kind": {
+          "name": "categories_kind",
+          "value": "\"categories\".\"kind\" in ('tasting', 'showcase')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.criteria": {
@@ -579,7 +598,7 @@
           "name": "category_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "photo_path": {
           "name": "photo_path",

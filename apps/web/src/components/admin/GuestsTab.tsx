@@ -303,7 +303,7 @@ function GuestRow({
     guest.entryCount > 0
       ? `${guest.entryCount} ${guest.entryCount === 1 ? 'entry' : 'entries'}`
       : '',
-    guest.tastedCount > 0 ? `${guest.tastedCount} tasted` : '',
+    guest.tastedCount > 0 ? `${guest.tastedCount} checked off` : '',
     guest.completeVoteCount > 0 ? `${guest.completeVoteCount} rated` : '',
     guest.ballotCount > 0 ? `${guest.ballotCount} nominations` : '',
   ].filter(Boolean);

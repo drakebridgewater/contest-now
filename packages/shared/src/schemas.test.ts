@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { allergenConflicts, labelFor, splitLabels } from './allergens.ts';
-import { CategoryInputSchema, EventSettingsSchema, phaseStatus } from './contest.ts';
+import { CategoryInputSchema, categoryTerms, EventSettingsSchema, phaseStatus } from './contest.ts';
 import {
   CustomEmailSchema,
   EMAIL_HTML_MAX,
@@ -53,6 +53,31 @@ describe('schemas', () => {
   it('allows null to clear a score and rejects out-of-range ratings', () => {
     expect(UpsertVoteSchema.safeParse({ scores: { '1': null, '2': 5 } }).success).toBe(true);
     expect(UpsertVoteSchema.safeParse({ scores: { '1': 6 } }).success).toBe(false);
+  });
+});
+
+describe('categoryTerms', () => {
+  it('tastes food, with allergens, and shows off a showcase entry without them', () => {
+    expect(categoryTerms({ kind: 'tasting', noun: '' })).toMatchObject({
+      noun: 'dish',
+      mark: 'Tasted',
+      allergens: true,
+    });
+    expect(categoryTerms({ kind: 'showcase', noun: '' })).toMatchObject({
+      noun: 'entry',
+      mark: 'Seen',
+      allergens: false,
+    });
+  });
+
+  it('uses the host’s noun, lower-cased, and falls back to tasting when unknown', () => {
+    expect(categoryTerms({ kind: 'showcase', noun: ' Costume ' }).noun).toBe('costume');
+    expect(categoryTerms(undefined).mark).toBe('Tasted');
+  });
+
+  it('defaults the kind of a new category to tasting', () => {
+    expect(CategoryInputSchema.parse({ name: 'Pies' }).kind).toBeUndefined();
+    expect(CategoryInputSchema.safeParse({ name: 'X', kind: 'raffle' }).success).toBe(false);
   });
 });
 

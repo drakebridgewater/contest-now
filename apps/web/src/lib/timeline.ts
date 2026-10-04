@@ -16,9 +16,13 @@ export function eventTimeline(settings: EventSettings): { day: string; items: Sc
     {
       at: settings.submissionsOpenAt,
       title: 'Entries open',
-      details: 'Submit your dish or drink.',
+      details: 'Submit your entry.',
     },
-    { at: settings.votingOpensAt, title: 'Voting opens', details: 'Taste, rate and nominate.' },
+    {
+      at: settings.votingOpensAt,
+      title: 'Voting opens',
+      details: 'Check out the entries and vote.',
+    },
   ].filter((item): item is ScheduleItem => item.at !== null);
 
   const items = [...fixed, ...settings.schedule].sort(

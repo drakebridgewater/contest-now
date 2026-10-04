@@ -1,10 +1,12 @@
 import {
+  categoryTerms,
   hasLowVotes,
   RATING_VALUES,
   type CategoryResults,
+  type CategoryTerms,
   type EntryResult,
 } from '@contest/shared';
-import { ChevronDown, Medal, Trash2, TriangleAlert, Utensils } from 'lucide-react';
+import { ChevronDown, Eye, Medal, Trash2, TriangleAlert, Utensils } from 'lucide-react';
 import { useState } from 'react';
 import { AllergenBadges } from '../AllergenBadges.tsx';
 import { Button } from '../ui/Button.tsx';
@@ -93,6 +95,7 @@ function CriterionBar({
 function ResultCard({
   entry,
   criteriaNames,
+  terms,
   scored,
   tied,
   expanded,
@@ -101,7 +104,8 @@ function ResultCard({
 }: {
   entry: EntryResult;
   criteriaNames: Map<number, string>;
-  /** False for entries with no criteria to rate: there is no rank or score to show. */
+  terms: CategoryTerms;
+  /** False for a category with no criteria: awards only, so no rank or score to show. */
   scored: boolean;
   tied: boolean;
   expanded: boolean;
@@ -188,12 +192,18 @@ function ResultCard({
 
           <details className="rounded-lg border border-black/10 p-2">
             <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold">
-              <Utensils className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
-              Tasted by {entry.tastedCount}
+              {terms.mark === 'Seen' ? (
+                <Eye className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+              ) : (
+                <Utensils className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+              )}
+              {terms.mark} by {entry.tastedCount}
               {entry.tastedCount === 1 ? ' guest' : ' guests'}
             </summary>
             {entry.tasters.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-muted">Nobody has marked this tasted yet.</p>
+              <p className="mt-2 text-sm text-ink-muted">
+                Nobody has marked this {terms.mark.toLowerCase()} yet.
+              </p>
             ) : (
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {entry.tasters.map((taster) => (
@@ -272,7 +282,7 @@ export function ResultsTab({
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
   if (results.length === 0) {
-    return <p className="text-ink-muted">No entries yet.</p>;
+    return <p className="text-ink-muted">No categories yet. Add one under Setup.</p>;
   }
 
   const allEntries = results.flatMap((category) => category.entries);
@@ -301,19 +311,11 @@ export function ResultsTab({
           rankCounts.set(entry.rank, (rankCounts.get(entry.rank) ?? 0) + 1);
         }
         return (
-          <section key={category.category?.id ?? ''} className="space-y-3">
+          <section key={category.category.id} className="space-y-3">
             <h2 className="flex items-center gap-2 text-xl font-bold">
-              {category.category ? (
-                <>
-                  <span aria-hidden="true">{category.category.emoji}</span>
-                  {category.category.name}
-                </>
-              ) : results.length === 1 ? (
-                'Entries'
-              ) : (
-                'No category'
-              )}
-              {category.category && !category.category.isActive ? (
+              <span aria-hidden="true">{category.category.emoji}</span>
+              {category.category.name}
+              {!category.category.isActive ? (
                 <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold text-ink-muted">
                   Hidden
                 </span>
@@ -328,6 +330,7 @@ export function ResultsTab({
                     key={entry.id}
                     entry={entry}
                     criteriaNames={names}
+                    terms={categoryTerms(category.category)}
                     scored={category.criteria.length > 0}
                     tied={(rankCounts.get(entry.rank) ?? 0) > 1}
                     expanded={expanded[entry.id] ?? false}

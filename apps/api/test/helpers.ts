@@ -111,8 +111,7 @@ export async function submitEntry(
   overrides: Partial<{
     entryName: string;
     contestantName: string;
-    /** Null leaves the field out, as the form does when the contest has no categories. */
-    categoryId: string | null;
+    categoryId: string;
     allergens: string[];
     /** The photo part, for tests about how a file is named and announced. */
     photo: Buffer;
@@ -133,8 +132,8 @@ export async function submitEntry(
   let req = ctx.api
     .post('/api/entries')
     .field('entryName', fields.entryName)
-    .field('contestantName', fields.contestantName);
-  if (fields.categoryId !== null) req = req.field('categoryId', fields.categoryId);
+    .field('contestantName', fields.contestantName)
+    .field('categoryId', fields.categoryId);
   for (const allergen of fields.allergens) req = req.field('allergens', allergen);
   if (overrides.guestId) req = req.field('guestId', overrides.guestId);
   return req.attach('photo', fields.photo ?? (await samplePhoto()), {

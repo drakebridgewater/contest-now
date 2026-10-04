@@ -40,7 +40,16 @@ const contest: ContestConfig = {
     submissionsOpenAt: null,
   },
   categories: [
-    { id: 'dessert', name: 'Desserts', emoji: '🍰', description: '', sortOrder: 1, isActive: true },
+    {
+      id: 'dessert',
+      name: 'Desserts',
+      emoji: '🍰',
+      description: '',
+      kind: 'tasting',
+      noun: '',
+      sortOrder: 1,
+      isActive: true,
+    },
   ],
   criteria: [criterion(1, 'Appearance'), criterion(2, 'Flavor')],
   awards: [],
@@ -161,22 +170,31 @@ describe('VotePage', () => {
     expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']);
   });
 
-  it('lists entries with no category in a group of their own, with nothing to star', async () => {
-    const saved = { categories: contest.categories, criteria: contest.criteria };
-    const savedEntries = entries.splice(0, entries.length, {
-      ...entry(4, 'Headless Horseman'),
-      categoryId: null,
-    });
-    contest.categories = [];
-    contest.criteria = [];
+  it('counts tasted food and seen costumes apart in a mixed event', async () => {
+    const savedCategories = contest.categories;
+    contest.categories = [
+      ...savedCategories,
+      {
+        id: 'costume',
+        name: 'Costumes',
+        emoji: '🎃',
+        description: '',
+        kind: 'showcase',
+        noun: 'costume',
+        sortOrder: 2,
+        isActive: true,
+      },
+    ];
+    entries.push({ ...entry(4, 'Headless Horseman'), categoryId: 'costume' });
     try {
       renderPage();
-      expect(await screen.findByRole('heading', { name: /^Entries/ })).toBeInTheDocument();
-      expect(visibleEntryNames()).toEqual(['Headless Horseman']);
-      expect(screen.getByText('0 of 1 tasted')).toBeInTheDocument();
+      await waitFor(() => expect(visibleEntryNames()).toHaveLength(4));
+      expect(screen.getByText(/2 of 3 tasted · 0 of 1 seen/)).toBeInTheDocument();
+      expect(within(card('Headless Horseman')).getByText('Not seen')).toBeInTheDocument();
+      expect(within(card('Brownies')).getByText('Not tasted')).toBeInTheDocument();
     } finally {
-      entries.splice(0, entries.length, ...savedEntries);
-      Object.assign(contest, saved);
+      entries.pop();
+      contest.categories = savedCategories;
     }
   });
 

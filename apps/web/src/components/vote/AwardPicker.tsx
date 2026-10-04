@@ -33,13 +33,10 @@ export function AwardPicker({
   const eligible = entries.filter((entry) => isEntryInAwardScope(award, entry));
   const picked = eligible.find((entry) => entry.id === pickedEntryId);
 
-  // With no categories at all every award is open to every entry, so there is nothing to say.
   const scopeLabel =
-    award.categoryIds.length > 0
-      ? award.categoryIds.map((id) => categoryNames.get(id) ?? id).join(', ')
-      : categoryNames.size > 0
-        ? 'Any category'
-        : null;
+    award.categoryIds.length === 0
+      ? 'Any category'
+      : award.categoryIds.map((id) => categoryNames.get(id) ?? id).join(', ');
 
   return (
     <Card className="p-4">
@@ -52,7 +49,7 @@ export function AwardPicker({
           {award.description ? (
             <p className="mt-0.5 text-sm text-ink-muted">{award.description}</p>
           ) : null}
-          {scopeLabel ? <p className="mt-0.5 text-xs text-ink-muted">{scopeLabel}</p> : null}
+          <p className="mt-0.5 text-xs text-ink-muted">{scopeLabel}</p>
         </div>
       </div>
 
@@ -126,11 +123,9 @@ export function AwardPicker({
                   </span>
                   <span className="block p-2">
                     <span className="block truncate text-sm font-semibold">{entry.entryName}</span>
-                    {entry.categoryId !== null ? (
-                      <span className="block truncate text-xs text-ink-muted">
-                        {categoryNames.get(entry.categoryId) ?? entry.categoryId}
-                      </span>
-                    ) : null}
+                    <span className="block truncate text-xs text-ink-muted">
+                      {categoryNames.get(entry.categoryId) ?? entry.categoryId}
+                    </span>
                     {conflictIds?.has(entry.id) ? (
                       <span className="block text-xs font-semibold text-red-700">
                         ⚠ Your allergens

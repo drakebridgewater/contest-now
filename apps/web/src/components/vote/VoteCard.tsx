@@ -1,10 +1,12 @@
 import {
+  categoryTerms,
   COMMENT_MAX,
   labelFor,
   ratedCriteriaCount,
   scoreKey,
   splitLabels,
   voterScore,
+  type CategoryTerms,
   type Criterion,
   type Entry,
   type Rating,
@@ -40,9 +42,12 @@ export function VoteCard({
   onCommentChange,
   onCommentFlush,
   onTastedChange,
+  terms = categoryTerms(undefined),
 }: {
   entry: Entry;
   criteria: Criterion[];
+  /** The entry's category wording: whether the voter's mark reads "Tasted" or "Seen". */
+  terms?: CategoryTerms;
   vote: VoterVote | undefined;
   disabled?: boolean;
   expanded?: boolean;
@@ -67,7 +72,9 @@ export function VoteCard({
   const rated = ratedCriteriaCount(scores, criteria);
   const tasted = vote?.tasted ?? false;
   const comment = vote?.comment ?? '';
-  const allergenIds = splitLabels(entry.allergens).allergens;
+  // A category switched to showcase may still hold entries submitted with allergens.
+  const shownAllergens = terms.allergens ? entry.allergens : [];
+  const allergenIds = splitLabels(shownAllergens).allergens;
 
   function flash() {
     setSaved(true);
@@ -75,10 +82,11 @@ export function VoteCard({
   }
 
   /**
-   * Tasting and rating are independent — you can rate a dish and then clear the
-   * mark — so the icon reports tasted and the words report rating progress.
-   * Tapping it toggles tasted.
+   * Tasting (or seeing) and rating are independent — you can rate an entry and
+   * then clear the mark — so the icon reports the mark and the words report
+   * rating progress. Tapping it toggles the mark.
    */
+  const markWord = terms.mark.toLowerCase();
   const StatusIcon = tasted ? SquareCheck : Square;
   const statusClass = complete
     ? 'border-accent-500/40 bg-accent-100 text-accent-700'
@@ -95,15 +103,15 @@ export function VoteCard({
         ? `Partially voted · ${rated}/${criteria.length}`
         : `Partial ${rated}/${criteria.length}`
       : tasted
-        ? 'Tasted'
-        : 'Not tasted';
+        ? terms.mark
+        : `Not ${markWord}`;
 
   const statusPill = (
     <button
       type="button"
       aria-pressed={tasted}
       aria-label={`${complete ? `Scored ${score.toFixed(1)} stars` : statusText}. ${
-        tasted ? 'Tap to unmark tasted' : 'Tap to mark tasted'
+        tasted ? `Tap to unmark ${markWord}` : `Tap to mark ${markWord}`
       }`}
       disabled={disabled}
       onClick={() => {
@@ -194,9 +202,7 @@ export function VoteCard({
   const noCriteria =
     criteria.length === 0 ? (
       <p className="text-sm text-ink-muted">
-        {entry.categoryId === null
-          ? 'Nothing to rate here. Nominate your favourites in the awards below.'
-          : 'This category has no rating criteria yet, so there is nothing to score.'}
+        No star ratings in this category. Nominate your favourites in the awards below.
       </p>
     ) : null;
 
@@ -293,7 +299,7 @@ export function VoteCard({
                 className="aspect-4/3 w-full object-cover"
               />
               <div className="space-y-3 p-4">
-                <AllergenBadges ids={entry.allergens} />
+                <AllergenBadges ids={shownAllergens} />
                 <div className="space-y-3">
                   {criteria.map((criterion) => (
                     <StarRating
