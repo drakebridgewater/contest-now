@@ -94,13 +94,17 @@ function mergeVote(entryId: number, input: UpsertVote): VoterVote {
 
 let me: SessionGuest | null;
 
+const voteSignIn = vi.fn<(name: string) => Promise<{ guestId: string }>>();
+
 vi.mock('../lib/api.ts', () => ({
+  ApiRequestError: class extends Error {},
   api: {
     me: () => Promise.resolve(me),
     getContest: () => Promise.resolve(contest),
     getEntries: () => Promise.resolve(entries),
     getVoterState: () => Promise.resolve(voterState),
     saveVote: (entryId: number, input: UpsertVote) => saveVote(entryId, input),
+    voteSignIn: (name: string) => voteSignIn(name),
   },
 }));
 
@@ -257,6 +261,30 @@ describe('VotePage', () => {
     } finally {
       contest.settings.votingOpensAt = null;
     }
+  });
+
+  it('shows the cards once a typed name signs in', async () => {
+    me = null;
+    voteSignIn.mockImplementation((name) => {
+      me = { id: 'g-guest', name, scope: 'vote', allergies: [] };
+      return Promise.resolve({ guestId: 'g-guest' });
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(await screen.findByLabelText('Your name'), 'guest 1');
+    await user.click(screen.getByRole('button', { name: /Start voting/ }));
+    await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
+  });
+
+  it('says so when the browser drops the session cookie, instead of asking again', async () => {
+    me = null;
+    // The server signs the guest in, but /me still sees no session.
+    voteSignIn.mockResolvedValue({ guestId: 'g-guest' });
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(await screen.findByLabelText('Your name'), 'guest 1');
+    await user.click(screen.getByRole('button', { name: /Start voting/ }));
+    expect(await screen.findByText(/did not keep the session/)).toBeInTheDocument();
   });
 
   it('shows a signed-in voter only the countdown until voting opens', async () => {
