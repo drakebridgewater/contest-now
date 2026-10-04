@@ -13,7 +13,7 @@ const startsAtFormat = new Intl.DateTimeFormat(undefined, {
 
 // The rules and ideas are static copy: edit here for next year's party.
 const RULES = [
-  "1 entry per person",
+  '1 entry per person',
   'All judges. Everyone votes. No judges table, no gatekeeping.',
   'One prize per entry. Even if your costume is *that* good, spread the wealth.',
 ];
@@ -40,8 +40,8 @@ export function EventFacts() {
           It’s nearly Halloween!
         </h2>
         <p className="mt-2">
-          Our 2nd annual WAC Halloween Costume Party is finally here, and we want to celebrate with you! Music, games,
-          the usual stuff.
+          Our 2nd annual WAC Halloween Costume Party is finally here, and we want to celebrate with
+          you! Music, games, the usual stuff.
         </p>
         <p className="mt-2">No RSVP needed — just submit your costume and vote on the night.</p>
       </Card>
