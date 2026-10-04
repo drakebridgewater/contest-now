@@ -2,6 +2,19 @@
  * Halloween: pumpkin orange and potion purple on a dusky page.
  * See christmas.css for what each token colors.
  */
+
+/*
+ * Creepster by Font Diner (SIL OFL 1.1, apps/web/public/fonts/creepster-LICENSE.txt),
+ * served from this app so guests' browsers never call a font CDN. It has one weight;
+ * claiming 400-700 stops the browser smearing a fake bold over the bold headings.
+ */
+@font-face {
+  font-family: 'Creepster';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/creepster.woff2') format('woff2');
+}
 :root {
   --color-brand-50: oklch(0.98 0.016 73.7);
   --color-brand-100: oklch(0.954 0.038 75.2);
@@ -23,7 +36,8 @@
   --color-ink: oklch(0.2 0.03 300);
   --color-ink-muted: oklch(0.44 0.03 300);
 
-  --font-display: 'Georgia', 'Times New Roman', serif;
+  /* Headings only: a display font this loud is unreadable as body text. */
+  --font-display: 'Creepster', 'Georgia', 'Times New Roman', serif;
 
   --app-background: linear-gradient(
     180deg,
