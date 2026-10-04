@@ -44,7 +44,7 @@ export function ScheduleTab({
           <PhaseSchedule
             title="Entries"
             switchLabel="Accepting entries"
-            switchHelp="Turn off to stop new dishes being submitted."
+            switchHelp="Turn off to stop new entries being submitted."
             open={settings.submissionsOpen}
             opensAt={settings.submissionsOpenAt}
             now={now}

@@ -43,14 +43,21 @@ export const eventSettings = pgTable(
   (t) => [check('event_settings_singleton', sql`${t.id} = 1`)],
 );
 
-export const categories = pgTable('categories', {
-  id: text().primaryKey(),
-  name: text().notNull(),
-  emoji: text().notNull().default(''),
-  description: text().notNull().default(''),
-  sortOrder: integer().notNull().default(0),
-  isActive: boolean().notNull().default(true),
-});
+export const categories = pgTable(
+  'categories',
+  {
+    id: text().primaryKey(),
+    name: text().notNull(),
+    emoji: text().notNull().default(''),
+    description: text().notNull().default(''),
+    /** CategoryKind. */
+    kind: text().notNull().default('tasting'),
+    noun: text().notNull().default(''),
+    sortOrder: integer().notNull().default(0),
+    isActive: boolean().notNull().default(true),
+  },
+  (t) => [check('categories_kind', sql`${t.kind} in ('tasting', 'showcase')`)],
+);
 
 export const criteria = pgTable(
   'criteria',

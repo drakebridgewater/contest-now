@@ -99,7 +99,8 @@ export async function createEntry(
         entryName: fields.entryName,
         contestantName: fields.guestId ? guest.name : fields.contestantName,
         categoryId: fields.categoryId,
-        allergens: fields.allergens,
+        // Nobody eats a costume: a showcase entry never carries allergen warnings.
+        allergens: category.kind === 'showcase' ? [] : fields.allergens,
         guestId: guest.id,
         photoPath,
       })

@@ -9,6 +9,13 @@ The contest itself is data, not code. Categories, the rating criteria inside eac
 category, the awards and the event branding are all edited in the app, so a new
 category or a new award never needs a deploy.
 
+Each category is one of two kinds. **Tasted** categories (food, drinks) ask for
+allergens and give voters a "Tasted" mark. **Seen** categories (costumes, crafts)
+skip allergens and use a "Seen" mark instead. A category can also name what one
+entry is called ("costume"), so one party can run a costume contest beside the
+food. A category with no criteria is decided by the awards alone, and with only
+one category the submit form skips the picker.
+
 ## How it fits together
 
 | Piece             | What it is                                                           |

@@ -105,8 +105,8 @@ export function AdminPage() {
   const actions: SetupActions = {
     saveSettings: (input: Partial<EventSettings>) =>
       act(() => api.updateSettings(input), 'Event details saved'),
-    createCategory: (name, emoji) =>
-      act(() => api.createCategory({ name, emoji }), `Added ${name}`),
+    createCategory: (name, emoji, kind) =>
+      act(() => api.createCategory({ name, emoji, kind }), `Added ${name}`),
     updateCategory: (category: Category, patch) =>
       act(() => api.updateCategory(category.id, { ...category, ...patch })),
     deleteCategory: (category: Category) =>

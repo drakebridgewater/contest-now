@@ -40,7 +40,16 @@ const contest: ContestConfig = {
     submissionsOpenAt: null,
   },
   categories: [
-    { id: 'dessert', name: 'Desserts', emoji: '🍰', description: '', sortOrder: 1, isActive: true },
+    {
+      id: 'dessert',
+      name: 'Desserts',
+      emoji: '🍰',
+      description: '',
+      kind: 'tasting',
+      noun: '',
+      sortOrder: 1,
+      isActive: true,
+    },
   ],
   criteria: [criterion(1, 'Appearance'), criterion(2, 'Flavor')],
   awards: [],
@@ -159,6 +168,34 @@ describe('VotePage', () => {
     renderPage();
     await waitFor(() => expect(visibleEntryNames()).toHaveLength(3));
     expect(visibleEntryNames()).toEqual(['Trifle', 'Pavlova', 'Brownies']);
+  });
+
+  it('counts tasted food and seen costumes apart in a mixed event', async () => {
+    const savedCategories = contest.categories;
+    contest.categories = [
+      ...savedCategories,
+      {
+        id: 'costume',
+        name: 'Costumes',
+        emoji: '🎃',
+        description: '',
+        kind: 'showcase',
+        noun: 'costume',
+        sortOrder: 2,
+        isActive: true,
+      },
+    ];
+    entries.push({ ...entry(4, 'Headless Horseman'), categoryId: 'costume' });
+    try {
+      renderPage();
+      await waitFor(() => expect(visibleEntryNames()).toHaveLength(4));
+      expect(screen.getByText(/2 of 3 tasted · 0 of 1 seen/)).toBeInTheDocument();
+      expect(within(card('Headless Horseman')).getByText('Not seen')).toBeInTheDocument();
+      expect(within(card('Brownies')).getByText('Not tasted')).toBeInTheDocument();
+    } finally {
+      entries.pop();
+      contest.categories = savedCategories;
+    }
   });
 
   it('starts every card collapsed, finished or not', async () => {

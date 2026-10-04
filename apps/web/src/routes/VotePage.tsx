@@ -2,6 +2,7 @@ import {
   activeCriteriaFor,
   activeSorted,
   allergenConflicts,
+  categoryTerms,
   isVoteComplete,
   votingStatus,
   type Entry,
@@ -25,6 +26,7 @@ import { useLocalStorage } from '../lib/useLocalStorage.ts';
 import { useNow } from '../lib/useNow.ts';
 import { useVoterSession } from '../lib/useVoterSession.ts';
 import { needsAttention, NOTHING_HERE, NOTHING_REMAINING } from '../lib/entryFilter.ts';
+import { pageTerms, withArticle } from '../lib/terms.ts';
 
 const AUTO_LOGOUT_SECONDS = 60;
 
@@ -75,6 +77,15 @@ export function VotePage() {
     () => new Map(categories.map((category) => [category.id, category.name] as const)),
     [categories],
   );
+  const termsByCategory = useMemo(
+    () => new Map((contest.data?.categories ?? []).map((c) => [c.id, categoryTerms(c)] as const)),
+    [contest.data?.categories],
+  );
+  const termsOf = useMemo(
+    () => (entry: Entry) => termsByCategory.get(entry.categoryId) ?? categoryTerms(undefined),
+    [termsByCategory],
+  );
+  const page = pageTerms(categories);
 
   const voterName = session.voterName;
   const allergies = useMemo(() => session.guest?.allergies ?? [], [session.guest]);
@@ -99,26 +110,40 @@ export function VotePage() {
 
   const conflictsById = useMemo(
     () =>
-      new Map(entries.map((entry) => [entry.id, allergenConflicts(allergies, entry.allergens)])),
-    [entries, allergies],
+      new Map(
+        entries.map((entry) => [
+          entry.id,
+          termsOf(entry).allergens ? allergenConflicts(allergies, entry.allergens) : [],
+        ]),
+      ),
+    [entries, allergies, termsOf],
   );
 
   const progress = useMemo(() => {
     let rated = 0;
-    let tasted = 0;
+    // Tasted and seen are counted apart: "3 of 9 tasted" is wrong for costumes.
+    const marks = { Tasted: { done: 0, total: 0 }, Seen: { done: 0, total: 0 } };
     for (const entry of entries) {
       const vote = session.state.votes[String(entry.id)];
       const active = activeCriteriaFor(criteria, entry.categoryId);
       if (isVoteComplete(vote?.scores, active)) rated += 1;
-      if (vote?.tasted) tasted += 1;
+      const mark = marks[termsOf(entry).mark];
+      mark.total += 1;
+      if (vote?.tasted) mark.done += 1;
     }
+    const markText = (['Tasted', 'Seen'] as const)
+      .filter((m) => marks[m].total > 0)
+      .map((m) => `${marks[m].done} of ${marks[m].total} ${m.toLowerCase()}`)
+      .join(' · ');
     return {
       rated,
-      tasted,
-      total: entries.length,
+      markText,
       ballots: Object.keys(session.state.ballots).length,
     };
-  }, [entries, criteria, session.state]);
+  }, [entries, criteria, session.state, termsOf]);
+  const anyRateable = criteria.some((c) => c.isActive);
+  const markHelp =
+    page.anyTasting && page.anyShowcase ? 'tasted (or seen)' : page.anyShowcase ? 'seen' : 'tasted';
 
   if (!session.sessionKnown || status === null) {
     return <p className="text-ink-muted">Loading…</p>;
@@ -130,7 +155,10 @@ export function VotePage() {
         <HelpPanel id="vote-intro" title="How voting works">
           <ol>
             <li>Enter your name so your ratings are saved to you.</li>
-            <li>Mark each dish tasted as you try it, then rate it with stars.</li>
+            <li>
+              Mark each {page.noun} {markHelp} as you go
+              {anyRateable ? ', then rate it with stars' : ''}.
+            </li>
             <li>Nominate your favourites for the special awards at the bottom.</li>
           </ol>
           <p>You can change any rating until the host closes voting.</p>
@@ -188,12 +216,20 @@ export function VotePage() {
     <div className="space-y-4">
       <HelpPanel id="vote" title="How voting works">
         <ul>
-          <li>Tap the tasted box on a card once you have tried it.</li>
-          <li>Tap stars to rate. Rating a dish marks it tasted for you too.</li>
-          <li>Rate every criterion on a card for it to count toward the ranking.</li>
-          <li>Tap a dish’s name to open or close its card.</li>
-          <li>Dishes with your allergens are hidden. Tap the warning chip to see them.</li>
-          <li>Turn on “Only what’s left” to see just the dishes you still owe.</li>
+          <li>Tap the {markHelp} box on a card once you have checked it out.</li>
+          {anyRateable ? (
+            <>
+              <li>
+                Tap stars to rate. Rating {withArticle(page.noun)} marks it {markHelp} too.
+              </li>
+              <li>Rate every criterion on a card for it to count toward the ranking.</li>
+            </>
+          ) : null}
+          <li>Tap {withArticle(page.noun)}’s name to open or close its card.</li>
+          {page.anyTasting ? (
+            <li>Food with your allergens is hidden. Tap the warning chip to see it.</li>
+          ) : null}
+          <li>Turn on “Only what’s left” to see just the entries you still owe.</li>
         </ul>
       </HelpPanel>
 
@@ -204,7 +240,8 @@ export function VotePage() {
         </span>
         {votingOpen ? (
           <span className="text-sm text-ink-muted">
-            {progress.tasted} of {progress.total} tasted · {progress.rated} rated
+            {progress.markText}
+            {anyRateable ? ` · ${progress.rated} rated` : ''}
             {awards.length > 0 ? ` · ${progress.ballots} of ${awards.length} awards` : ''}
           </span>
         ) : null}
@@ -315,7 +352,8 @@ export function VotePage() {
             <Card className="p-8 text-center">
               <p className="text-lg font-semibold">No entries yet</p>
               <p className="mt-1 text-ink-muted">
-                As soon as someone submits a dish it appears here. This page refreshes itself.
+                As soon as someone submits {withArticle(page.noun)} it appears here. This page
+                refreshes itself.
               </p>
             </Card>
           ) : !anyVisible ? (
@@ -350,6 +388,7 @@ export function VotePage() {
                         key={entry.id}
                         entry={entry}
                         criteria={active}
+                        terms={termsOf(entry)}
                         vote={session.state.votes[String(entry.id)]}
                         layout={layout}
                         conflicts={conflictsById.get(entry.id) ?? []}
@@ -382,7 +421,8 @@ export function VotePage() {
               <div>
                 <h2 className="text-xl font-bold">Special awards</h2>
                 <p className="text-sm text-ink-muted">
-                  Nominate one entry per award. This is separate from the star ratings.
+                  Nominate one entry per award.
+                  {anyRateable ? ' This is separate from the star ratings.' : ''}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">

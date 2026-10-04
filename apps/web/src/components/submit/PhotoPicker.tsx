@@ -22,9 +22,12 @@ import { Button } from '../ui/Button.tsx';
 export function PhotoPicker({
   onChange,
   error,
+  noun = 'entry',
 }: {
   onChange: (file: File | null) => void;
   error?: string;
+  /** What is being photographed: "dish", "costume". */
+  noun?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -76,7 +79,7 @@ export function PhotoPicker({
     <div>
       <p className="text-sm font-semibold">Photo</p>
       <p className="mt-0.5 text-sm text-ink-muted">
-        A clear, well-lit shot of the whole dish. Taken with your phone camera is perfect.
+        A clear, well-lit shot of the whole {noun}. Taken with your phone camera is perfect.
       </p>
 
       <input

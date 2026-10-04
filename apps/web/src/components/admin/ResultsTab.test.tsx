@@ -51,6 +51,8 @@ const results: CategoryResults[] = [
       name: 'Desserts',
       emoji: '🍰',
       description: '',
+      kind: 'tasting',
+      noun: '',
       sortOrder: 1,
       isActive: true,
     },

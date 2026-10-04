@@ -1,5 +1,4 @@
 import type { Faq } from '@contest/shared';
-import { sql } from 'drizzle-orm';
 import type { Db } from './client.ts';
 import { awards, categories, criteria, eventSettings } from './schema.ts';
 
@@ -53,16 +52,12 @@ const defaultCriteria = {
 } as const;
 
 /**
- * Inserts the default contest when the database is empty (no categories).
- * Never touches an existing contest, so admin edits and deletions stick.
+ * Inserts the default contest into a brand-new database: the settings row is the
+ * marker, so a host who deletes every category (an awards-only contest) does not
+ * get the defaults back on the next restart. Never touches an existing contest.
  */
 export async function seedDefaults(db: Db): Promise<{ seeded: boolean }> {
-  const existing = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(categories)
-    .then((rows) => rows[0]?.count ?? 0);
-
-  await db
+  const inserted = await db
     .insert(eventSettings)
     .values({
       id: 1,
@@ -71,9 +66,10 @@ export async function seedDefaults(db: Db): Promise<{ seeded: boolean }> {
       faqs: DEFAULT_FAQS,
       knownAllergies: DEFAULT_KNOWN_ALLERGIES,
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: eventSettings.id });
 
-  if (existing > 0) return { seeded: false };
+  if (inserted.length === 0) return { seeded: false };
 
   await db.transaction(async (tx) => {
     await tx.insert(categories).values([
