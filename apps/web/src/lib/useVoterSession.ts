@@ -128,7 +128,15 @@ export function useVoterSession() {
   const signIn = useCallback(
     async (name: string) => {
       await api.voteSignIn(name.trim());
-      await queryClient.invalidateQueries({ queryKey: queryKeys.me });
+      // The server answered yes, but the browser may still have dropped the
+      // cookie (a Secure cookie on a plain-http address, say). Check, rather
+      // than drop the guest silently back at the name form.
+      const signedIn = await queryClient.fetchQuery({ queryKey: queryKeys.me, queryFn: api.me });
+      if (!signedIn) {
+        throw new Error(
+          'Signed in, but this browser did not keep the session. Open the party’s main address (the one in your invite) and try again.',
+        );
+      }
     },
     [queryClient],
   );
