@@ -31,10 +31,6 @@ export function EventPage() {
         <EventFacts meEnabled={invite.settled} />
       </section>
 
-      <section id="rsvp" data-section="rsvp" style={sectionStyle}>
-        <RsvpSection inviteSettled={invite.settled} inviteError={invite.error} />
-      </section>
-
       {/* Still the details, just the parts nobody needs before answering. */}
       <section
         id="contest"
@@ -44,6 +40,10 @@ export function EventPage() {
         style={sectionStyle}
       >
         <EventExtras />
+      </section>
+
+      <section id="rsvp" data-section="rsvp" style={sectionStyle}>
+        <RsvpSection inviteSettled={invite.settled} inviteError={invite.error} />
       </section>
 
       {hasSchedule ? (

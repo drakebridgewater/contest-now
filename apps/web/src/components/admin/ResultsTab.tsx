@@ -1,10 +1,12 @@
 import {
+  categoryTerms,
   hasLowVotes,
   RATING_VALUES,
   type CategoryResults,
+  type CategoryTerms,
   type EntryResult,
 } from '@contest/shared';
-import { ChevronDown, Medal, Trash2, TriangleAlert, Utensils } from 'lucide-react';
+import { ChevronDown, Eye, Medal, Trash2, TriangleAlert, Utensils } from 'lucide-react';
 import { useState } from 'react';
 import { AllergenBadges } from '../AllergenBadges.tsx';
 import { Button } from '../ui/Button.tsx';
@@ -93,6 +95,8 @@ function CriterionBar({
 function ResultCard({
   entry,
   criteriaNames,
+  terms,
+  scored,
   tied,
   expanded,
   onExpandedChange,
@@ -100,6 +104,9 @@ function ResultCard({
 }: {
   entry: EntryResult;
   criteriaNames: Map<number, string>;
+  terms: CategoryTerms;
+  /** False for a category with no criteria: awards only, so no rank or score to show. */
+  scored: boolean;
   tied: boolean;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
@@ -113,11 +120,13 @@ function ResultCard({
    * children are inline spans, so the computed name would run them together as
    * "#1Bourbon Pecan Pie4.326 votes".
    */
-  const label = `${entry.entryName}, ${
-    rated
-      ? `rank ${entry.rank}${tied ? ' (tie)' : ''}, score ${entry.overall.toFixed(2)}, ${entry.voteCount} ${entry.voteCount === 1 ? 'vote' : 'votes'}`
-      : 'no votes yet'
-  }`;
+  const label = !scored
+    ? entry.entryName
+    : `${entry.entryName}, ${
+        rated
+          ? `rank ${entry.rank}${tied ? ' (tie)' : ''}, score ${entry.overall.toFixed(2)}, ${entry.voteCount} ${entry.voteCount === 1 ? 'vote' : 'votes'}`
+          : 'no votes yet'
+      }`;
 
   return (
     <Card>
@@ -136,27 +145,29 @@ function ResultCard({
             loading="lazy"
             className="size-10 shrink-0 rounded-lg object-cover"
           />
-          <RankBadge rank={entry.rank} tied={tied} rated={rated} compact />
+          {scored ? <RankBadge rank={entry.rank} tied={tied} rated={rated} compact /> : null}
           <span className="min-w-0 flex-1 truncate font-bold">{entry.entryName}</span>
-          <span className="shrink-0 text-right">
-            <span
-              className={`block text-lg leading-tight font-bold ${rated ? 'text-brand-700' : 'text-ink-muted'}`}
-            >
-              {rated ? entry.overall.toFixed(2) : '—'}
-            </span>
-            {rated ? (
+          {scored ? (
+            <span className="shrink-0 text-right">
               <span
-                className={`flex items-center justify-end gap-0.5 text-xs ${
-                  lowVotes ? 'font-semibold text-amber-700' : 'text-ink-muted'
-                }`}
+                className={`block text-lg leading-tight font-bold ${rated ? 'text-brand-700' : 'text-ink-muted'}`}
               >
-                {lowVotes ? <TriangleAlert className="size-3.5" aria-hidden="true" /> : null}
-                {entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}
+                {rated ? entry.overall.toFixed(2) : '—'}
               </span>
-            ) : (
-              <span className="block text-xs text-ink-muted">No votes</span>
-            )}
-          </span>
+              {rated ? (
+                <span
+                  className={`flex items-center justify-end gap-0.5 text-xs ${
+                    lowVotes ? 'font-semibold text-amber-700' : 'text-ink-muted'
+                  }`}
+                >
+                  {lowVotes ? <TriangleAlert className="size-3.5" aria-hidden="true" /> : null}
+                  {entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}
+                </span>
+              ) : (
+                <span className="block text-xs text-ink-muted">No votes</span>
+              )}
+            </span>
+          ) : null}
           <ChevronDown
             className={`size-5 shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`}
             aria-hidden="true"
@@ -181,12 +192,18 @@ function ResultCard({
 
           <details className="rounded-lg border border-black/10 p-2">
             <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold">
-              <Utensils className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
-              Tasted by {entry.tastedCount}
+              {terms.mark === 'Seen' ? (
+                <Eye className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+              ) : (
+                <Utensils className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+              )}
+              {terms.mark} by {entry.tastedCount}
               {entry.tastedCount === 1 ? ' guest' : ' guests'}
             </summary>
             {entry.tasters.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-muted">Nobody has marked this tasted yet.</p>
+              <p className="mt-2 text-sm text-ink-muted">
+                Nobody has marked this {terms.mark.toLowerCase()} yet.
+              </p>
             ) : (
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {entry.tasters.map((taster) => (
@@ -313,6 +330,8 @@ export function ResultsTab({
                     key={entry.id}
                     entry={entry}
                     criteriaNames={names}
+                    terms={categoryTerms(category.category)}
+                    scored={category.criteria.length > 0}
                     tied={(rankCounts.get(entry.rank) ?? 0) > 1}
                     expanded={expanded[entry.id] ?? false}
                     onExpandedChange={(value) =>

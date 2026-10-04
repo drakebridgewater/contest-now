@@ -20,7 +20,7 @@ export type Entry = z.infer<typeof EntrySchema>;
 /** Text fields of the multipart submit request; the photo travels as a file part named "photo". */
 export const CreateEntryFieldsSchema = z.object({
   entryName: z.string().trim().min(1, 'Give your entry a name').max(ENTRY_NAME_MAX),
-  contestantName: z.string().trim().min(1, 'Tell us who made it').max(CONTESTANT_NAME_MAX),
+  contestantName: z.string().trim().min(1, 'Enter your name').max(CONTESTANT_NAME_MAX),
   categoryId: Slug,
   allergens: z.array(AllergenOrDietaryId).max(40).default([]),
   /** The guest picked from the name autocomplete. Without it the name is matched or a guest created. */

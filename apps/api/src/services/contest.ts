@@ -5,6 +5,7 @@ import {
   type ScheduleItem,
   type Category,
   type CategoryInput,
+  type CategoryKind,
   type ContestConfig,
   type Criterion,
   type CriterionInput,
@@ -134,6 +135,8 @@ export function toCategory(row: typeof categories.$inferSelect): Category {
     name: row.name,
     emoji: row.emoji,
     description: row.description,
+    kind: row.kind as CategoryKind,
+    noun: row.noun,
     sortOrder: row.sortOrder,
     isActive: row.isActive,
   };
@@ -197,6 +200,8 @@ export async function createCategory(db: Db, input: CategoryInput): Promise<Cate
       name: input.name,
       emoji: input.emoji ?? '',
       description: input.description ?? '',
+      kind: input.kind ?? 'tasting',
+      noun: input.noun ?? '',
       sortOrder: input.sortOrder ?? (await nextSortOrder(db, categories)),
       isActive: input.isActive ?? true,
     })

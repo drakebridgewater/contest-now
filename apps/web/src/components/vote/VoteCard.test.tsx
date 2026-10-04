@@ -145,6 +145,17 @@ describe('VoteCard', () => {
     );
   });
 
+  it('says "Seen" for a showcase entry, and hides its allergens', () => {
+    renderCard({
+      expanded: false,
+      terms: { noun: 'costume', mark: 'Seen', allergens: false, example: '' },
+    });
+    expect(
+      screen.getByRole('button', { name: /^Not seen\. Tap to mark seen/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Allergens')).not.toBeInTheDocument();
+  });
+
   it('toggles tasted both ways', async () => {
     const user = userEvent.setup();
     const { onTastedChange, unmount } = renderCard();

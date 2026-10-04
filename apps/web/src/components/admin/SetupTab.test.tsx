@@ -25,6 +25,8 @@ const config: ContestConfig = {
       name: 'Desserts',
       emoji: '🍰',
       description: '',
+      kind: 'tasting',
+      noun: '',
       sortOrder: 10,
       isActive: true,
     },
@@ -33,6 +35,8 @@ const config: ContestConfig = {
       name: 'Cocktails',
       emoji: '🍹',
       description: '',
+      kind: 'tasting',
+      noun: '',
       sortOrder: 20,
       isActive: true,
     },
@@ -86,7 +90,34 @@ describe('SetupTab', () => {
     await user.type(screen.getByLabelText('Category emoji'), '🍖');
     await user.type(screen.getByLabelText('Category name'), 'Main dishes');
     await user.click(screen.getByRole('button', { name: /^Add$/ }));
-    expect(actions.createCategory).toHaveBeenCalledWith('Main dishes', '🍖');
+    expect(actions.createCategory).toHaveBeenCalledWith('Main dishes', '🍖', 'tasting');
+  });
+
+  it('adds a showcase category, and switches an existing one', async () => {
+    const user = userEvent.setup();
+    const actions = renderSetup();
+    await user.selectOptions(screen.getByLabelText('New category kind'), 'showcase');
+    await user.type(screen.getByLabelText('Category name'), 'Costumes');
+    await user.click(screen.getByRole('button', { name: /^Add$/ }));
+    expect(actions.createCategory).toHaveBeenCalledWith('Costumes', '', 'showcase');
+
+    await user.selectOptions(screen.getByLabelText('Kind of Desserts'), 'showcase');
+    expect(actions.updateCategory).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'dessert' }),
+      { kind: 'showcase' },
+    );
+  });
+
+  it('saves what one entry is called when the field loses focus', async () => {
+    const user = userEvent.setup();
+    const actions = renderSetup();
+    await user.type(screen.getByLabelText('What one Desserts entry is called'), 'Treat');
+    expect(actions.updateCategory).not.toHaveBeenCalled();
+    await user.tab();
+    expect(actions.updateCategory).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'dessert' }),
+      { noun: 'Treat' },
+    );
   });
 
   it('adds a criterion to the category it belongs to', async () => {

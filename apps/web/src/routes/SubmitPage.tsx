@@ -1,5 +1,6 @@
 import {
   activeSorted,
+  categoryTerms,
   ENTRY_NAME_MAX,
   submissionsStatus,
   type Entry,
@@ -20,6 +21,7 @@ import { HelpPanel } from '../components/ui/HelpPanel.tsx';
 import { useToast } from '../components/ui/Toast.tsx';
 import { api } from '../lib/api.ts';
 import { errorMessage } from '../lib/errorMessage.ts';
+import { pageTerms } from '../lib/terms.ts';
 import { queryKeys, useContest, useGuestNames, useMe } from '../lib/queries.ts';
 import { useNow } from '../lib/useNow.ts';
 
@@ -38,13 +40,22 @@ export function SubmitPage() {
   const signedIn = me.data ? { id: me.data.id, name: me.data.name } : undefined;
   const name = contestantName ?? signedIn?.name ?? '';
   const linkedGuest = contestantName === null ? signedIn : guest;
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [pickedCategoryId, setCategoryId] = useState<string | null>(null);
   const [allergens, setAllergens] = useState<string[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<Entry | null>(null);
 
   const categories = activeSorted(contest.data?.categories ?? []);
+  // With a single category there is nothing to choose, so the picker is skipped.
+  const onlyCategory = categories.length === 1 ? categories[0] : undefined;
+  const categoryId = onlyCategory?.id ?? pickedCategoryId;
+  const category = categories.find((c) => c.id === categoryId);
+  // Until a category is picked the form speaks for all of them.
+  const page = pageTerms(categories);
+  const terms = category
+    ? categoryTerms(category)
+    : { noun: page.noun, example: page.example, allergens: page.anyTasting };
   const settings = contest.data?.settings;
   const scheduled = settings ? submissionsStatus(settings) === 'scheduled' : false;
   const now = useNow(scheduled);
@@ -58,7 +69,7 @@ export function SubmitPage() {
       form.set('contestantName', name.trim());
       if (linkedGuest) form.set('guestId', linkedGuest.id);
       form.set('categoryId', categoryId!);
-      for (const id of allergens) form.append('allergens', id);
+      if (terms.allergens) for (const id of allergens) form.append('allergens', id);
       form.set('photo', photo!);
       return api.createEntry(form);
     },
@@ -77,7 +88,7 @@ export function SubmitPage() {
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (entryName.trim().length === 0) next.entryName = 'Give your entry a name';
-    if (name.trim().length === 0) next.contestantName = 'Tell us who made it';
+    if (name.trim().length === 0) next.contestantName = 'Enter your name';
     if (!categoryId) next.categoryId = 'Pick a category';
     if (!photo) next.photo = 'A photo is required';
     setErrors(next);
@@ -95,7 +106,12 @@ export function SubmitPage() {
           <PartyPopper className="mx-auto size-12 text-accent-600" aria-hidden="true" />
           <h2 className="mt-3 text-2xl font-bold">“{submitted.entryName}” is in!</h2>
           <p className="mt-1 text-ink-muted">
-            It is on the voting page now. Guests can rate it as soon as they find your dish.
+            It is on the voting page now. Guests can vote for it as soon as they find your{' '}
+            {
+              categoryTerms(contest.data?.categories.find((c) => c.id === submitted.categoryId))
+                .noun
+            }
+            .
           </p>
           <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
             <Button onClick={() => setSubmitted(null)} variant="secondary">
@@ -112,11 +128,16 @@ export function SubmitPage() {
     <div className="space-y-4">
       <HelpPanel id="submit" title="How submitting works">
         <ol>
-          <li>Take a photo of your dish or drink and give it a name.</li>
-          <li>Pick the category it is competing in.</li>
-          <li>Tap every allergen it contains so guests can taste safely.</li>
+          <li>Take a photo of your {terms.noun} and give it a name.</li>
+          {onlyCategory ? null : <li>Pick the category it is competing in.</li>}
+          {page.anyTasting ? (
+            <li>
+              {page.anyShowcase ? 'For food and drink, tap' : 'Tap'} every allergen it contains so
+              guests can taste safely.
+            </li>
+          ) : null}
         </ol>
-        <p>You can submit as many entries as you like, in any category.</p>
+        <p>You can submit as many entries as you like{onlyCategory ? '' : ', in any category'}.</p>
       </HelpPanel>
 
       <PhaseNotice
@@ -142,7 +163,7 @@ export function SubmitPage() {
 
           <TextField
             label="Entry name"
-            help="Something memorable, like “Grandma's Bourbon Pecan Pie”."
+            help={`Something memorable, like “${terms.example}”.`}
             value={entryName}
             onChange={(event) => setEntryName(event.target.value)}
             maxLength={ENTRY_NAME_MAX}
@@ -150,50 +171,52 @@ export function SubmitPage() {
             error={errors.entryName}
           />
 
-          <fieldset>
-            <legend className="text-sm font-semibold">Category</legend>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              Each category is judged on its own criteria.
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {categories.map((category) => {
-                const selected = categoryId === category.id;
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setCategoryId(category.id)}
-                    className={`rounded-xl border-2 p-3 text-left transition-colors ${
-                      selected
-                        ? 'border-brand-600 bg-brand-50'
-                        : 'border-black/10 bg-white hover:border-brand-200'
-                    }`}
-                  >
-                    <span className="text-2xl" aria-hidden="true">
-                      {category.emoji}
-                    </span>
-                    <span className="mt-1 block font-semibold">{category.name}</span>
-                    {category.description ? (
-                      <span className="block text-xs text-ink-muted">{category.description}</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-            {errors.categoryId ? (
-              <p className="mt-1 text-xs font-medium text-red-700">{errors.categoryId}</p>
-            ) : null}
-            {categories.length === 0 && contest.isSuccess ? (
-              <p className="mt-2 text-sm text-ink-muted">
-                No categories yet. The host can add them under Results → Setup.
+          {onlyCategory ? null : (
+            <fieldset>
+              <legend className="text-sm font-semibold">Category</legend>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                Each category is judged on its own criteria.
               </p>
-            ) : null}
-          </fieldset>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {categories.map((category) => {
+                  const selected = categoryId === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setCategoryId(category.id)}
+                      className={`rounded-xl border-2 p-3 text-left transition-colors ${
+                        selected
+                          ? 'border-brand-600 bg-brand-50'
+                          : 'border-black/10 bg-white hover:border-brand-200'
+                      }`}
+                    >
+                      <span className="text-2xl" aria-hidden="true">
+                        {category.emoji}
+                      </span>
+                      <span className="mt-1 block font-semibold">{category.name}</span>
+                      {category.description ? (
+                        <span className="block text-xs text-ink-muted">{category.description}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.categoryId ? (
+                <p className="mt-1 text-xs font-medium text-red-700">{errors.categoryId}</p>
+              ) : null}
+              {categories.length === 0 && contest.isSuccess ? (
+                <p className="mt-2 text-sm text-ink-muted">
+                  No categories yet. The host can add them under Results → Setup.
+                </p>
+              ) : null}
+            </fieldset>
+          )}
 
-          <AllergenPicker selected={allergens} onChange={setAllergens} />
+          {terms.allergens ? <AllergenPicker selected={allergens} onChange={setAllergens} /> : null}
 
-          <PhotoPicker onChange={setPhoto} error={errors.photo} />
+          <PhotoPicker onChange={setPhoto} error={errors.photo} noun={terms.noun} />
 
           <Button
             size="lg"
