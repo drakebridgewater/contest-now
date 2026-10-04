@@ -44,6 +44,9 @@ outside any layer, so the theme wins whatever order the files load in.
 
 - **Container:** `apps/web/docker/40-theme.sh` runs as nginx starts and copies
   `/themes/<THEME>.css` (the server mount) or the built-in file over
-  `/theme.css`. An unknown name logs the available ones and keeps the default.
+  `/theme.css`. An unknown name logs the available ones and uses the default.
+  It then points `index.html` at `/theme.css?v=<checksum>`, so a switch
+  reaches browsers immediately even through a CDN that caches stylesheets
+  for hours whatever nginx says (Cloudflare does).
 - **Dev:** Vite serves `themes/<THEME>.css` at `/theme.css` on every request:
   `THEME=halloween npm run dev`, and edits show on reload.

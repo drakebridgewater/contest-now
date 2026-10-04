@@ -124,6 +124,9 @@ events on the same images can look different.
   the server, change the values, and set `THEME=<name>`. A file there wins over a
   built-in theme of the same name, so you can also tweak `christmas` in place.
 
+Behind Cloudflare or another CDN, no cache purge is needed: the page asks for
+the theme under a new URL whenever its contents change.
+
 A misspelt or missing theme does not take the site down: the web container logs
 `theme: no theme named …` with the names it found and uses the default.
 
