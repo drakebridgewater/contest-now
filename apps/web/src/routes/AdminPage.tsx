@@ -9,6 +9,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, LockOpen } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
+import { AnnounceTab } from '../components/admin/AnnounceTab.tsx';
 import { AwardsTab } from '../components/admin/AwardsTab.tsx';
 import { GuestsTab, RsvpSummaryCard, type GuestActions } from '../components/admin/GuestsTab.tsx';
 import { ResultsTab } from '../components/admin/ResultsTab.tsx';
@@ -28,11 +29,12 @@ const EmailTab = lazy(() =>
   import('../components/admin/EmailTab.tsx').then((module) => ({ default: module.EmailTab })),
 );
 
-type Tab = 'results' | 'guests' | 'schedule' | 'email' | 'awards' | 'setup';
+type Tab = 'results' | 'guests' | 'announce' | 'schedule' | 'email' | 'awards' | 'setup';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'results', label: 'Results' },
   { id: 'guests', label: 'Guests' },
+  { id: 'announce', label: 'Announce' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'email', label: 'Email' },
   { id: 'awards', label: 'Awards' },
@@ -62,6 +64,12 @@ export function AdminPage() {
     enabled: unlocked,
     refetchInterval: 30_000,
   });
+  const announcements = useQuery({
+    queryKey: queryKeys.adminAnnouncements,
+    queryFn: api.adminAnnouncements,
+    enabled: unlocked && tab === 'announce',
+    refetchInterval: 30_000,
+  });
   const mailStatus = useQuery({
     queryKey: queryKeys.adminMailStatus,
     queryFn: api.adminMailStatus,
@@ -74,6 +82,8 @@ export function AdminPage() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.adminGuests });
     void queryClient.invalidateQueries({ queryKey: queryKeys.contest });
     void queryClient.invalidateQueries({ queryKey: queryKeys.entries });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.adminAnnouncements });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.announcements });
   }
 
   /** Every admin write goes through here so errors surface the same way. */
@@ -192,6 +202,10 @@ export function AdminPage() {
             invite links.
           </li>
           <li>
+            <strong>Announce</strong> pops a message up on every guest&rsquo;s screen, like
+            &ldquo;voting closes in 10 minutes&rdquo;. It disappears when it expires.
+          </li>
+          <li>
             <strong>Schedule</strong> sets when the party starts, when entries and voting open, and
             the evening&rsquo;s timeline guests see on the Event page.
           </li>
@@ -270,6 +284,22 @@ export function AdminPage() {
           categoryNames={categoryNames}
           mailConfigured={mailStatus.data?.configured ?? false}
           actions={guestActions}
+        />
+      ) : null}
+
+      {tab === 'announce' ? (
+        <AnnounceTab
+          announcements={announcements.data ?? []}
+          sending={run.isPending}
+          onSend={(input) =>
+            run.mutateAsync({
+              action: () => api.sendAnnouncement(input),
+              success: 'Announcement sent',
+            })
+          }
+          onExpire={(announcement) =>
+            act(() => api.expireAnnouncement(announcement.id), 'Announcement ended')
+          }
         />
       ) : null}
 
