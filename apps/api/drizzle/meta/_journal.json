@@ -43,6 +43,13 @@
       "when": 1791138468276,
       "tag": "0005_category_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791217305625,
+      "tag": "0006_announcements",
+      "breakpoints": true
     }
   ]
 }

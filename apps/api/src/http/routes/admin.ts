@@ -2,6 +2,7 @@ import {
   AddGuestsSchema,
   AwardInputSchema,
   CategoryInputSchema,
+  CreateAnnouncementSchema,
   CriterionInputSchema,
   CustomEmailPreviewSchema,
   CustomEmailSchema,
@@ -13,6 +14,11 @@ import {
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Db } from '../../db/client.ts';
+import {
+  createAnnouncement,
+  expireAnnouncement,
+  listRecentAnnouncements,
+} from '../../services/announcements.ts';
 import {
   createAward,
   createCategory,
@@ -160,6 +166,16 @@ export function adminRoutes(
     const input = parse(CustomEmailSchema, req.body);
     const settings = await getSettings(db);
     res.json(await sendCustomEmail(db, mail.mailer, mail.publicUrl, settings, input));
+  });
+  router.get('/announcements', async (_req, res) => {
+    res.json(await listRecentAnnouncements(db));
+  });
+  router.post('/announcements', async (req, res) => {
+    const input = parse(CreateAnnouncementSchema, req.body);
+    res.status(201).json(await createAnnouncement(db, input));
+  });
+  router.post('/announcements/:id/expire', async (req, res) => {
+    res.json(await expireAnnouncement(db, parse(IntId, req.params.id, 'announcement id')));
   });
   router.get('/mail-status', (_req, res) => {
     res.json({ configured: mail.mailer.configured });

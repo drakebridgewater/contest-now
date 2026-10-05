@@ -290,6 +290,18 @@ export const guestPreregistrations = pgTable(
   (t) => [primaryKey({ columns: [t.guestId, t.categoryId] })],
 );
 
+/** Pop-up messages from the host. Ending one early just moves `expiresAt` to now. */
+export const announcements = pgTable(
+  'announcements',
+  {
+    id: serial().primaryKey(),
+    message: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [index('announcements_expires_at_idx').on(t.expiresAt)],
+);
+
 export const schema = {
   guests,
   guestSessions,
@@ -305,5 +317,6 @@ export const schema = {
   votes,
   voteScores,
   awardBallots,
+  announcements,
 };
 export type Schema = typeof schema;

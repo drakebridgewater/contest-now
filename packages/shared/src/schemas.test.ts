@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { allergenConflicts, labelFor, splitLabels } from './allergens.ts';
+import { ANNOUNCEMENT_MAX, CreateAnnouncementSchema } from './announcements.ts';
 import { CategoryInputSchema, categoryTerms, EventSettingsSchema, phaseStatus } from './contest.ts';
 import {
   CustomEmailSchema,
@@ -170,5 +171,27 @@ describe('CustomEmailSchema', () => {
     expect(
       CustomEmailSchema.safeParse({ ...base, html: 'x'.repeat(EMAIL_HTML_MAX + 1) }).success,
     ).toBe(false);
+  });
+});
+
+describe('announcements', () => {
+  it('trims the message and defaults the duration', () => {
+    const parsed = CreateAnnouncementSchema.parse({ message: '  Pizza is here!  ' });
+    expect(parsed).toEqual({ message: 'Pizza is here!', durationMinutes: 15 });
+  });
+
+  it('rejects an empty or overlong message', () => {
+    expect(CreateAnnouncementSchema.safeParse({ message: '   ' }).success).toBe(false);
+    const long = 'x'.repeat(ANNOUNCEMENT_MAX + 1);
+    expect(CreateAnnouncementSchema.safeParse({ message: long }).success).toBe(false);
+  });
+
+  it('only allows the offered durations', () => {
+    expect(
+      CreateAnnouncementSchema.parse({ message: 'Hi', durationMinutes: 60 }).durationMinutes,
+    ).toBe(60);
+    expect(CreateAnnouncementSchema.safeParse({ message: 'Hi', durationMinutes: 7 }).success).toBe(
+      false,
+    );
   });
 });
