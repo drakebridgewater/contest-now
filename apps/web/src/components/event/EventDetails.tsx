@@ -15,9 +15,9 @@ const startsAtFormat = new Intl.DateTimeFormat(undefined, {
 // The rules and ideas are static copy: edit here for next year's party.
 const RULES = [
   "No entry limit. Bring five appetizers if you want—we're here for it",
-  'Homemade only for baked goods. Box mix is totally fine; the bakery counter is not.?',
-  "Cocktails = 2+ ingredients (water's free). Mocktails absolutely count.",
-  'All judges. Everyone votes. No judges table, no gatekeeping.',
+  'Homemade only. Box mix is totally fine; the bakery counter is not.?',
+  'Cocktails = 2+ ingredients. Mocktails absolutely count.',
+  'Everyone votes. No judges table, no gatekeeping.',
   'One prize per entry. Even if your dish is *that* good, spread the wealth.',
 ];
 
