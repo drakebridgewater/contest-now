@@ -53,6 +53,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
     volumes:
       - ${APPDATA_PATH:-/mnt/user/appdata/contest-now}/uploads:/data/uploads
     networks: [contest]
