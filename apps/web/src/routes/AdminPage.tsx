@@ -9,8 +9,10 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, LockOpen } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
+import { AnnounceTab } from '../components/admin/AnnounceTab.tsx';
 import { AwardsTab } from '../components/admin/AwardsTab.tsx';
 import { GuestsTab, RsvpSummaryCard, type GuestActions } from '../components/admin/GuestsTab.tsx';
+import { listPrizes } from '../components/admin/prizes.ts';
 import { ResultsTab } from '../components/admin/ResultsTab.tsx';
 import { ScheduleTab } from '../components/admin/ScheduleTab.tsx';
 import { SetupTab, type SetupActions } from '../components/admin/SetupTab.tsx';
@@ -28,11 +30,12 @@ const EmailTab = lazy(() =>
   import('../components/admin/EmailTab.tsx').then((module) => ({ default: module.EmailTab })),
 );
 
-type Tab = 'results' | 'guests' | 'schedule' | 'email' | 'awards' | 'setup';
+type Tab = 'results' | 'guests' | 'announce' | 'schedule' | 'email' | 'awards' | 'setup';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'results', label: 'Results' },
   { id: 'guests', label: 'Guests' },
+  { id: 'announce', label: 'Announce' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'email', label: 'Email' },
   { id: 'awards', label: 'Awards' },
@@ -62,6 +65,12 @@ export function AdminPage() {
     enabled: unlocked,
     refetchInterval: 30_000,
   });
+  const announcements = useQuery({
+    queryKey: queryKeys.adminAnnouncements,
+    queryFn: api.adminAnnouncements,
+    enabled: unlocked && tab === 'announce',
+    refetchInterval: 30_000,
+  });
   const mailStatus = useQuery({
     queryKey: queryKeys.adminMailStatus,
     queryFn: api.adminMailStatus,
@@ -74,6 +83,8 @@ export function AdminPage() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.adminGuests });
     void queryClient.invalidateQueries({ queryKey: queryKeys.contest });
     void queryClient.invalidateQueries({ queryKey: queryKeys.entries });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.adminAnnouncements });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.announcements });
   }
 
   /** Every admin write goes through here so errors surface the same way. */
@@ -101,6 +112,7 @@ export function AdminPage() {
   }
 
   const hasRatings = (results.data?.summary.completeVoteCount ?? 0) > 0;
+  const prizes = results.data ? listPrizes(results.data) : [];
 
   const actions: SetupActions = {
     saveSettings: (input: Partial<EventSettings>) =>
@@ -188,8 +200,17 @@ export function AdminPage() {
             entries count.
           </li>
           <li>
+            <strong>Awards</strong> tallies the nominations. Mark a winner for each category and
+            award; the list at the top of Awards is what you read out, and warns when one guest is
+            picked twice.
+          </li>
+          <li>
             <strong>Guests</strong> is the RSVP list: who is coming, plus-ones, allergies, and
             invite links.
+          </li>
+          <li>
+            <strong>Announce</strong> pops a message up on every guest&rsquo;s screen, like
+            &ldquo;voting closes in 10 minutes&rdquo;. It disappears when it expires.
           </li>
           <li>
             <strong>Schedule</strong> sets when the party starts, when entries and voting open, and
@@ -259,10 +280,28 @@ export function AdminPage() {
               return;
             act(() => api.deleteEntry(entry.id), `Deleted ${entry.entryName}`);
           }}
+          prizes={prizes}
+          onSetWinner={(categoryId, entryId) =>
+            act(
+              () => api.setCategoryWinner(categoryId, entryId),
+              entryId === null ? 'Winner cleared' : 'Winner marked',
+            )
+          }
         />
       ) : null}
 
-      {tab === 'awards' ? <AwardsTab awards={results.data?.awards ?? []} /> : null}
+      {tab === 'awards' ? (
+        <AwardsTab
+          awards={results.data?.awards ?? []}
+          prizes={prizes}
+          onSetWinner={(awardId, entryId) =>
+            act(
+              () => api.setAwardWinner(awardId, entryId),
+              entryId === null ? 'Winner cleared' : 'Winner marked',
+            )
+          }
+        />
+      ) : null}
 
       {tab === 'guests' ? (
         <GuestsTab
@@ -270,6 +309,22 @@ export function AdminPage() {
           categoryNames={categoryNames}
           mailConfigured={mailStatus.data?.configured ?? false}
           actions={guestActions}
+        />
+      ) : null}
+
+      {tab === 'announce' ? (
+        <AnnounceTab
+          announcements={announcements.data ?? []}
+          sending={run.isPending}
+          onSend={(input) =>
+            run.mutateAsync({
+              action: () => api.sendAnnouncement(input),
+              success: 'Announcement sent',
+            })
+          }
+          onExpire={(announcement) =>
+            act(() => api.expireAnnouncement(announcement.id), 'Announcement ended')
+          }
         />
       ) : null}
 

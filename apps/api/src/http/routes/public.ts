@@ -11,6 +11,7 @@ import multer from 'multer';
 import { z } from 'zod';
 import type { Auth } from '../../auth.ts';
 import type { Db } from '../../db/client.ts';
+import { listActiveAnnouncements } from '../../services/announcements.ts';
 import { getContestConfig } from '../../services/contest.ts';
 import { createEntry, listEntries, type PhotoStorage } from '../../services/entries.ts';
 import { deleteBallot, getVoterState, upsertBallot, upsertVote } from '../../services/votes.ts';
@@ -57,6 +58,10 @@ export function publicRoutes(db: Db, auth: Auth, storage: PhotoStorage): Router 
     // The address is for invited guests: a magic link or invite, not a name typed on the tablet.
     if ((await sessionScope(auth, req)) !== 'full') config.settings.location = '';
     res.set('Cache-Control', 'private, no-cache').json(config);
+  });
+
+  router.get('/announcements', async (_req, res) => {
+    res.set('Cache-Control', 'no-store').json(await listActiveAnnouncements(db));
   });
 
   router.get('/entries', async (_req, res) => {

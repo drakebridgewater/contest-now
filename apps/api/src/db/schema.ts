@@ -290,6 +290,42 @@ export const guestPreregistrations = pgTable(
   (t) => [primaryKey({ columns: [t.guestId, t.categoryId] })],
 );
 
+/** Pop-up messages from the host. Ending one early just moves `expiresAt` to now. */
+export const announcements = pgTable(
+  'announcements',
+  {
+    id: serial().primaryKey(),
+    message: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [index('announcements_expires_at_idx').on(t.expiresAt)],
+);
+
+// The host's pick for each prize. The scores and nominations only suggest one: a
+// close race, or giving each guest a single prize, can mean picking second place.
+// One table per prize kind keeps a real foreign key on each.
+
+export const categoryWinners = pgTable('category_winners', {
+  categoryId: text()
+    .primaryKey()
+    .references(() => categories.id, { onDelete: 'cascade' }),
+  entryId: integer()
+    .notNull()
+    .references(() => entries.id, { onDelete: 'cascade' }),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const awardWinners = pgTable('award_winners', {
+  awardId: text()
+    .primaryKey()
+    .references(() => awards.id, { onDelete: 'cascade' }),
+  entryId: integer()
+    .notNull()
+    .references(() => entries.id, { onDelete: 'cascade' }),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
 export const schema = {
   guests,
   guestSessions,
@@ -305,5 +341,8 @@ export const schema = {
   votes,
   voteScores,
   awardBallots,
+  announcements,
+  categoryWinners,
+  awardWinners,
 };
 export type Schema = typeof schema;

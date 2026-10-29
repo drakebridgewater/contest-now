@@ -13,7 +13,11 @@ const EnvSchema = z.object({
   MIGRATIONS_DIR: z.string().default('./drizzle'),
   CORS_ORIGIN: z.string().default('*'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  TRUST_PROXY: z.coerce.boolean().default(true),
+  /** Behind proxies on a private network (the normal deploy). z.coerce.boolean would read 'false' as true. */
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   /** Signs guest session cookies. Required in production. */
   BETTER_AUTH_SECRET: z
     .string()

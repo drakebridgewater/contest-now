@@ -1,4 +1,5 @@
 export * from './allergens.ts';
+export * from './announcements.ts';
 export * from './api.ts';
 export * from './contest.ts';
 export * from './entries.ts';

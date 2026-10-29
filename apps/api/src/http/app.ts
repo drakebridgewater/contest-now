@@ -5,7 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import { toNodeHandler } from 'better-auth/node';
-import { AUTH_BASE_PATH, createAuth } from '../auth.ts';
+import { AUTH_BASE_PATH, CLIENT_IP_HEADER, createAuth } from '../auth.ts';
 import type { AppConfig } from '../config.ts';
 import type { Db } from '../db/client.ts';
 import type { Logger } from '../logger.ts';
@@ -54,7 +54,12 @@ export function createApp({ db, config, logger, state, mailer: givenMailer }: Ap
   const auth = createAuth(db, config, mailer);
 
   app.disable('x-powered-by');
-  if (config.trustProxy) app.set('trust proxy', 1);
+  // Guests reach the API through the web container's nginx and usually a reverse
+  // proxy in front of that, so there is more than one hop. Trusting every private
+  // address skips them all and lands on the first public one: the guest's own.
+  // A fixed hop count of 1 stopped at the outer proxy, which put every guest in
+  // one rate-limit bucket.
+  if (config.trustProxy) app.set('trust proxy', 'loopback, linklocal, uniquelocal');
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(
     cors({
@@ -96,6 +101,8 @@ export function createApp({ db, config, logger, state, mailer: givenMailer }: Ap
     } satisfies ApiError);
   });
 
+  // Sends email, so it stays strict. Vote-page sign-ins are limited by Better Auth
+  // (see auth.ts): a whole party signs in there from one tablet and one Wi-Fi.
   const linkLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,
@@ -104,8 +111,14 @@ export function createApp({ db, config, logger, state, mailer: givenMailer }: Ap
     message: { error: 'Too many requests. Wait a few minutes and try again.' } satisfies ApiError,
   });
   app.use('/api/rsvp/request-link', linkLimiter);
-  if (config.nodeEnv !== 'test') app.use('/api/auth/guest/vote', linkLimiter);
 
+  // Better Auth only believes a single-address X-Forwarded-For, and behind two
+  // proxies there are two, so it would rate-limit everyone as one client. Hand
+  // it the address Express resolved instead, overwriting anything a client sent.
+  app.use(AUTH_BASE_PATH, (req, _res, next) => {
+    req.headers[CLIENT_IP_HEADER] = req.ip ?? '';
+    next();
+  });
   // Better Auth reads the raw body itself, so it goes before express.json().
   app.all(`${AUTH_BASE_PATH}/*splat`, toNodeHandler(auth));
   app.use(express.json({ limit: '1mb' }));

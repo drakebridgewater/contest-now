@@ -2,6 +2,7 @@ import {
   AddGuestsSchema,
   AwardInputSchema,
   CategoryInputSchema,
+  CreateAnnouncementSchema,
   CriterionInputSchema,
   CustomEmailPreviewSchema,
   CustomEmailSchema,
@@ -9,10 +10,16 @@ import {
   SendInvitesSchema,
   SetGuestAccessSchema,
   SettingsInputSchema,
+  SetWinnerSchema,
 } from '@contest/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Db } from '../../db/client.ts';
+import {
+  createAnnouncement,
+  expireAnnouncement,
+  listRecentAnnouncements,
+} from '../../services/announcements.ts';
 import {
   createAward,
   createCategory,
@@ -40,6 +47,7 @@ import {
   setAccess,
 } from '../../services/guests.ts';
 import type { Mailer } from '../../services/mailer.ts';
+import { setAwardWinner, setCategoryWinner } from '../../services/winners.ts';
 import { parse } from '../errors.ts';
 
 const IntId = z.coerce.number().int().positive();
@@ -82,6 +90,11 @@ export function adminRoutes(
     await deleteCategory(db, parse(SlugParam, req.params.id, 'category id'));
     res.status(204).end();
   });
+  router.put('/categories/:id/winner', async (req, res) => {
+    const id = parse(SlugParam, req.params.id, 'category id');
+    await setCategoryWinner(db, id, parse(SetWinnerSchema, req.body).entryId);
+    res.status(204).end();
+  });
 
   // criteria
   router.post('/criteria', async (req, res) => {
@@ -106,6 +119,11 @@ export function adminRoutes(
   });
   router.delete('/awards/:id', async (req, res) => {
     await deleteAward(db, parse(SlugParam, req.params.id, 'award id'));
+    res.status(204).end();
+  });
+  router.put('/awards/:id/winner', async (req, res) => {
+    const id = parse(SlugParam, req.params.id, 'award id');
+    await setAwardWinner(db, id, parse(SetWinnerSchema, req.body).entryId);
     res.status(204).end();
   });
 
@@ -160,6 +178,16 @@ export function adminRoutes(
     const input = parse(CustomEmailSchema, req.body);
     const settings = await getSettings(db);
     res.json(await sendCustomEmail(db, mail.mailer, mail.publicUrl, settings, input));
+  });
+  router.get('/announcements', async (_req, res) => {
+    res.json(await listRecentAnnouncements(db));
+  });
+  router.post('/announcements', async (req, res) => {
+    const input = parse(CreateAnnouncementSchema, req.body);
+    res.status(201).json(await createAnnouncement(db, input));
+  });
+  router.post('/announcements/:id/expire', async (req, res) => {
+    res.json(await expireAnnouncement(db, parse(IntId, req.params.id, 'announcement id')));
   });
   router.get('/mail-status', (_req, res) => {
     res.json({ configured: mail.mailer.configured });

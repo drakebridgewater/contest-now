@@ -2,6 +2,7 @@ import { Camera, ClipboardList, Images, PartyPopper, Trophy } from 'lucide-react
 import { useEffect, useRef } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useContest } from '../lib/queries.ts';
+import { AnnouncementModal } from './AnnouncementModal.tsx';
 
 const TABS: {
   to: string;
@@ -122,6 +123,8 @@ export function AppLayout() {
           ))}
         </ul>
       </nav>
+
+      <AnnouncementModal />
     </div>
   );
 }

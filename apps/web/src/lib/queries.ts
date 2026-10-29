@@ -1,4 +1,5 @@
 import type {
+  Announcement,
   ContestConfig,
   Entry,
   GuestName,
@@ -12,6 +13,7 @@ import { api } from './api.ts';
 export const queryKeys = {
   contest: ['contest'] as const,
   entries: ['entries'] as const,
+  announcements: ['announcements'] as const,
   me: ['me'] as const,
   voter: (guestId: string) => ['voter', guestId] as const,
   profile: ['profile'] as const,
@@ -21,6 +23,7 @@ export const queryKeys = {
   adminResults: ['admin', 'results'] as const,
   adminGuests: ['admin', 'guests'] as const,
   adminMailStatus: ['admin', 'mail-status'] as const,
+  adminAnnouncements: ['admin', 'announcements'] as const,
 };
 
 export function useContest(): UseQueryResult<ContestConfig> {
@@ -39,6 +42,16 @@ export function useEntries(): UseQueryResult<Entry[]> {
     staleTime: 10_000,
     // New entries keep arriving while people are voting.
     refetchInterval: 30_000,
+  });
+}
+
+/** The host's live pop-up messages. Polled often: "voting closes in 5 minutes" can't wait a minute. */
+export function useAnnouncements(): UseQueryResult<Announcement[]> {
+  return useQuery({
+    queryKey: queryKeys.announcements,
+    queryFn: api.getAnnouncements,
+    staleTime: 5_000,
+    refetchInterval: 15_000,
   });
 }
 

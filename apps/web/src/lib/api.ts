@@ -2,6 +2,7 @@ import {
   ADMIN_PASSWORD_HEADER,
   type AddGuestsResult,
   type AdminGuest,
+  type Announcement,
   type ApiError,
   type Award,
   type AwardInput,
@@ -9,6 +10,7 @@ import {
   type CategoryInput,
   type ContestConfig,
   type ContestResults,
+  type CreateAnnouncement,
   type Criterion,
   type CriterionInput,
   type CustomEmail,
@@ -117,6 +119,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   getContest: () => request<ContestConfig>('/contest'),
   getEntries: () => request<Entry[]>('/entries'),
+  getAnnouncements: () => request<Announcement[]>('/announcements'),
 
   createEntry: (form: FormData) => request<Entry>('/entries', { method: 'POST', formData: form }),
 
@@ -191,6 +194,12 @@ export const api = {
   sendCustomEmail: (input: CustomEmail) =>
     request<SendInvitesResult>('/admin/email/send', { method: 'POST', body: input, admin: true }),
 
+  adminAnnouncements: () => request<Announcement[]>('/admin/announcements', { admin: true }),
+  sendAnnouncement: (input: CreateAnnouncement) =>
+    request<Announcement>('/admin/announcements', { method: 'POST', body: input, admin: true }),
+  expireAnnouncement: (id: number) =>
+    request<Announcement>(`/admin/announcements/${id}/expire`, { method: 'POST', admin: true }),
+
   updateSettings: (input: SettingsInput) =>
     request<EventSettings>('/admin/settings', { method: 'PUT', body: input, admin: true }),
 
@@ -222,6 +231,19 @@ export const api = {
     }),
   deleteAward: (id: string) =>
     request<void>(`/admin/awards/${encodeURIComponent(id)}`, { method: 'DELETE', admin: true }),
+
+  setCategoryWinner: (categoryId: string, entryId: number | null) =>
+    request<void>(`/admin/categories/${encodeURIComponent(categoryId)}/winner`, {
+      method: 'PUT',
+      body: { entryId },
+      admin: true,
+    }),
+  setAwardWinner: (awardId: string, entryId: number | null) =>
+    request<void>(`/admin/awards/${encodeURIComponent(awardId)}/winner`, {
+      method: 'PUT',
+      body: { entryId },
+      admin: true,
+    }),
 
   deleteEntry: (id: number) =>
     request<void>(`/admin/entries/${id}`, { method: 'DELETE', admin: true }),

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { Award, Category, Criterion } from './contest.ts';
 import type { Entry } from './entries.ts';
 import type { Rating } from './votes.ts';
@@ -35,6 +36,8 @@ export interface CategoryResults {
   category: Category;
   criteria: Criterion[];
   entries: EntryResult[];
+  /** The entry the host marked as this category's winner, if any. */
+  chosenWinnerEntryId: number | null;
 }
 
 export interface AwardTally {
@@ -48,6 +51,8 @@ export interface AwardResults {
   tally: AwardTally[];
   /** More than one id means a tie. Empty when nobody has voted. */
   winnerEntryIds: number[];
+  /** The entry the host marked as the winner, if any. Need not lead the tally. */
+  chosenWinnerEntryId: number | null;
 }
 
 export interface ContestResults {
@@ -61,3 +66,9 @@ export interface ContestResults {
     ballotCount: number;
   };
 }
+
+/** Marks an entry as a prize's winner; `null` clears the pick. */
+export const SetWinnerSchema = z.object({
+  entryId: z.number().int().positive().nullable(),
+});
+export type SetWinner = z.infer<typeof SetWinnerSchema>;
