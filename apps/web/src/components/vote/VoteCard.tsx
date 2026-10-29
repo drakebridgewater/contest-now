@@ -296,7 +296,7 @@ export function VoteCard({
                 src={entry.photoUrl}
                 alt={entry.entryName}
                 loading="lazy"
-                className="aspect-4/3 w-full object-cover"
+                className="aspect-square w-full object-cover"
               />
               <div className="space-y-3 p-4">
                 <AllergenBadges ids={shownAllergens} />

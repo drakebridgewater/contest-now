@@ -17,7 +17,9 @@ import {
   awardBallots,
   awardCategories,
   awards,
+  awardWinners,
   categories,
+  categoryWinners,
   criteria,
   entries,
   guests,
@@ -38,6 +40,8 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
     scoreRows,
     ballotRows,
     guestRows,
+    categoryWinnerRows,
+    awardWinnerRows,
   ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.id)),
     db.select().from(criteria),
@@ -48,7 +52,11 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
     db.select().from(voteScores),
     db.select().from(awardBallots),
     db.select({ id: guests.id, name: guests.name }).from(guests),
+    db.select().from(categoryWinners),
+    db.select().from(awardWinners),
   ]);
+  const chosenByCategory = new Map(categoryWinnerRows.map((w) => [w.categoryId, w.entryId]));
+  const chosenByAward = new Map(awardWinnerRows.map((w) => [w.awardId, w.entryId]));
   const guestNames = new Map(guestRows.map((g) => [g.id, g.name] as const));
 
   const allCriteria = criterionRows.map(toCriterion);
@@ -103,7 +111,12 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
           .sort((a, b) => a.localeCompare(b));
         return { ...entry, ...summary, comments, tasters };
       });
-    return { category, criteria: activeCriteria, entries: rankEntries(summarized) };
+    return {
+      category,
+      criteria: activeCriteria,
+      entries: rankEntries(summarized),
+      chosenWinnerEntryId: chosenByCategory.get(category.id) ?? null,
+    };
   });
 
   const awardResults: AwardResults[] = awardRows.map((awardRow) => {
@@ -126,6 +139,7 @@ export async function computeResults(db: Db, storage: PhotoStorage): Promise<Con
       totalBallots: tally.totalBallots,
       tally: tallyRows,
       winnerEntryIds: tally.winnerEntryIds,
+      chosenWinnerEntryId: chosenByAward.get(award.id) ?? null,
     };
   });
 

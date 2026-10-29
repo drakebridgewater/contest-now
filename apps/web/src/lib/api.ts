@@ -232,6 +232,19 @@ export const api = {
   deleteAward: (id: string) =>
     request<void>(`/admin/awards/${encodeURIComponent(id)}`, { method: 'DELETE', admin: true }),
 
+  setCategoryWinner: (categoryId: string, entryId: number | null) =>
+    request<void>(`/admin/categories/${encodeURIComponent(categoryId)}/winner`, {
+      method: 'PUT',
+      body: { entryId },
+      admin: true,
+    }),
+  setAwardWinner: (awardId: string, entryId: number | null) =>
+    request<void>(`/admin/awards/${encodeURIComponent(awardId)}/winner`, {
+      method: 'PUT',
+      body: { entryId },
+      admin: true,
+    }),
+
   deleteEntry: (id: number) =>
     request<void>(`/admin/entries/${id}`, { method: 'DELETE', admin: true }),
 

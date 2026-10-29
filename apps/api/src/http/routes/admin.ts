@@ -10,6 +10,7 @@ import {
   SendInvitesSchema,
   SetGuestAccessSchema,
   SettingsInputSchema,
+  SetWinnerSchema,
 } from '@contest/shared';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -46,6 +47,7 @@ import {
   setAccess,
 } from '../../services/guests.ts';
 import type { Mailer } from '../../services/mailer.ts';
+import { setAwardWinner, setCategoryWinner } from '../../services/winners.ts';
 import { parse } from '../errors.ts';
 
 const IntId = z.coerce.number().int().positive();
@@ -88,6 +90,11 @@ export function adminRoutes(
     await deleteCategory(db, parse(SlugParam, req.params.id, 'category id'));
     res.status(204).end();
   });
+  router.put('/categories/:id/winner', async (req, res) => {
+    const id = parse(SlugParam, req.params.id, 'category id');
+    await setCategoryWinner(db, id, parse(SetWinnerSchema, req.body).entryId);
+    res.status(204).end();
+  });
 
   // criteria
   router.post('/criteria', async (req, res) => {
@@ -112,6 +119,11 @@ export function adminRoutes(
   });
   router.delete('/awards/:id', async (req, res) => {
     await deleteAward(db, parse(SlugParam, req.params.id, 'award id'));
+    res.status(204).end();
+  });
+  router.put('/awards/:id/winner', async (req, res) => {
+    const id = parse(SlugParam, req.params.id, 'award id');
+    await setAwardWinner(db, id, parse(SetWinnerSchema, req.body).entryId);
     res.status(204).end();
   });
 
