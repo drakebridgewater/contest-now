@@ -16,7 +16,7 @@ import { getContestConfig } from '../../services/contest.ts';
 import { createEntry, listEntries, type PhotoStorage } from '../../services/entries.ts';
 import { deleteBallot, getVoterState, upsertBallot, upsertVote } from '../../services/votes.ts';
 import { badRequest, parse, unsupportedMedia } from '../errors.ts';
-import { guestOf, requireGuest, sessionScope } from '../middleware/guestAuth.ts';
+import { guestOf, requireGuest } from '../middleware/guestAuth.ts';
 
 const EntryId = z.coerce.number().int().positive();
 const AwardId = z.string().min(1);
@@ -53,10 +53,10 @@ export function publicRoutes(db: Db, auth: Auth, storage: PhotoStorage): Router 
     },
   });
 
-  router.get('/contest', async (req, res) => {
+  router.get('/contest', async (_req, res) => {
+    // This party has no invites and is held at the office, so everyone sees the
+    // location. (main hides a home address from anyone not signed in by email.)
     const config = await getContestConfig(db);
-    // The address is for invited guests: a magic link or invite, not a name typed on the tablet.
-    if ((await sessionScope(auth, req)) !== 'full') config.settings.location = '';
     res.set('Cache-Control', 'private, no-cache').json(config);
   });
 
