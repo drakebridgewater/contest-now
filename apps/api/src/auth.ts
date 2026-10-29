@@ -17,6 +17,8 @@ import { linkEmail, type Mailer } from './services/mailer.ts';
 import { findOrCreateGuestByName, hashToken, mayReceiveSignInLink } from './services/guests.ts';
 
 export const AUTH_BASE_PATH = '/api/auth';
+/** Set by app.ts to the client address Express resolved; Better Auth rate-limits on it. */
+export const CLIENT_IP_HEADER = 'x-contest-client-ip';
 /** A sign-in link from the RSVP page: short, it is used right away. */
 const MAGIC_LINK_SECONDS = 15 * 60;
 
@@ -71,9 +73,11 @@ function guestPlugin(db: Db) {
     },
     rateLimit: [
       {
+        // Generous: the whole party may sign in from the one vote tablet, or from
+        // phones that all share the venue's Wi-Fi address.
         pathMatcher: (path: string) => path.startsWith('/guest/'),
         window: 60,
-        max: 30,
+        max: 200,
       },
     ],
   } satisfies BetterAuthPlugin;
@@ -144,7 +148,11 @@ export function createAuth(db: Db, config: AuthConfig, mailer: Mailer) {
     emailAndPassword: { enabled: false },
     // Better Auth turns origin checks off under test runners; keep them on so the
     // tests exercise what production does.
-    advanced: { cookiePrefix: 'contest', disableOriginCheck: false },
+    advanced: {
+      cookiePrefix: 'contest',
+      disableOriginCheck: false,
+      ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
+    },
     rateLimit: { enabled: config.nodeEnv === 'production' },
     telemetry: { enabled: false },
     plugins: [

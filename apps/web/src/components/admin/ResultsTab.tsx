@@ -6,11 +6,12 @@ import {
   type CategoryTerms,
   type EntryResult,
 } from '@contest/shared';
-import { ChevronDown, Eye, Medal, Trash2, TriangleAlert, Utensils } from 'lucide-react';
+import { ChevronDown, Eye, Medal, Trash2, TriangleAlert, Trophy, Utensils } from 'lucide-react';
 import { useState } from 'react';
 import { AllergenBadges } from '../AllergenBadges.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Card } from '../ui/Card.tsx';
+import { otherWins, type Prize } from './prizes.ts';
 
 /**
  * `compact` drops the "(tie)" wording for the collapsed header, where the entry's
@@ -101,6 +102,9 @@ function ResultCard({
   expanded,
   onExpandedChange,
   onDelete,
+  isWinner,
+  alsoWon,
+  onSetWinner,
 }: {
   entry: EntryResult;
   criteriaNames: Map<number, string>;
@@ -111,7 +115,13 @@ function ResultCard({
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onDelete: (entry: EntryResult) => void;
+  /** The host picked this entry as the category's winner. */
+  isWinner: boolean;
+  /** Other prizes its contestant has already been picked for. */
+  alsoWon: Prize[];
+  onSetWinner: (entryId: number | null) => void;
 }) {
+  const alsoWonNames = alsoWon.map((prize) => prize.name).join(', ');
   const rated = entry.voteCount > 0;
   const lowVotes = hasLowVotes(entry.voteCount);
 
@@ -120,13 +130,16 @@ function ResultCard({
    * children are inline spans, so the computed name would run them together as
    * "#1Bourbon Pecan Pie4.326 votes".
    */
-  const label = !scored
-    ? entry.entryName
-    : `${entry.entryName}, ${
-        rated
-          ? `rank ${entry.rank}${tied ? ' (tie)' : ''}, score ${entry.overall.toFixed(2)}, ${entry.voteCount} ${entry.voteCount === 1 ? 'vote' : 'votes'}`
-          : 'no votes yet'
-      }`;
+  const label =
+    (!scored
+      ? entry.entryName
+      : `${entry.entryName}, ${
+          rated
+            ? `rank ${entry.rank}${tied ? ' (tie)' : ''}, score ${entry.overall.toFixed(2)}, ${entry.voteCount} ${entry.voteCount === 1 ? 'vote' : 'votes'}`
+            : 'no votes yet'
+        }`) +
+    (isWinner ? ', picked as winner' : '') +
+    (alsoWon.length > 0 ? `, already won ${alsoWonNames}` : '');
 
   return (
     <Card>
@@ -146,7 +159,20 @@ function ResultCard({
             className="size-10 shrink-0 rounded-lg object-cover"
           />
           {scored ? <RankBadge rank={entry.rank} tied={tied} rated={rated} compact /> : null}
-          <span className="min-w-0 flex-1 truncate font-bold">{entry.entryName}</span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1 font-bold">
+              {isWinner ? (
+                <Trophy className="size-4 shrink-0 text-amber-600" aria-hidden="true" />
+              ) : null}
+              <span className="truncate">{entry.entryName}</span>
+            </span>
+            {/* Seen at a glance while choosing, so one guest does not take two prizes. */}
+            {alsoWon.length > 0 ? (
+              <span className="block truncate text-xs font-semibold text-amber-700">
+                Already won {alsoWonNames}
+              </span>
+            ) : null}
+          </span>
           {scored ? (
             <span className="shrink-0 text-right">
               <span
@@ -255,15 +281,28 @@ function ResultCard({
             </details>
           ) : null}
 
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-red-700"
-            onClick={() => onDelete(entry)}
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-            Delete entry
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {isWinner ? (
+              <Button size="sm" variant="secondary" onClick={() => onSetWinner(null)}>
+                <Trophy className="size-4" aria-hidden="true" />
+                Remove as winner
+              </Button>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => onSetWinner(entry.id)}>
+                <Trophy className="size-4" aria-hidden="true" />
+                Mark as winner
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-700"
+              onClick={() => onDelete(entry)}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+              Delete entry
+            </Button>
+          </div>
         </div>
       ) : null}
     </Card>
@@ -272,10 +311,15 @@ function ResultCard({
 
 export function ResultsTab({
   results,
+  prizes,
   onDeleteEntry,
+  onSetWinner,
 }: {
   results: CategoryResults[];
+  /** Every prize and its pick, to flag contestants who have already won one. */
+  prizes: Prize[];
   onDeleteEntry: (entry: EntryResult) => void;
+  onSetWinner: (categoryId: string, entryId: number | null) => void;
 }) {
   // Empty means every card is shut, which is the default we want: a host opening
   // Results on a phone wants the standings, not fifteen histograms.
@@ -310,6 +354,8 @@ export function ResultsTab({
         for (const entry of category.entries) {
           rankCounts.set(entry.rank, (rankCounts.get(entry.rank) ?? 0) + 1);
         }
+        const prizeKey = `category:${category.category.id}`;
+        const winner = category.entries.find((e) => e.id === category.chosenWinnerEntryId);
         return (
           <section key={category.category.id} className="space-y-3">
             <h2 className="flex items-center gap-2 text-xl font-bold">
@@ -321,6 +367,14 @@ export function ResultsTab({
                 </span>
               ) : null}
             </h2>
+            {winner ? (
+              <p className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <Trophy className="size-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 truncate">
+                  Winner: <strong>{winner.entryName}</strong> by {winner.contestantName}
+                </span>
+              </p>
+            ) : null}
             {category.entries.length === 0 ? (
               <p className="text-ink-muted">No entries in this category.</p>
             ) : (
@@ -338,6 +392,9 @@ export function ResultsTab({
                       setExpanded((previous) => ({ ...previous, [entry.id]: value }))
                     }
                     onDelete={onDeleteEntry}
+                    isWinner={entry.id === category.chosenWinnerEntryId}
+                    alsoWon={otherWins(prizes, entry.contestantName, prizeKey)}
+                    onSetWinner={(entryId) => onSetWinner(category.category.id, entryId)}
                   />
                 ))}
               </div>

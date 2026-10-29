@@ -69,14 +69,24 @@ const results: CategoryResults[] = [
       },
     ],
     entries: [settled, thin, single, untouched],
+    chosenWinnerEntryId: null,
   },
 ];
 
 function renderTab(categories: CategoryResults[] = results) {
   const onDeleteEntry = vi.fn();
+  const onSetWinner = vi.fn();
   return {
-    ...render(<ResultsTab results={categories} onDeleteEntry={onDeleteEntry} />),
+    ...render(
+      <ResultsTab
+        results={categories}
+        prizes={[]}
+        onDeleteEntry={onDeleteEntry}
+        onSetWinner={onSetWinner}
+      />,
+    ),
     onDeleteEntry,
+    onSetWinner,
   };
 }
 
@@ -177,5 +187,47 @@ describe('ResultsTab', () => {
     renderTab([{ ...results[0]!, entries: [] }]);
     expect(screen.queryByRole('button', { name: /Expand all/ })).not.toBeInTheDocument();
     expect(screen.getByText('No entries in this category.')).toBeInTheDocument();
+  });
+
+  it('marks an entry as the winner and clears it again', async () => {
+    const user = userEvent.setup();
+    const { onSetWinner, rerender } = renderTab();
+    await user.click(header('Pavlova'));
+    await user.click(screen.getByRole('button', { name: /Mark as winner/ }));
+    expect(onSetWinner).toHaveBeenCalledWith('dessert', 2);
+
+    rerender(
+      <ResultsTab
+        results={[{ ...results[0]!, chosenWinnerEntryId: 2 }]}
+        prizes={[]}
+        onDeleteEntry={vi.fn()}
+        onSetWinner={onSetWinner}
+      />,
+    );
+    expect(screen.getByText(/Winner:/)).toHaveTextContent('Winner: Pavlova by Sam');
+    expect(header('Pavlova')).toHaveAccessibleName(/picked as winner$/);
+    await user.click(screen.getByRole('button', { name: /Remove as winner/ }));
+    expect(onSetWinner).toHaveBeenLastCalledWith('dessert', null);
+  });
+
+  it('flags a contestant who already won another prize', () => {
+    render(
+      <ResultsTab
+        results={results}
+        prizes={[
+          {
+            key: 'award:best-presented',
+            kind: 'award',
+            id: 'best-presented',
+            name: 'Best Presented',
+            emoji: '🎨',
+            winner: { ...single, contestantName: ' sam ' },
+          },
+        ]}
+        onDeleteEntry={vi.fn()}
+        onSetWinner={vi.fn()}
+      />,
+    );
+    expect(within(header('Pavlova')).getByText('Already won Best Presented')).toBeInTheDocument();
   });
 });

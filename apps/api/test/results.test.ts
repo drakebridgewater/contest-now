@@ -117,3 +117,93 @@ describe('GET /api/admin/results', () => {
     expect(res.status).toBe(409);
   });
 });
+
+describe('host-picked winners', () => {
+  const results = async () =>
+    (await ctx.api.get('/api/admin/results').set(ctx.admin)).body as ContestResults;
+
+  it('starts with no picks', async () => {
+    const r = await results();
+    expect(r.categories.every((c) => c.chosenWinnerEntryId === null)).toBe(true);
+    expect(r.awards.every((a) => a.chosenWinnerEntryId === null)).toBe(true);
+  });
+
+  it('records a category pick that need not be the top score, and replaces it', async () => {
+    let res = await ctx.api
+      .put('/api/admin/categories/dessert/winner')
+      .set(ctx.admin)
+      .send({ entryId: fudge });
+    expect(res.status).toBe(204);
+    expect((await results()).categories.find((c) => c.category.id === 'dessert')!).toMatchObject({
+      chosenWinnerEntryId: fudge,
+    });
+
+    res = await ctx.api
+      .put('/api/admin/categories/dessert/winner')
+      .set(ctx.admin)
+      .send({ entryId: cake });
+    expect(res.status).toBe(204);
+    expect(
+      (await results()).categories.find((c) => c.category.id === 'dessert')!.chosenWinnerEntryId,
+    ).toBe(cake);
+  });
+
+  it('refuses an entry from another category', async () => {
+    const res = await ctx.api
+      .put('/api/admin/categories/appetizer/winner')
+      .set(ctx.admin)
+      .send({ entryId: pie });
+    expect(res.status).toBe(400);
+  });
+
+  it('records and clears an award pick', async () => {
+    let res = await ctx.api
+      .put('/api/admin/awards/best-presented/winner')
+      .set(ctx.admin)
+      .send({ entryId: cake });
+    expect(res.status).toBe(204);
+    expect(
+      (await results()).awards.find((a) => a.award.id === 'best-presented')!.chosenWinnerEntryId,
+    ).toBe(cake);
+
+    res = await ctx.api
+      .put('/api/admin/awards/best-presented/winner')
+      .set(ctx.admin)
+      .send({ entryId: null });
+    expect(res.status).toBe(204);
+    expect(
+      (await results()).awards.find((a) => a.award.id === 'best-presented')!.chosenWinnerEntryId,
+    ).toBeNull();
+  });
+
+  it('404s for an unknown prize or entry, and needs the admin password', async () => {
+    expect(
+      (await ctx.api.put('/api/admin/awards/nope/winner').set(ctx.admin).send({ entryId: pie }))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await ctx.api
+          .put('/api/admin/awards/best-presented/winner')
+          .set(ctx.admin)
+          .send({ entryId: 99999 })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await ctx.api.put('/api/admin/awards/best-presented/winner').send({ entryId: pie })).status,
+    ).toBe(401);
+  });
+
+  it('drops the pick when its entry is deleted', async () => {
+    const extra = (await submitEntry(ctx, { entryName: 'Tart', categoryId: 'appetizer' })).body
+      .id as number;
+    await ctx.api
+      .put('/api/admin/categories/appetizer/winner')
+      .set(ctx.admin)
+      .send({ entryId: extra });
+    expect((await ctx.api.delete(`/api/admin/entries/${extra}`).set(ctx.admin)).status).toBe(204);
+    expect(
+      (await results()).categories.find((c) => c.category.id === 'appetizer')!.chosenWinnerEntryId,
+    ).toBeNull();
+  });
+});

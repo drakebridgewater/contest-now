@@ -12,6 +12,7 @@ import { lazy, Suspense, useState } from 'react';
 import { AnnounceTab } from '../components/admin/AnnounceTab.tsx';
 import { AwardsTab } from '../components/admin/AwardsTab.tsx';
 import { GuestsTab, RsvpSummaryCard, type GuestActions } from '../components/admin/GuestsTab.tsx';
+import { listPrizes } from '../components/admin/prizes.ts';
 import { ResultsTab } from '../components/admin/ResultsTab.tsx';
 import { ScheduleTab } from '../components/admin/ScheduleTab.tsx';
 import { SetupTab, type SetupActions } from '../components/admin/SetupTab.tsx';
@@ -111,6 +112,7 @@ export function AdminPage() {
   }
 
   const hasRatings = (results.data?.summary.completeVoteCount ?? 0) > 0;
+  const prizes = results.data ? listPrizes(results.data) : [];
 
   const actions: SetupActions = {
     saveSettings: (input: Partial<EventSettings>) =>
@@ -198,6 +200,11 @@ export function AdminPage() {
             entries count.
           </li>
           <li>
+            <strong>Awards</strong> tallies the nominations. Mark a winner for each category and
+            award; the list at the top of Awards is what you read out, and warns when one guest is
+            picked twice.
+          </li>
+          <li>
             <strong>Guests</strong> is the RSVP list: who is coming, plus-ones, allergies, and
             invite links.
           </li>
@@ -273,10 +280,28 @@ export function AdminPage() {
               return;
             act(() => api.deleteEntry(entry.id), `Deleted ${entry.entryName}`);
           }}
+          prizes={prizes}
+          onSetWinner={(categoryId, entryId) =>
+            act(
+              () => api.setCategoryWinner(categoryId, entryId),
+              entryId === null ? 'Winner cleared' : 'Winner marked',
+            )
+          }
         />
       ) : null}
 
-      {tab === 'awards' ? <AwardsTab awards={results.data?.awards ?? []} /> : null}
+      {tab === 'awards' ? (
+        <AwardsTab
+          awards={results.data?.awards ?? []}
+          prizes={prizes}
+          onSetWinner={(awardId, entryId) =>
+            act(
+              () => api.setAwardWinner(awardId, entryId),
+              entryId === null ? 'Winner cleared' : 'Winner marked',
+            )
+          }
+        />
+      ) : null}
 
       {tab === 'guests' ? (
         <GuestsTab
