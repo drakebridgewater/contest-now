@@ -22,19 +22,19 @@ branch you deploy from (`main`).
 
 **3. Set the variables.** From `deploy/.env.example`, at minimum:
 
-| Variable              | Notes                                              |
-| --------------------- | -------------------------------------------------- |
-| `ADMIN_PASSWORD`      | Unlocks the host area at `/admin`                  |
-| `POSTGRES_PASSWORD`   | Any long random string; only the containers see it |
-| `BETTER_AUTH_SECRET`  | 32+ random characters; signs guest sign-in cookies |
-| `PUBLIC_URL`          | The address guests open; emailed links point here  |
-| `SMTP_*`, `MAIL_FROM` | Optional email for RSVP links and invites          |
-| `APPDATA_PATH`        | Defaults to `/mnt/user/appdata/contest-now`        |
-| `WEB_PORT`            | Defaults to `3099`                                 |
-| `GITHUB_OWNER`        | The account the images were published under        |
-| `STACK_NAME`          | Defaults to `contest`; unique per event (below)    |
-| `IMAGE_TAG`           | Defaults to `latest`; `event-<slug>` for an event  |
-| `THEME`               | `christmas` (default), `halloween`, or your own    |
+| Variable                               | Notes                                                                              |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| `ADMIN_PASSWORD`                       | Unlocks the host area at `/admin`                                                  |
+| `POSTGRES_PASSWORD`                    | Any long random string; only the containers see it                                 |
+| `BETTER_AUTH_SECRET`                   | 32+ random characters; signs guest sign-in cookies                                 |
+| `PUBLIC_URL`                           | The address guests open; emailed links point here                                  |
+| `SMTP_*`, `MAIL_FROM`, `MAIL_REPLY_TO` | Optional email for RSVP links and invites; `MAIL_REPLY_TO` sends replies elsewhere |
+| `APPDATA_PATH`                         | Defaults to `/mnt/user/appdata/contest-now`                                        |
+| `WEB_PORT`                             | Defaults to `3099`                                                                 |
+| `GITHUB_OWNER`                         | The account the images were published under                                        |
+| `STACK_NAME`                           | Defaults to `contest`; unique per event (below)                                    |
+| `IMAGE_TAG`                            | Defaults to `latest`; `event-<slug>` for an event                                  |
+| `THEME`                                | `christmas` (default), `halloween`, or your own                                    |
 
 > **Dockhand secrets caveat.** On Git stacks without a committed `.env`,
 > Dockhand versions before 1.0.14 could inject variables marked as _secret_ as
@@ -90,7 +90,7 @@ its own database, so two parties never share guests, votes or photos.
    | `WEB_PORT`                                                  | A free port, e.g. `3100`                                        |
    | `PUBLIC_URL`                                                | The new address, e.g. `https://<sub>.example.com`               |
    | `ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` | New values, not copies of the first event's                     |
-   | `SMTP_*`, `MAIL_FROM`                                       | The same mailbox is fine                                        |
+   | `SMTP_*`, `MAIL_FROM`, `MAIL_REPLY_TO`                      | The same mailbox is fine                                        |
    | `THEME`                                                     | The look for this party, e.g. `halloween` (below)               |
 
    Deploy. The API creates a fresh database and seeds the default contest.

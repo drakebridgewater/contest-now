@@ -35,6 +35,8 @@ const EnvSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   MAIL_FROM: z.string().default(''),
+  /** Where guests' replies go when it should not be the sending mailbox. */
+  MAIL_REPLY_TO: z.string().default(''),
 });
 
 const DEV_AUTH_SECRET = 'development-only-secret-do-not-use-in-production';
@@ -46,6 +48,8 @@ export interface SmtpConfig {
   user: string;
   pass: string;
   from: string;
+  /** Empty means replies go to `from`. */
+  replyTo: string;
 }
 
 export interface AppConfig {
@@ -103,6 +107,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
           user: e.SMTP_USER,
           pass: e.SMTP_PASS,
           from: e.MAIL_FROM || e.SMTP_USER,
+          replyTo: e.MAIL_REPLY_TO,
         }
       : null,
   };

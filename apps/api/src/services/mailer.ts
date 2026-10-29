@@ -56,7 +56,11 @@ export function createMailer(smtp: SmtpConfig | null, logger: Logger): Mailer {
     configured: true,
     send: async (message) => {
       try {
-        await transport.sendMail({ from: smtp.from, ...message });
+        await transport.sendMail({
+          from: smtp.from,
+          replyTo: smtp.replyTo || undefined,
+          ...message,
+        });
       } catch (error) {
         logger.error({ ...target, to: message.to, err: error }, 'Could not send email');
         throw error;

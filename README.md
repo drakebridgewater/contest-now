@@ -138,7 +138,8 @@ are the FAQ's first question.
 
 **Email** goes over any SMTP server (`SMTP_*` in `.env`). Without `SMTP_HOST`,
 links are written to the API log instead, which is how you follow them in
-development.
+development. Set `MAIL_REPLY_TO` to send through one mailbox (say Gmail, which
+lands in inboxes) while guests' replies go to another (say Fastmail).
 
 ## Changing the contest
 
