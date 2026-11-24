@@ -236,13 +236,14 @@ describe('admin guests', () => {
     const clash = await ctx.api
       .put(`/api/admin/guests/${bob.id}`)
       .set(ctx.admin)
-      .send({ newName: 'Alice' });
+      .send({ name: 'Alice' });
     expect(clash.status).toBe(409);
     const renamed = await ctx.api
       .put(`/api/admin/guests/${bob.id}`)
       .set(ctx.admin)
-      .send({ newName: 'Robert' });
-    expect(renamed.status).toBe(204);
+      .send({ name: 'Robert' });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.name).toBe('Robert');
     // Bob's device is still signed in as the same guest, whose ballots moved with the name.
     expect((await as('bob')).get('/api/me/state').then((r) => r.body.ballots)).resolves.toEqual({
       'most-festive': dessertId,

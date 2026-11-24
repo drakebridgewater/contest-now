@@ -14,14 +14,11 @@ import {
   Ticket,
   User,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../../lib/api.ts';
 import { errorMessage } from '../../lib/errorMessage.ts';
 import { Button } from '../ui/Button.tsx';
-import { Card } from '../ui/Card.tsx';
 import { TextField } from '../ui/Field.tsx';
-import { guestMatchesFilter, type GuestFilter } from './guestFilter.ts';
-import { FilterChips } from './GuestsTab.tsx';
 
 const DRAFT_KEY = 'contest.emailDraft';
 
@@ -193,14 +190,21 @@ function Toolbar({ editor, hasPhotoAlbum }: { editor: Editor; hasPhotoAlbum: boo
   );
 }
 
-export function EmailTab({
-  guests,
+/**
+ * Writes a custom email to the guests ticked in the guest table. Recipients are
+ * already narrowed to people on the list with an address; `skipped` counts the
+ * ticked ones who were left out.
+ */
+export function EmailComposer({
+  recipients,
+  skipped,
   mailConfigured,
   hasPhotoAlbum,
   sending,
   onSend,
 }: {
-  guests: readonly AdminGuest[];
+  recipients: readonly AdminGuest[];
+  skipped: number;
   mailConfigured: boolean;
   hasPhotoAlbum: boolean;
   sending: boolean;
@@ -210,9 +214,6 @@ export function EmailTab({
   const [subject, setSubject] = useState(draft.subject);
   const [html, setHtml] = useState(draft.html);
   const [isEmpty, setIsEmpty] = useState(true);
-  const [filter, setFilter] = useState<GuestFilter>('all');
-  /** Unticked by hand. Everyone the filter shows is ticked unless they are in here. */
-  const [excluded, setExcluded] = useState<Set<string>>(() => new Set());
   const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null);
   const [previewError, setPreviewError] = useState<string | undefined>();
   const [previewing, setPreviewing] = useState(false);
@@ -248,26 +249,6 @@ export function EmailTab({
 
   useEffect(() => saveDraft({ subject, html }), [subject, html]);
 
-  // Not people waiting on (or turned away by) the host.
-  const withEmail = useMemo(
-    () => guests.filter((g) => g.email !== '' && g.access === 'invited'),
-    [guests],
-  );
-  const shown = useMemo(
-    () => withEmail.filter((guest) => guestMatchesFilter(guest, filter)),
-    [withEmail, filter],
-  );
-  const recipients = shown.filter((guest) => !excluded.has(guest.id));
-
-  function toggle(id: string) {
-    setExcluded((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   async function showPreview() {
     setPreviewing(true);
     setPreviewError(undefined);
@@ -293,59 +274,22 @@ export function EmailTab({
         </p>
       ) : null}
 
-      <Card className="space-y-3 p-4">
-        <h2 className="text-lg font-bold">Who gets it</h2>
-        <FilterChips value={filter} onChange={setFilter} />
-        {shown.length === 0 ? (
-          <p className="text-sm text-ink-muted">No guests with an email address match.</p>
-        ) : (
-          <>
-            <div className="flex items-center justify-between gap-2 text-sm">
-              <p className="font-semibold" aria-live="polite">
-                {recipients.length} of {shown.length} selected
-              </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  setExcluded((previous) => {
-                    const next = new Set(previous);
-                    const allOn = recipients.length === shown.length;
-                    for (const guest of shown) {
-                      if (allOn) next.add(guest.id);
-                      else next.delete(guest.id);
-                    }
-                    return next;
-                  })
-                }
-              >
-                {recipients.length === shown.length ? 'Select none' : 'Select all'}
-              </Button>
-            </div>
-            <ul className="max-h-64 divide-y divide-black/5 overflow-y-auto rounded-lg border border-black/10">
-              {shown.map((guest) => (
-                <li key={guest.id}>
-                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-brand-600"
-                      checked={!excluded.has(guest.id)}
-                      onChange={() => toggle(guest.id)}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{guest.name}</span>
-                      <span className="block truncate text-xs text-ink-muted">{guest.email}</span>
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </Card>
+      <div className="text-sm">
+        <p className="font-semibold" aria-live="polite">
+          To {recipients.length} {recipients.length === 1 ? 'guest' : 'guests'}
+          {skipped > 0 ? (
+            <span className="font-normal text-ink-muted">
+              {' '}
+              ({skipped} without an email or not on the list left out)
+            </span>
+          ) : null}
+        </p>
+        <p className="mt-0.5 truncate text-ink-muted">
+          {recipients.map((guest) => guest.name).join(', ')}
+        </p>
+      </div>
 
-      <Card className="space-y-3 p-4">
-        <h2 className="text-lg font-bold">Message</h2>
+      <div className="space-y-3">
         <TextField
           label="Subject"
           value={subject}
@@ -385,11 +329,11 @@ export function EmailTab({
             {previewError}
           </p>
         ) : null}
-      </Card>
+      </div>
 
       {preview ? (
-        <Card className="space-y-2 p-4">
-          <h2 className="text-lg font-bold">Preview</h2>
+        <div className="space-y-2">
+          <h3 className="font-bold">Preview</h3>
           <p className="text-sm">
             <span className="text-ink-muted">Subject:</span> <strong>{preview.subject}</strong>
           </p>
@@ -400,7 +344,7 @@ export function EmailTab({
             className="h-96 w-full rounded-lg border border-black/10 bg-white"
           />
           <p className="text-xs text-ink-muted">Shown for a sample guest with a sample link.</p>
-        </Card>
+        </div>
       ) : null}
     </div>
   );

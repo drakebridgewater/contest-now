@@ -2,7 +2,7 @@ import type { AdminGuest } from '@contest/shared';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EmailTab } from './EmailTab.tsx';
+import { EmailComposer } from './EmailComposer.tsx';
 
 const guest = (overrides: Partial<AdminGuest>): AdminGuest => ({
   id: overrides.name ?? 'g',
@@ -25,17 +25,17 @@ const guest = (overrides: Partial<AdminGuest>): AdminGuest => ({
   ...overrides,
 });
 
-const guests = [
+const recipients = [
   guest({ name: 'Ann', email: 'ann@example.com', rsvpStatus: 'yes' }),
   guest({ name: 'Bo', email: 'bo@example.com', rsvpStatus: 'maybe' }),
   guest({ name: 'Cy', email: 'cy@example.com', rsvpStatus: 'yes' }),
-  guest({ name: 'No Mail', rsvpStatus: 'yes' }),
 ];
 
 function setup(onSend = vi.fn()) {
   render(
-    <EmailTab
-      guests={guests}
+    <EmailComposer
+      recipients={recipients}
+      skipped={1}
       mailConfigured
       hasPhotoAlbum={false}
       sending={false}
@@ -46,21 +46,15 @@ function setup(onSend = vi.fn()) {
 }
 
 beforeEach(() => {
-  localStorage.clear();
+  globalThis.localStorage?.clear();
 });
 
-describe('EmailTab', () => {
-  it('lists only guests with an email, all ticked, narrowed by the filter', async () => {
+describe('EmailComposer', () => {
+  it('names who it goes to and how many ticked guests were left out', () => {
     setup();
-    expect(screen.getByText('3 of 3 selected')).toBeInTheDocument();
-    expect(screen.queryByText('No Mail')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Coming' }));
-    expect(screen.getByText('2 of 2 selected')).toBeInTheDocument();
-    expect(screen.queryByText('Bo')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('checkbox', { name: /Ann/ }));
-    expect(screen.getByText('1 of 2 selected')).toBeInTheDocument();
+    expect(screen.getByText('To 3 guests')).toBeInTheDocument();
+    expect(screen.getByText(/1 without an email or not on the list left out/)).toBeInTheDocument();
+    expect(screen.getByText('Ann, Bo, Cy')).toBeInTheDocument();
   });
 
   it('cannot send without a subject and a message', async () => {

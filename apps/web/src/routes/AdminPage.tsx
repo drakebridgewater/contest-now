@@ -8,7 +8,7 @@ import type {
 } from '@contest/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, LockOpen } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { useState } from 'react';
 import { AnnounceTab } from '../components/admin/AnnounceTab.tsx';
 import { AwardsTab } from '../components/admin/AwardsTab.tsx';
 import { GuestsTab, RsvpSummaryCard, type GuestActions } from '../components/admin/GuestsTab.tsx';
@@ -25,19 +25,13 @@ import { api, getAdminPassword, setAdminPassword } from '../lib/api.ts';
 import { errorMessage } from '../lib/errorMessage.ts';
 import { queryKeys } from '../lib/queries.ts';
 
-// The rich-text editor is only for the host, so guests' phones never download it.
-const EmailTab = lazy(() =>
-  import('../components/admin/EmailTab.tsx').then((module) => ({ default: module.EmailTab })),
-);
-
-type Tab = 'results' | 'guests' | 'announce' | 'schedule' | 'email' | 'awards' | 'setup';
+type Tab = 'results' | 'guests' | 'announce' | 'schedule' | 'awards' | 'setup';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'results', label: 'Results' },
   { id: 'guests', label: 'Guests' },
   { id: 'announce', label: 'Announce' },
   { id: 'schedule', label: 'Schedule' },
-  { id: 'email', label: 'Email' },
   { id: 'awards', label: 'Awards' },
   { id: 'setup', label: 'Setup' },
 ];
@@ -164,31 +158,58 @@ export function AdminPage() {
         throw error;
       }
     },
-    sendInvites: (selector) =>
-      act(async () => {
-        const result = await api.sendInvites(selector);
-        if (result.failed.length > 0) {
-          toast.error(`Could not email ${result.failed.map((f) => f.name).join(', ')}`);
-        }
-        return result;
-      }, 'Invites sent'),
-    rename: (guest, newName) =>
-      act(() => api.renameGuest(guest.id, newName), `Renamed to ${newName}`),
-    setAccess: (guest, access) =>
+    sendInvites: (guestIds) =>
       act(
         async () => {
-          const result = await api.setGuestAccess(guest.id, access);
-          if (result && result.failed.length > 0) {
-            toast.error(`Could not email ${guest.name}: ${result.failed[0]!.error}`);
+          const result = await api.sendInvites({ guestIds });
+          if (result.failed.length > 0) {
+            toast.error(`Could not email ${result.failed.map((f) => f.name).join(', ')}`);
           }
           return result;
         },
-        access === 'invited' ? `${guest.name} is on the list` : `Declined ${guest.name}`,
+        `Sent ${guestIds.length === 1 ? '1 invite' : `${guestIds.length} invites`}`,
       ),
-    remove: (guest) => {
-      if (!confirm(`Delete ${guest.name} and all of their ratings and nominations?`)) return;
-      act(() => api.deleteGuest(guest.id), `Deleted ${guest.name}`);
-    },
+    update: (list, patch) =>
+      act(
+        () => Promise.all(list.map((guest) => api.updateGuest(guest.id, patch))),
+        list.length === 1 ? `Updated ${list[0]!.name}` : `Updated ${list.length} guests`,
+      ),
+    setAccess: (list, access) =>
+      act(
+        async () => {
+          const results = await Promise.all(
+            list.map((guest) => api.setGuestAccess(guest.id, access)),
+          );
+          const failed = results.flatMap((result) => result?.failed ?? []);
+          if (failed.length > 0) {
+            toast.error(`Could not email ${failed.map((f) => f.name).join(', ')}`);
+          }
+          return results;
+        },
+        access === 'invited'
+          ? list.length === 1
+            ? `${list[0]!.name} is on the list`
+            : `${list.length} guests are on the list`
+          : list.length === 1
+            ? `Declined ${list[0]!.name}`
+            : `Declined ${list.length} guests`,
+      ),
+    remove: (list) =>
+      act(
+        () => Promise.all(list.map((guest) => api.deleteGuest(guest.id))),
+        list.length === 1 ? `Deleted ${list[0]!.name}` : `Deleted ${list.length} guests`,
+      ),
+    sendEmail: (email) =>
+      act(
+        async () => {
+          const result = await api.sendCustomEmail(email);
+          if (result.failed.length > 0) {
+            toast.error(`Could not email ${result.failed.map((f) => f.name).join(', ')}`);
+          }
+          return result;
+        },
+        `Email sent to ${email.guestIds.length === 1 ? '1 guest' : `${email.guestIds.length} guests`}`,
+      ),
   };
 
   return (
@@ -205,8 +226,9 @@ export function AdminPage() {
             picked twice.
           </li>
           <li>
-            <strong>Guests</strong> is the RSVP list: who is coming, plus-ones, allergies, and
-            invite links.
+            <strong>Guests</strong> is the guest list: who is coming, plus-ones, allergies and
+            invites. Click a cell to edit it. Tick guests to send invites, email them, or change
+            their RSVP or access together.
           </li>
           <li>
             <strong>Announce</strong> pops a message up on every guest&rsquo;s screen, like
@@ -215,10 +237,6 @@ export function AdminPage() {
           <li>
             <strong>Schedule</strong> sets when the party starts, when entries and voting open, and
             the evening&rsquo;s timeline guests see on the Event page.
-          </li>
-          <li>
-            <strong>Email</strong> sends your own message to the guests you pick, with their name
-            and personal RSVP link filled in.
           </li>
           <li>
             <strong>Setup</strong> is where you add categories, criteria, awards, allergies and the
@@ -308,6 +326,8 @@ export function AdminPage() {
           guests={guests.data ?? []}
           categoryNames={categoryNames}
           mailConfigured={mailStatus.data?.configured ?? false}
+          hasPhotoAlbum={(config.data?.settings.photoShareUrl ?? '') !== ''}
+          sending={run.isPending}
           actions={guestActions}
         />
       ) : null}
@@ -326,29 +346,6 @@ export function AdminPage() {
             act(() => api.expireAnnouncement(announcement.id), 'Announcement ended')
           }
         />
-      ) : null}
-
-      {tab === 'email' ? (
-        <Suspense fallback={<p className="text-ink-muted">Loading editor…</p>}>
-          <EmailTab
-            guests={guests.data ?? []}
-            mailConfigured={mailStatus.data?.configured ?? false}
-            hasPhotoAlbum={(config.data?.settings.photoShareUrl ?? '') !== ''}
-            sending={run.isPending}
-            onSend={(email) =>
-              act(
-                async () => {
-                  const result = await api.sendCustomEmail(email);
-                  if (result.failed.length > 0) {
-                    toast.error(`Could not email ${result.failed.map((f) => f.name).join(', ')}`);
-                  }
-                  return result;
-                },
-                `Email sent to ${email.guestIds.length === 1 ? '1 guest' : `${email.guestIds.length} guests`}`,
-              )
-            }
-          />
-        </Suspense>
       ) : null}
 
       {tab === 'schedule' ? (
