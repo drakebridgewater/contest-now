@@ -4,6 +4,7 @@ import {
   normalizeVoterName,
   PLACEHOLDER_EMAIL_DOMAIN,
   type AddGuestsResult,
+  type AdminUpdateGuest,
   type AdminGuest,
   type GuestName,
   type GuestProfile,
@@ -402,11 +403,49 @@ export async function addGuests(db: Db, list: NewGuest[]): Promise<AddGuestsResu
   return result;
 }
 
-export async function renameGuest(db: Db, guestId: string, newName: string): Promise<void> {
+/**
+ * The host editing a guest. Profile fields go through the same path as the
+ * guest's own RSVP. A new email address is checked against the list, and since
+ * the old invite link and RSVP sessions came from the old address, they stop
+ * working; the invite shows as not sent. A walk-in given an email joins the list.
+ */
+export async function updateGuest(
+  db: Db,
+  guestId: string,
+  input: AdminUpdateGuest,
+): Promise<AdminGuest> {
+  const { email, ...profile } = input;
   await db.transaction(async (tx) => {
     const row = await getGuest(tx, guestId);
-    await renameInTx(tx, row, newName);
+    if (email !== undefined && email !== realEmail(row.email)) {
+      if (email !== '') {
+        const clash = await guestByEmail(tx, email);
+        if (clash && clash.id !== guestId) {
+          throw conflict(`${email} already belongs to ${clash.name}.`);
+        }
+      }
+      await tx
+        .update(guests)
+        .set({
+          email: email || placeholderEmail(),
+          emailVerified: false,
+          access: row.access === 'walk_in' && email !== '' ? 'invited' : row.access,
+          inviteTokenHash: null,
+          inviteCreatedAt: null,
+          inviteSentAt: null,
+          inviteOpenedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(guests.id, guestId));
+      await tx
+        .delete(guestSessions)
+        .where(and(eq(guestSessions.userId, guestId), eq(guestSessions.scope, 'full')));
+    }
+    if (Object.keys(profile).length > 0) await updateProfile(tx, guestId, profile);
   });
+  const updated = (await listGuests(db)).find((g) => g.id === guestId);
+  if (!updated) throw notFound('Guest not found');
+  return updated;
 }
 
 /**

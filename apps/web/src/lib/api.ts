@@ -2,6 +2,7 @@ import {
   ADMIN_PASSWORD_HEADER,
   type AddGuestsResult,
   type AdminGuest,
+  type AdminUpdateGuest,
   type Announcement,
   type ApiError,
   type Award,
@@ -248,10 +249,10 @@ export const api = {
   deleteEntry: (id: number) =>
     request<void>(`/admin/entries/${id}`, { method: 'DELETE', admin: true }),
 
-  renameGuest: (guestId: string, newName: string) =>
-    request<void>(`/admin/guests/${encodeURIComponent(guestId)}`, {
+  updateGuest: (guestId: string, patch: AdminUpdateGuest) =>
+    request<AdminGuest>(`/admin/guests/${encodeURIComponent(guestId)}`, {
       method: 'PUT',
-      body: { newName },
+      body: patch,
       admin: true,
     }),
   setGuestAccess: (guestId: string, access: SetGuestAccess['access']) =>
