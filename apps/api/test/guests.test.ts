@@ -418,3 +418,69 @@ describe('origin checks', () => {
     expect(evil.status).toBe(403);
   });
 });
+
+describe('host edits a guest', () => {
+  it('changes RSVP fields and returns the updated row', async () => {
+    await addToList('Edie Fields', 'edie@example.com');
+    const edie = await adminGuest('Edie Fields');
+    const res = await ctx.api.put(`/api/admin/guests/${edie.id}`).set(ctx.admin).send({
+      phone: '555 0100',
+      rsvpStatus: 'yes',
+      plusOneFirstName: 'Fay',
+      plusOneLastName: 'Lo',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      id: edie.id,
+      phone: '555 0100',
+      rsvpStatus: 'yes',
+      plusOneFirstName: 'Fay',
+    });
+  });
+
+  it('refuses a half-named plus-one, an empty change and a taken email', async () => {
+    const edie = await adminGuest('Edie Fields');
+    const put = (body: object) =>
+      ctx.api.put(`/api/admin/guests/${edie.id}`).set(ctx.admin).send(body);
+    expect((await put({ plusOneFirstName: 'Gus', plusOneLastName: '' })).status).toBe(400);
+    expect((await put({})).status).toBe(400);
+    expect((await put({ email: 'pat@example.com' })).status).toBe(409);
+  });
+
+  it('a new email revokes the old invite link and RSVP session', async () => {
+    const edie = await adminGuest('Edie Fields');
+    await ctx.api
+      .post('/api/admin/guests/invite')
+      .set(ctx.admin)
+      .send({ guestIds: [edie.id] });
+    const oldUrl = lastLinkTo(ctx, 'edie@example.com');
+    const phone = await openInvite(oldUrl);
+    expect((await phone.get('/api/me/profile')).status).toBe(200);
+
+    const res = await ctx.api
+      .put(`/api/admin/guests/${edie.id}`)
+      .set(ctx.admin)
+      .send({ email: 'Edie.New@example.com' });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ email: 'edie.new@example.com', inviteStatus: 'none' });
+    expect((await phone.get('/api/me/profile')).status).toBe(401);
+    const token = new URL(oldUrl).searchParams.get('invite');
+    expect((await ctx.device().post('/api/auth/guest/invite').send({ token })).status).toBe(401);
+  });
+
+  it('giving a walk-in an email puts them on the list; clearing it makes them name-only', async () => {
+    await ctx.voter('Walt Kerr');
+    const walt = await adminGuest('Walt Kerr');
+    expect(walt.access).toBe('walk_in');
+    const res = await ctx.api
+      .put(`/api/admin/guests/${walt.id}`)
+      .set(ctx.admin)
+      .send({ email: 'walt@example.com' });
+    expect(res.body).toMatchObject({ access: 'invited', email: 'walt@example.com' });
+    const cleared = await ctx.api
+      .put(`/api/admin/guests/${walt.id}`)
+      .set(ctx.admin)
+      .send({ email: '' });
+    expect(cleared.body).toMatchObject({ access: 'invited', email: '' });
+  });
+});

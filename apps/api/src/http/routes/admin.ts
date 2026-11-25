@@ -1,12 +1,12 @@
 import {
   AddGuestsSchema,
+  AdminUpdateGuestSchema,
   AwardInputSchema,
   CategoryInputSchema,
   CreateAnnouncementSchema,
   CriterionInputSchema,
   CustomEmailPreviewSchema,
   CustomEmailSchema,
-  RenameVoterSchema,
   SendInvitesSchema,
   SetGuestAccessSchema,
   SettingsInputSchema,
@@ -42,9 +42,9 @@ import {
   createInviteLink,
   deleteGuest,
   listGuests,
-  renameGuest,
   sendInvites,
   setAccess,
+  updateGuest,
 } from '../../services/guests.ts';
 import type { Mailer } from '../../services/mailer.ts';
 import { setAwardWinner, setCategoryWinner } from '../../services/winners.ts';
@@ -142,9 +142,7 @@ export function adminRoutes(
   });
   router.put('/guests/:id', async (req, res) => {
     const id = parse(GuestId, req.params.id, 'guest id');
-    const { newName } = parse(RenameVoterSchema, req.body);
-    await renameGuest(db, id, newName);
-    res.status(204).end();
+    res.json(await updateGuest(db, id, parse(AdminUpdateGuestSchema, req.body)));
   });
   router.delete('/guests/:id', async (req, res) => {
     res.json(await deleteGuest(db, parse(GuestId, req.params.id, 'guest id')));

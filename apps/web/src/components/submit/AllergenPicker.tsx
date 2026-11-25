@@ -29,7 +29,8 @@ function Chip({
 /**
  * Allergen and dietary chips. Groups (nuts, seafood) expand to specific items.
  * `for="guest"` is the RSVP's "what do you avoid" list: allergens only, since a
- * dietary label describes a dish, not a person.
+ * dietary label describes a dish, not a person. `for="host"` is the same list
+ * worded for the host editing a guest.
  */
 export function AllergenPicker({
   selected,
@@ -38,7 +39,7 @@ export function AllergenPicker({
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
-  for?: 'entry' | 'guest';
+  for?: 'entry' | 'guest' | 'host';
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
 
@@ -91,12 +92,18 @@ export function AllergenPicker({
     <div className="space-y-4">
       <div>
         <p className="text-sm font-semibold">
-          {audience === 'guest' ? 'Your allergies' : 'Allergens'}
+          {audience === 'guest'
+            ? 'Your allergies'
+            : audience === 'host'
+              ? 'Allergies'
+              : 'Allergens'}
         </p>
         <p className="mt-0.5 text-sm text-ink-muted">
           {audience === 'guest'
             ? 'Tap anything you avoid. Dishes that contain it are hidden on the vote page, with a button to show them.'
-            : 'Tap everything your dish contains. Guests rely on this before they taste.'}
+            : audience === 'host'
+              ? 'What this guest avoids. Dishes that contain it are hidden on their vote page.'
+              : 'Tap everything your dish contains. Guests rely on this before they taste.'}
         </p>
         <div className="mt-2 flex flex-wrap items-start gap-2">{ALLERGENS.map(renderOption)}</div>
       </div>

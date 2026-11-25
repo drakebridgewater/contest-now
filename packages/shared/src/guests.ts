@@ -50,25 +50,46 @@ export const GuestProfileSchema = z.object({
 });
 export type GuestProfile = z.infer<typeof GuestProfileSchema>;
 
-export const UpdateProfileSchema = z
-  .object({
-    name: VoterName,
-    phone: z.string().trim().max(PHONE_MAX),
-    rsvpStatus: RsvpStatus,
-    plusOneFirstName: PersonName,
-    plusOneLastName: PersonName,
-    allergies: z.array(AllergenId).max(40),
-    preregistrations: z.array(Slug).max(40),
-  })
-  .partial()
-  .refine(
-    (value) =>
-      value.plusOneFirstName === undefined ||
-      value.plusOneLastName === undefined ||
-      (value.plusOneFirstName === '') === (value.plusOneLastName === ''),
-    { message: 'Give your plus-one a first and last name', path: ['plusOneLastName'] },
+const ProfileFields = z.object({
+  name: VoterName,
+  phone: z.string().trim().max(PHONE_MAX),
+  rsvpStatus: RsvpStatus,
+  plusOneFirstName: PersonName,
+  plusOneLastName: PersonName,
+  allergies: z.array(AllergenId).max(40),
+  preregistrations: z.array(Slug).max(40),
+});
+
+function plusOneComplete(value: { plusOneFirstName?: string; plusOneLastName?: string }) {
+  return (
+    value.plusOneFirstName === undefined ||
+    value.plusOneLastName === undefined ||
+    (value.plusOneFirstName === '') === (value.plusOneLastName === '')
   );
+}
+const plusOneIssue = (whose: string) => ({
+  message: `Give ${whose} plus-one a first and last name`,
+  path: ['plusOneLastName'],
+});
+
+export const UpdateProfileSchema = ProfileFields.partial().refine(
+  plusOneComplete,
+  plusOneIssue('your'),
+);
 export type UpdateProfile = z.infer<typeof UpdateProfileSchema>;
+
+/**
+ * The host editing a guest from the guest table. Any subset of fields. An empty
+ * email makes them name-only; a changed email revokes their invite link and
+ * signs out their RSVP sessions, since those were sent to the old address.
+ */
+export const AdminUpdateGuestSchema = ProfileFields.extend({
+  email: z.union([z.email('Enter a valid email').trim().toLowerCase().max(200), z.literal('')]),
+})
+  .partial()
+  .refine(plusOneComplete, plusOneIssue('the'))
+  .refine((value) => Object.keys(value).length > 0, { message: 'Nothing to change' });
+export type AdminUpdateGuest = z.infer<typeof AdminUpdateGuestSchema>;
 
 /**
  * Who may sign in to the RSVP. Only `invited` guests get a sign-in link:

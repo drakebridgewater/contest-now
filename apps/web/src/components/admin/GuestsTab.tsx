@@ -1,71 +1,43 @@
 import {
-  labelFor,
+  AdminUpdateGuestSchema,
   parseGuestLines,
+  RSVP_STATUSES,
   type AdminGuest,
+  type AdminUpdateGuest,
+  type CustomEmail,
   type NewGuest,
   type RsvpStatus,
 } from '@contest/shared';
-import clsx from 'clsx';
-import { Check, Link2, Mail, Pencil, Trash2, UserPlus, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import type { RowSelectionState } from '@tanstack/react-table';
+import { Mail, Search, Send, Trash2, UserPlus, X } from 'lucide-react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { rsvpTotals } from '../../lib/rsvpTotals.ts';
+import { useMediaQuery } from '../../lib/useMediaQuery.ts';
 import { Button } from '../ui/Button.tsx';
 import { Card } from '../ui/Card.tsx';
 import { TextAreaField } from '../ui/Field.tsx';
 import { Sheet } from '../ui/Sheet.tsx';
-import { GUEST_FILTERS, guestMatchesFilter, type GuestFilter } from './guestFilter.ts';
+import { GuestCards, GuestEditSheet, GuestListSheet } from './GuestCards.tsx';
+import type { GuestEditContext } from './guestCells.tsx';
+import { accessWarning, deleteWarning, emailWarning, rsvpWarning } from './guestEdits.ts';
+import {
+  ACCESS_LABEL,
+  canEmail,
+  guestMatches,
+  INVITE_FILTERS,
+  isFiltered,
+  NO_FILTERS,
+  RSVP_LABEL,
+  type GuestFilters,
+  type InviteFilter,
+} from './guestFilter.ts';
+import { GuestTable } from './GuestTable.tsx';
+import { useGuestTable } from './useGuestTable.tsx';
 
-const RSVP_LABEL: Record<RsvpStatus, string> = {
-  yes: 'Coming',
-  maybe: 'Maybe',
-  no: 'Not coming',
-  pending: 'No reply',
-};
-
-const RSVP_CLASS: Record<RsvpStatus, string> = {
-  yes: 'bg-accent-100 text-accent-700 border-accent-500/30',
-  maybe: 'bg-amber-50 text-amber-900 border-amber-300',
-  no: 'bg-surface-muted text-ink-muted border-black/10',
-  pending: 'bg-white text-ink-muted border-black/15',
-};
-
-const INVITE_LABEL: Record<AdminGuest['inviteStatus'], string> = {
-  none: 'Not invited',
-  created: 'Link made',
-  sent: 'Invite sent',
-  opened: 'Invite opened',
-};
-
-export function FilterChips({
-  value,
-  onChange,
-  labels = {},
-}: {
-  value: GuestFilter;
-  onChange: (filter: GuestFilter) => void;
-  labels?: Partial<Record<GuestFilter, string>>;
-}) {
-  return (
-    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filter">
-      {GUEST_FILTERS.map(([id, label]) => (
-        <button
-          key={id}
-          type="button"
-          aria-pressed={value === id}
-          onClick={() => onChange(id)}
-          className={clsx(
-            'tap-target shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold',
-            value === id
-              ? 'border-brand-600 bg-brand-600 text-white'
-              : 'border-black/15 bg-white text-ink',
-          )}
-        >
-          {labels[id] ?? label}
-        </button>
-      ))}
-    </div>
-  );
-}
+// The rich-text editor is only for the host, so guests' phones never download it.
+const EmailComposer = lazy(() =>
+  import('./EmailComposer.tsx').then((module) => ({ default: module.EmailComposer })),
+);
 
 /** Headcount and "might enter" numbers; on the Guests tab and above the results. */
 export function RsvpSummaryCard({
@@ -106,104 +78,213 @@ export function RsvpSummaryCard({
   );
 }
 
+/**
+ * What the Guests tab asks the page to do. Confirmations happen in the tab, so
+ * these just perform the change.
+ */
 export interface GuestActions {
   add: (guests: NewGuest[]) => void;
   /** Resolves to a fresh personal RSVP link; the previous one stops working. */
   inviteLink: (guest: AdminGuest) => Promise<string>;
-  sendInvites: (selector: { guestIds: string[] } | { uninvited: true }) => void;
-  rename: (guest: AdminGuest, newName: string) => void;
-  remove: (guest: AdminGuest) => void;
-  /** Let someone in (emailing their invite when mail works) or turn them away. */
-  setAccess: (guest: AdminGuest, access: 'invited' | 'declined') => void;
+  sendInvites: (guestIds: string[]) => void;
+  update: (guests: AdminGuest[], patch: AdminUpdateGuest) => void;
+  /** Let people in (emailing their invite when mail works) or turn them away. */
+  setAccess: (guests: AdminGuest[], access: 'invited' | 'declined') => void;
+  remove: (guests: AdminGuest[]) => void;
+  sendEmail: (email: CustomEmail) => void;
+}
+
+/** Only the fields that differ from what the guest already has. */
+function changedFields(guest: AdminGuest, patch: AdminUpdateGuest): AdminUpdateGuest {
+  return Object.fromEntries(
+    Object.entries(patch).filter(
+      ([key, value]) => JSON.stringify(value) !== JSON.stringify(guest[key as keyof AdminGuest]),
+    ),
+  ) as AdminUpdateGuest;
 }
 
 export function GuestsTab({
   guests,
   categoryNames,
   mailConfigured,
+  hasPhotoAlbum,
+  sending,
   actions,
 }: {
   guests: AdminGuest[];
   categoryNames: Map<string, string>;
   mailConfigured: boolean;
+  hasPhotoAlbum: boolean;
+  sending: boolean;
   actions: GuestActions;
 }) {
-  const [filter, setFilter] = useState<GuestFilter>('all');
+  const wide = useMediaQuery('(min-width: 768px)');
+  const [filters, setFilters] = useState<GuestFilters>(NO_FILTERS);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [adding, setAdding] = useState(false);
+  const [composing, setComposing] = useState(false);
   const [link, setLink] = useState<{ guest: AdminGuest; url: string } | null>(null);
+  const [editing, setEditing] = useState<AdminGuest | null>(null);
+  const [listEdit, setListEdit] = useState<{
+    guest: AdminGuest;
+    field: 'allergies' | 'preregistrations';
+  } | null>(null);
 
-  const requests = guests.filter((g) => g.access === 'requested');
-  const listed = useMemo(() => guests.filter((g) => g.access !== 'requested'), [guests]);
-  const shown = useMemo(
-    () => listed.filter((guest) => guestMatchesFilter(guest, filter)),
-    [listed, filter],
+  const shown = useMemo(() => guests.filter((g) => guestMatches(g, filters)), [guests, filters]);
+  const requests = guests.filter((g) => g.access === 'requested').length;
+
+  const ctx = useMemo<GuestEditContext>(
+    () => ({
+      mailConfigured,
+      categoryNames,
+      update: (guest, patch) => {
+        const changes = changedFields(guest, patch);
+        if (Object.keys(changes).length === 0) return undefined;
+        const parsed = AdminUpdateGuestSchema.safeParse(changes);
+        if (!parsed.success) return parsed.error.issues[0]?.message ?? 'Check this value';
+        const warning =
+          (changes.rsvpStatus ? rsvpWarning([guest], changes.rsvpStatus) : null) ??
+          (changes.email !== undefined ? emailWarning(guest, parsed.data.email ?? '') : null);
+        if (warning && !confirm(warning)) return undefined;
+        actions.update([guest], parsed.data);
+        return undefined;
+      },
+      setAccess: (list, access) => {
+        const warning = accessWarning(list, access, mailConfigured);
+        if (warning === null || !confirm(warning)) return;
+        actions.setAccess(
+          list.filter((g) => g.access !== access),
+          access,
+        );
+      },
+      editList: (guest, field) => setListEdit({ guest, field }),
+      editGuest: setEditing,
+      openLink: (guest) => {
+        actions
+          .inviteLink(guest)
+          .then((url) => setLink({ guest, url }))
+          .catch(() => {});
+      },
+      sendInvite: (guest) => {
+        const again = guest.inviteStatus === 'sent' || guest.inviteStatus === 'opened';
+        if (
+          !confirm(`${again ? 'Resend' : 'Email'} ${guest.name}’s RSVP invite to ${guest.email}?`)
+        )
+          return;
+        actions.sendInvites([guest.id]);
+      },
+      remove: (list) => {
+        if (!confirm(deleteWarning(list))) return;
+        actions.remove(list);
+        setRowSelection({});
+      },
+    }),
+    [actions, categoryNames, mailConfigured],
   );
-  const uninvitedWithEmail = listed.filter(
-    (g) =>
-      g.access === 'invited' &&
-      g.email !== '' &&
-      (g.inviteStatus === 'none' || g.inviteStatus === 'created'),
-  ).length;
+
+  const table = useGuestTable(shown, ctx, rowSelection, setRowSelection);
+  // Only rows still on screen count, so a filter never hides who an action hits.
+  const selected = table.getSelectedRowModel().rows.map((row) => row.original);
 
   return (
     <div className="space-y-4">
-      {requests.length > 0 ? (
-        <JoinRequests requests={requests} mailConfigured={mailConfigured} actions={actions} />
-      ) : null}
-
       <RsvpSummaryCard guests={guests} categoryNames={categoryNames} />
 
-      {!mailConfigured ? (
-        <p className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Email is not set up on the server, so invites and sign-in links cannot be mailed. Use
-          <strong> Link</strong> on a guest to copy their personal RSVP link and send it yourself.
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => setAdding(true)}>
-          <UserPlus className="size-4" aria-hidden="true" />
-          Add guests
-        </Button>
-        {mailConfigured ? (
+      {requests > 0 && filters.access !== 'requested' ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-card border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="flex-1">
+            <strong>
+              {requests} {requests === 1 ? 'person is' : 'people are'} asking to join.
+            </strong>{' '}
+            They tried to RSVP with an email that is not on your list.
+          </p>
           <Button
             size="sm"
             variant="secondary"
-            disabled={uninvitedWithEmail === 0}
-            onClick={() => {
-              if (confirm(`Email an RSVP invite to ${uninvitedWithEmail} guests?`)) {
-                actions.sendInvites({ uninvited: true });
-              }
-            }}
+            onClick={() => setFilters({ ...NO_FILTERS, access: 'requested' })}
           >
-            <Mail className="size-4" aria-hidden="true" />
-            Invite everyone not yet invited ({uninvitedWithEmail})
+            Show them
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <FilterChips value={filter} onChange={setFilter} labels={{ all: `All ${listed.length}` }} />
+      {!mailConfigured ? (
+        <p className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Email is not set up on the server, so invites and sign-in links cannot be mailed. Use the
+          link button on a guest to copy their personal RSVP link and send it yourself.
+        </p>
+      ) : null}
 
-      {listed.length === 0 ? (
+      <FilterBar
+        filters={filters}
+        onChange={(next) => setFilters(next)}
+        onAdd={() => setAdding(true)}
+        shown={shown.length}
+        total={guests.length}
+      />
+
+      {selected.length > 0 ? (
+        <BulkBar
+          selected={selected}
+          mailConfigured={mailConfigured}
+          onClear={() => setRowSelection({})}
+          onInvite={() => {
+            const to = selected.filter(canEmail);
+            const left = selected.length - to.length;
+            if (
+              to.length === 0 ||
+              !confirm(
+                `Email an RSVP invite to ${to.length} ${to.length === 1 ? 'guest' : 'guests'}?` +
+                  (left > 0 ? ` ${left} without an email or not on the list are left out.` : ''),
+              )
+            )
+              return;
+            actions.sendInvites(to.map((g) => g.id));
+          }}
+          onEmail={() => setComposing(true)}
+          onRsvp={(status) => {
+            const warning = rsvpWarning(selected, status);
+            if (warning && !confirm(warning)) return;
+            actions.update(
+              selected.filter((g) => g.rsvpStatus !== status),
+              { rsvpStatus: status },
+            );
+          }}
+          onAccess={(access) => ctx.setAccess(selected, access)}
+          onDelete={() => ctx.remove(selected)}
+        />
+      ) : null}
+
+      {guests.length === 0 ? (
         <p className="text-ink-muted">
           No guests yet. Add your guest list, or wait for people to RSVP or vote.
         </p>
+      ) : shown.length === 0 ? (
+        <p className="text-ink-muted">
+          Nobody matches these filters.{' '}
+          <button
+            type="button"
+            className="font-semibold text-brand-700 underline"
+            onClick={() => setFilters(NO_FILTERS)}
+          >
+            Clear filters
+          </button>
+        </p>
+      ) : wide ? (
+        <GuestTable table={table} />
       ) : (
-        <Card className="divide-y divide-black/5">
-          {shown.map((guest) => (
-            <GuestRow
-              key={guest.id}
-              guest={guest}
-              categoryNames={categoryNames}
-              mailConfigured={mailConfigured}
-              actions={actions}
-              onLink={(url) => setLink({ guest, url })}
+        <>
+          <label className="flex items-center gap-2 px-1 text-sm font-semibold">
+            <input
+              type="checkbox"
+              className="size-5 accent-brand-600"
+              checked={table.getIsAllRowsSelected()}
+              onChange={(event) => table.toggleAllRowsSelected(event.target.checked)}
             />
-          ))}
-          {shown.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink-muted">Nobody matches this filter.</p>
-          ) : null}
-        </Card>
+            Select all {shown.length}
+          </label>
+          <GuestCards table={table} ctx={ctx} />
+        </>
       )}
 
       <AddGuestsSheet
@@ -215,6 +296,9 @@ export function GuestsTab({
         }}
       />
 
+      <GuestEditSheet guest={editing} ctx={ctx} onClose={() => setEditing(null)} />
+      <GuestListSheet target={listEdit} ctx={ctx} onClose={() => setListEdit(null)} />
+
       <Sheet
         open={link !== null}
         onClose={() => setLink(null)}
@@ -223,234 +307,196 @@ export function GuestsTab({
       >
         {link ? <LinkBox url={link.url} /> : null}
       </Sheet>
+
+      <Sheet open={composing} onClose={() => setComposing(false)} title="Email selected guests">
+        {composing ? (
+          <Suspense fallback={<p className="text-ink-muted">Loading editor…</p>}>
+            <EmailComposer
+              recipients={selected.filter(canEmail)}
+              skipped={selected.filter((g) => !canEmail(g)).length}
+              mailConfigured={mailConfigured}
+              hasPhotoAlbum={hasPhotoAlbum}
+              sending={sending}
+              onSend={(email) => {
+                actions.sendEmail(email);
+                setComposing(false);
+              }}
+            />
+          </Suspense>
+        ) : null}
+      </Sheet>
     </div>
   );
 }
 
-/** People who asked to join from the RSVP page, waiting on the host. */
-function JoinRequests({
-  requests,
-  mailConfigured,
-  actions,
+const selectClass =
+  'rounded-xl border border-black/15 bg-white px-3 py-2 text-sm font-semibold text-ink';
+
+function FilterBar({
+  filters,
+  onChange,
+  onAdd,
+  shown,
+  total,
 }: {
-  requests: AdminGuest[];
-  mailConfigured: boolean;
-  actions: GuestActions;
+  filters: GuestFilters;
+  onChange: (filters: GuestFilters) => void;
+  onAdd: () => void;
+  shown: number;
+  total: number;
 }) {
   return (
-    <Card className="border-amber-300">
-      <div className="border-b border-black/5 px-4 py-3">
-        <h2 className="text-lg font-bold">Asking to join ({requests.length})</h2>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          They tried to RSVP with an email that is not on your list.{' '}
-          {mailConfigured
-            ? 'Approving emails them their RSVP link.'
-            : 'After approving, use Link to send them their RSVP link.'}
-        </p>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="relative min-w-48 flex-1">
+          <span className="sr-only">Search guests</span>
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={filters.search}
+            placeholder="Search name, email, phone"
+            onChange={(event) => onChange({ ...filters, search: event.target.value })}
+            className="w-full rounded-xl border border-black/15 bg-white py-2 pr-3 pl-9 text-sm"
+          />
+        </label>
+        <Button size="sm" onClick={onAdd}>
+          <UserPlus className="size-4" aria-hidden="true" />
+          Add guests
+        </Button>
       </div>
-      <ul className="divide-y divide-black/5">
-        {requests.map((guest) => (
-          <li key={guest.id} className="flex flex-wrap items-center gap-2 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{guest.name}</p>
-              <p className="truncate text-sm text-ink-muted">{guest.email}</p>
-            </div>
-            <Button size="sm" onClick={() => actions.setAccess(guest, 'invited')}>
-              <Check className="size-4" aria-hidden="true" />
-              Approve
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-red-700"
-              onClick={() => actions.setAccess(guest, 'declined')}
-            >
-              <X className="size-4" aria-hidden="true" />
-              Decline
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          aria-label="RSVP"
+          value={filters.rsvp}
+          onChange={(event) =>
+            onChange({ ...filters, rsvp: event.target.value as GuestFilters['rsvp'] })
+          }
+          className={selectClass}
+        >
+          <option value="all">Any RSVP</option>
+          {RSVP_STATUSES.map((id) => (
+            <option key={id} value={id}>
+              {RSVP_LABEL[id]}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Invite"
+          value={filters.invite}
+          onChange={(event) => onChange({ ...filters, invite: event.target.value as InviteFilter })}
+          className={selectClass}
+        >
+          {INVITE_FILTERS.map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Access"
+          value={filters.access}
+          onChange={(event) =>
+            onChange({ ...filters, access: event.target.value as GuestFilters['access'] })
+          }
+          className={selectClass}
+        >
+          <option value="all">Anyone</option>
+          {(Object.keys(ACCESS_LABEL) as (keyof typeof ACCESS_LABEL)[]).map((id) => (
+            <option key={id} value={id}>
+              {ACCESS_LABEL[id]}
+            </option>
+          ))}
+        </select>
+        <p className="ml-auto text-sm text-ink-muted" aria-live="polite">
+          {isFiltered(filters) ? `${shown} of ${total} guests` : `${total} guests`}
+        </p>
+        {isFiltered(filters) ? (
+          <Button size="sm" variant="ghost" onClick={() => onChange(NO_FILTERS)}>
+            <X className="size-4" aria-hidden="true" />
+            Clear
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
-function GuestRow({
-  guest,
-  categoryNames,
+function BulkBar({
+  selected,
   mailConfigured,
-  actions,
-  onLink,
+  onClear,
+  onInvite,
+  onEmail,
+  onRsvp,
+  onAccess,
+  onDelete,
 }: {
-  guest: AdminGuest;
-  categoryNames: Map<string, string>;
+  selected: AdminGuest[];
   mailConfigured: boolean;
-  actions: GuestActions;
-  onLink: (url: string) => void;
+  onClear: () => void;
+  onInvite: () => void;
+  onEmail: () => void;
+  onRsvp: (status: RsvpStatus) => void;
+  onAccess: (access: 'invited' | 'declined') => void;
+  onDelete: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(guest.name);
-  const [linking, setLinking] = useState(false);
-  const status = guest.rsvpStatus;
-  const declined = guest.access === 'declined';
-
-  const details = [
-    guest.email,
-    guest.phone,
-    guest.plusOneFirstName ? `+1 ${guest.plusOneFirstName} ${guest.plusOneLastName}` : '',
-  ].filter(Boolean);
-  const activity = [
-    guest.entryCount > 0
-      ? `${guest.entryCount} ${guest.entryCount === 1 ? 'entry' : 'entries'}`
-      : '',
-    guest.tastedCount > 0 ? `${guest.tastedCount} checked off` : '',
-    guest.completeVoteCount > 0 ? `${guest.completeVoteCount} rated` : '',
-    guest.ballotCount > 0 ? `${guest.ballotCount} nominations` : '',
-  ].filter(Boolean);
-
-  function commit() {
-    const next = draft.trim();
-    setEditing(false);
-    if (next.length >= 2 && next !== guest.name) actions.rename(guest, next);
-  }
-
+  const emailable = selected.filter(canEmail).length;
   return (
-    <div className="space-y-1.5 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {editing ? (
-          <>
-            <input
-              autoFocus
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') commit();
-                if (event.key === 'Escape') setEditing(false);
-              }}
-              aria-label={`New name for ${guest.name}`}
-              className="min-w-0 flex-1 rounded-lg border border-black/15 px-2 py-1.5"
-            />
-            <Button size="sm" onClick={commit}>
-              <Check className="size-4" aria-hidden="true" />
-              Save
-            </Button>
-            <Button size="sm" variant="ghost" aria-label="Cancel" onClick={() => setEditing(false)}>
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          </>
-        ) : (
-          <>
-            <p className="min-w-0 flex-1 truncate font-semibold">{guest.name}</p>
-            {declined ? (
-              <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800">
-                Declined
-              </span>
-            ) : (
-              <span
-                className={clsx(
-                  'rounded-full border px-2 py-0.5 text-xs font-semibold',
-                  RSVP_CLASS[status],
-                )}
-              >
-                {RSVP_LABEL[status]}
-              </span>
-            )}
-          </>
-        )}
-      </div>
-
-      {details.length > 0 ? (
-        <p className="text-sm break-words text-ink-muted">{details.join(' · ')}</p>
-      ) : (
-        <p className="text-sm text-ink-muted">Walk-in: name only</p>
-      )}
-      {guest.allergies.length > 0 ? (
-        <p className="text-sm">
-          <span className="font-semibold">Allergies: </span>
-          {guest.allergies.map((id) => labelFor(id).label).join(', ')}
-        </p>
+    <div
+      role="toolbar"
+      aria-label="Selected guests"
+      style={{ top: 'calc(var(--header-h, 4rem) + 0.5rem)' }}
+      className="sticky z-20 flex flex-wrap items-center gap-2 rounded-card border border-brand-200 bg-brand-50 px-3 py-2 shadow-sm"
+    >
+      <p className="text-sm font-semibold">{selected.length} selected</p>
+      {mailConfigured ? (
+        <Button size="sm" variant="secondary" disabled={emailable === 0} onClick={onInvite}>
+          <Send className="size-4" aria-hidden="true" />
+          Send invite
+        </Button>
       ) : null}
-      {guest.preregistrations.length > 0 ? (
-        <p className="text-sm">
-          <span className="font-semibold">Might enter: </span>
-          {guest.preregistrations.map((id) => categoryNames.get(id) ?? id).join(', ')}
-        </p>
-      ) : null}
-      <p className="text-xs text-ink-muted">
-        {[guest.email ? INVITE_LABEL[guest.inviteStatus] : '', ...activity]
-          .filter(Boolean)
-          .join(' · ')}
-      </p>
-
-      {!editing && declined ? (
-        <div className="-ml-3 flex flex-wrap gap-1">
-          <Button size="sm" variant="ghost" onClick={() => actions.setAccess(guest, 'invited')}>
-            <Check className="size-4" aria-hidden="true" />
-            Let them in
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-red-700"
-            aria-label={`Delete ${guest.name}`}
-            onClick={() => actions.remove(guest)}
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
-      ) : null}
-      {!editing && !declined ? (
-        <div className="-ml-3 flex flex-wrap gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            loading={linking}
-            onClick={() => {
-              setLinking(true);
-              actions
-                .inviteLink(guest)
-                .then(onLink)
-                .catch(() => {})
-                .finally(() => setLinking(false));
-            }}
-          >
-            <Link2 className="size-4" aria-hidden="true" />
-            Link
-          </Button>
-          {mailConfigured && guest.email ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => actions.sendInvites({ guestIds: [guest.id] })}
-            >
-              <Mail className="size-4" aria-hidden="true" />
-              {guest.inviteStatus === 'sent' || guest.inviteStatus === 'opened'
-                ? 'Resend'
-                : 'Email invite'}
-            </Button>
-          ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setDraft(guest.name);
-              setEditing(true);
-            }}
-          >
-            <Pencil className="size-4" aria-hidden="true" />
-            Rename
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-red-700"
-            aria-label={`Delete ${guest.name}`}
-            onClick={() => actions.remove(guest)}
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
-      ) : null}
+      <Button size="sm" variant="secondary" disabled={emailable === 0} onClick={onEmail}>
+        <Mail className="size-4" aria-hidden="true" />
+        Email…
+      </Button>
+      <select
+        aria-label="Set RSVP for selected"
+        value=""
+        onChange={(event) => {
+          if (event.target.value) onRsvp(event.target.value as RsvpStatus);
+        }}
+        className={selectClass}
+      >
+        <option value="">Set RSVP…</option>
+        {RSVP_STATUSES.map((id) => (
+          <option key={id} value={id}>
+            {RSVP_LABEL[id]}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Set access for selected"
+        value=""
+        onChange={(event) => {
+          const value = event.target.value;
+          if (value === 'invited' || value === 'declined') onAccess(value);
+        }}
+        className={selectClass}
+      >
+        <option value="">Set access…</option>
+        <option value="invited">Let in</option>
+        <option value="declined">Decline</option>
+      </select>
+      <Button size="sm" variant="ghost" className="text-red-700" onClick={onDelete}>
+        <Trash2 className="size-4" aria-hidden="true" />
+        Delete
+      </Button>
+      <Button size="sm" variant="ghost" className="ml-auto" onClick={onClear}>
+        Clear
+      </Button>
     </div>
   );
 }
